@@ -69,7 +69,8 @@ export async function startCheckout(user: { id: string; email: string; verified:
 export async function grant(opts: { userId: string | null; organisationId: string | null; planId: string; seats: number; source: "payment" | "invoice" | "admin"; months?: number; note?: string; actorId?: string | null }) {
   const plan = planById(opts.planId);
   const months = opts.months ?? plan?.periodMonths ?? 1;
-  const now = new Date();
+  // DATETIME keeps whole seconds and rounds up, so start on the current second, never just after it.
+  const now = new Date(Math.floor(Date.now() / 1000) * 1000);
   const holder = opts.organisationId ? eq(entitlements.organisationId, opts.organisationId) : eq(entitlements.userId, opts.userId!);
   const current = await db.select().from(entitlements).where(and(holder, eq(entitlements.status, "active"))).orderBy(desc(entitlements.endsAt)).limit(1);
   const startsAt = current[0] && current[0].endsAt > now ? current[0].endsAt : now;

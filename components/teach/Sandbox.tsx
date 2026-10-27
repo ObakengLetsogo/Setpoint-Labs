@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import type { RigId } from "@/data/curriculum";
 import { catalog as lessons } from "@/data/catalog";
 import { isSandbox, sandboxId, sandboxRig } from "@/data/sandbox";
@@ -9,7 +10,7 @@ import { bundleOf, defaultST, useRig, useSim } from "@/store/sim";
 import { CodeCard } from "@/components/code/CodeCard";
 import { Multimeter } from "./Multimeter";
 import { PlatformView } from "./PlatformView";
-import { IconArrowRight, IconBolt, IconCode, IconHand } from "@/components/ui/icons";
+import { IconArrowRight, IconBolt, IconCode, IconHand, IconLock } from "@/components/ui/icons";
 
 const rigs = Object.values(RIGS) as RigDef[];
 const lessonsOn = (rig: RigId) => lessons.filter((l) => l.rig === rig && !l.locked);
@@ -18,6 +19,8 @@ const lessonsOn = (rig: RigId) => lessons.filter((l) => l.rig === rig && !l.lock
 export function SandboxPicker({ onOpen }: { onOpen: () => void }) {
   const lessonId = useSim((s) => s.lessonId);
   const active = sandboxRig(lessonId);
+  const paid = useSim((s) => s.account?.paid ?? false);
+  const router = useRouter();
   return (
     <section id="sandbox" className="scroll-mt-6 rounded-2xl border border-[#e4e6e9] bg-white p-5 sm:p-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
@@ -32,6 +35,8 @@ export function SandboxPicker({ onOpen }: { onOpen: () => void }) {
       <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
         {rigs.map((rig) => {
           const on = active === rig.id;
+          // Free accounts play on the motor starter; a plan opens every machine.
+          const members = !paid && rig.id !== "motor-starter";
           const inputs = rig.tags.filter((t) => t.kind === "input").length;
           const outputs = rig.tags.filter((t) => t.kind === "output").length;
           return (
@@ -39,6 +44,10 @@ export function SandboxPicker({ onOpen }: { onOpen: () => void }) {
               key={rig.id}
               type="button"
               onClick={() => {
+                if (members) {
+                  router.push("/pricing");
+                  return;
+                }
                 useSim.getState().setLesson(sandboxId(rig.id));
                 onOpen();
               }}
@@ -51,7 +60,7 @@ export function SandboxPicker({ onOpen }: { onOpen: () => void }) {
                 {inputs} in · {outputs} out · {lessonsOn(rig.id).length} {lessonsOn(rig.id).length === 1 ? "lab" : "labs"}
               </span>
               <span className="mt-2 inline-flex items-center gap-1 text-[12px] font-medium text-[#d9591a] opacity-80 group-hover:opacity-100">
-                {on ? "Open now" : "Program it"} <IconArrowRight size={12} />
+                {members ? <><IconLock size={11} /> With a plan</> : <>{on ? "Open now" : "Program it"} <IconArrowRight size={12} /></>}
               </span>
             </button>
           );

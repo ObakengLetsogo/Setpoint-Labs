@@ -16,6 +16,7 @@ import { SettingsSheetContent } from "@/components/shell/sheets/SettingsSheet";
 import { LanguageSheetContent } from "@/components/shell/sheets/LanguageSheet";
 import { catalog as lessons } from "@/data/catalog";
 import { useSim } from "@/store/sim";
+import { startSync } from "@/lib/client/sync";
 
 type SheetId = "components" | "reference" | "settings" | "language";
 
@@ -81,7 +82,7 @@ export default function Home() {
   useShortcuts();
   useEffect(() => {
     void useSim.persist.rehydrate();
-    void useSim.getState().loadAccount();
+    void useSim.getState().loadAccount().then(startSync);
   }, []);
 
   if (loading) return <LoadingScreen onDone={() => setLoading(false)} />;

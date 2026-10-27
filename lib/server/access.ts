@@ -1,6 +1,6 @@
 import "server-only";
 import { and, desc, eq, gt, inArray, isNotNull, lte } from "drizzle-orm";
-import { entitlements, memberships, seats } from "@/db/schema";
+import { entitlements, memberships, seats, users } from "@/db/schema";
 import { GRACE_DAYS, planById } from "@/config/plans";
 import { isFreeLesson } from "@/data/access";
 import { db } from "./db";
@@ -26,6 +26,9 @@ const NONE: Access = { paid: false, until: null, inGrace: false, planName: null,
  */
 export async function accessFor(userId: string | null | undefined, now = new Date()): Promise<Access> {
   if (!userId) return NONE;
+  const role = (await db.select({ role: users.role }).from(users).where(eq(users.id, userId)).limit(1))[0]?.role;
+  // Platform staff see everything so they can support learners.
+  if (role === "platform_admin") return { paid: true, until: null, inGrace: false, planName: "Staff access", via: null };
   const graceStart = new Date(now.getTime() - GRACE_DAYS * DAY);
 
   const own = await db
