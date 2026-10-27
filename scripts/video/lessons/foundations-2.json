@@ -1,0 +1,79 @@
+{
+  "lessonId": "foundations-2",
+  "course": "foundations",
+  "scenes": [
+    {
+      "id": "hook",
+      "narration": "This is the motor start stop bench. Almost every motor panel you will ever work on uses the circuit in this lesson: the seal-in.",
+      "actions": [
+        { "at": 0, "call": "resetView" },
+        { "at": 0.4, "call": "showLabel", "args": [{ "kicker": "Lesson 2", "title": "The seal-in circuit" }] },
+        { "at": "end", "call": "showLabel", "args": [null] }
+      ]
+    },
+    {
+      "id": "buttons",
+      "narration": "On the front, two pushbuttons. Green is Start, red is Stop. Both are momentary, so they spring back the moment you let go.",
+      "actions": [
+        { "at": 0, "call": "focus", "args": ["start"] },
+        { "at": 0.3, "call": "showLabel", "args": [{ "kicker": "S1 and S2", "title": "Momentary pushbuttons" }] },
+        { "at": "end", "call": "showLabel", "args": [null] }
+      ]
+    },
+    {
+      "id": "problem",
+      "narration": "That is the problem. A momentary button can only drive the motor while your finger is on it. The PLC has to remember the press.",
+      "actions": [
+        { "at": 0, "call": "select", "args": [null] },
+        { "at": 0, "call": "resetView" },
+        { "at": 0.5, "call": "play" }
+      ]
+    },
+    {
+      "id": "rung1",
+      "narration": "Look at rung one. Start sits in parallel with a contact called Run Seal. Stop sits in series after both of them.",
+      "actions": [
+        { "at": 0, "call": "highlightRung", "args": [1] },
+        { "at": 0.3, "call": "showLabel", "args": [{ "kicker": "Rung 1", "title": "Start or Run_Seal, and not Stop" }] },
+        { "at": "end", "call": "showLabel", "args": [null] }
+      ]
+    },
+    {
+      "id": "tap-start",
+      "narration": "Tap Start. The rung goes true and writes Run Seal. On the next scan, Run Seal holds the branch closed, so the rung stays true after you let go.",
+      "actions": [
+        { "at": 0.6, "call": "tap", "args": ["start"] },
+        { "at": 0.6, "call": "showLabel", "args": [{ "kicker": "I0.0", "title": "Start tapped" }] },
+        { "at": "60%", "call": "showLabel", "args": [{ "kicker": "M0.0", "title": "Run_Seal holds the rung" }] },
+        { "at": "end", "call": "showLabel", "args": [null] }
+      ]
+    },
+    {
+      "id": "rung2",
+      "narration": "Rung two copies Run Seal to the contactor coil and the green lamp. The contactor pulls in, and the motor runs.",
+      "actions": [
+        { "at": 0, "call": "highlightRung", "args": [2] },
+        { "at": 0.4, "call": "focus", "args": ["contactor"] },
+        { "at": "65%", "call": "focus", "args": ["motor", false] }
+      ]
+    },
+    {
+      "id": "tap-stop",
+      "narration": "Now tap Stop. It is in series, so it breaks the rung. Run Seal drops out, and the motor coasts to a stop.",
+      "actions": [
+        { "at": 0, "call": "select", "args": [null] },
+        { "at": 0, "call": "resetView" },
+        { "at": 0, "call": "highlightRung", "args": [1] },
+        { "at": 1.4, "call": "tap", "args": ["stop"] },
+        { "at": 1.4, "call": "showLabel", "args": [{ "kicker": "I0.1", "title": "Stop breaks the seal" }] },
+        { "at": "end", "call": "showLabel", "args": [null] }
+      ]
+    },
+    {
+      "id": "wrap",
+      "narration": "That is the seal-in. Tap once to start, tap once to stop. Now open the lab and try it yourself.",
+      "pauseAfter": 1.2,
+      "actions": [{ "at": 0, "call": "highlightRung", "args": [null] }]
+    }
+  ]
+}

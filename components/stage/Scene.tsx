@@ -18,12 +18,15 @@ const HOME_PHI = 0.98;
 const VFOV = 24;
 const IDLE_MS = 5000;
 
-function homeDistance(w: number, h: number) {
+/** "page" leaves room for the side cards on wide screens; "full" fills the canvas, used by /record. */
+export type Framing = "page" | "full";
+
+function homeDistance(w: number, h: number, framing: Framing = "page") {
   const aspect = w / h;
   const v = THREE.MathUtils.degToRad(VFOV) / 2;
   const hz = Math.atan(Math.tan(v) * aspect);
   const r = aspect < 1.2 ? 7.6 : 6.6;
-  const widthShare = w > 900 ? 0.6 : 0.92;
+  const widthShare = framing === "full" ? 0.86 : w > 900 ? 0.6 : 0.92;
   return Math.max(r / Math.tan(hz) / widthShare, (r * 0.78) / Math.tan(v));
 }
 
@@ -37,7 +40,7 @@ interface Goal {
 const spherical = new THREE.Spherical();
 const offset = new THREE.Vector3();
 
-function CameraRig() {
+function CameraRig({ framing }: { framing: Framing }) {
   const controls = useRef<OrbitControlsImpl>(null);
   const size = useThree((s) => s.size);
   const get = useThree((s) => s.get);
@@ -58,7 +61,7 @@ function CameraRig() {
 
   useEffect(() => {
     const { camera } = get();
-    const d = homeDistance(size.width, size.height);
+    const d = homeDistance(size.width, size.height, framing);
     camera.position.copy(HOME_TARGET).add(new THREE.Vector3().setFromSphericalCoords(d, HOME_PHI, HOME_THETA));
     controls.current?.target.copy(HOME_TARGET);
     controls.current?.update();
@@ -66,10 +69,10 @@ function CameraRig() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const lastHome = useRef(homeDistance(size.width, size.height));
+  const lastHome = useRef(homeDistance(size.width, size.height, framing));
   useEffect(() => {
     if (!controls.current) return;
-    const home = homeDistance(size.width, size.height);
+    const home = homeDistance(size.width, size.height, framing);
     const c = current();
     goal.current = { ...c, dist: c.dist * (home / lastHome.current) };
     lastHome.current = home;
@@ -80,7 +83,7 @@ function CameraRig() {
     const cmd = useSim.getState().cameraCommand;
     if (!cmd || !controls.current) return;
     const c = current();
-    const home = homeDistance(size.width, size.height);
+    const home = homeDistance(size.width, size.height, framing);
     lastInteract.current = performance.now();
     if (cmd.type === "zoom") goal.current = { ...c, dist: THREE.MathUtils.clamp(c.dist / cmd.factor, home * 0.35, home * 1.8) };
     if (cmd.type === "focus") goal.current = { target: new THREE.Vector3(...cmd.target), theta: c.theta, phi: Math.min(c.phi, 1.0), dist: home * 0.42 };
@@ -224,10 +227,30 @@ function Effects({ fx }: { fx: string }) {
   );
 }
 
-export default function Scene() {
+declare global {
+  interface Window {
+    /** Set by /record: render exactly one frame at t seconds. */
+    __recordAdvance?: (t: number) => void;
+  }
+}
+
+/** Lesson videos step the scene one frame at a time so every captured frame is rendered exactly once. */
+function ManualDriver() {
+  const advance = useThree((s) => s.advance);
+  useEffect(() => {
+    window.__recordAdvance = (t) => advance(t, true);
+    return () => {
+      delete window.__recordAdvance;
+    };
+  }, [advance]);
+  return null;
+}
+
+export default function Scene({ framing = "page", manual = false }: { framing?: Framing; manual?: boolean }) {
   const fx = fxMode();
   return (
     <Canvas
+      frameloop={manual ? "never" : "always"}
       dpr={[1, 1.6]}
       camera={{ fov: VFOV, near: 0.5, far: 300, position: [16, 14, 20] }}
       gl={{ antialias: false, alpha: true, powerPreference: "high-performance", toneMapping: THREE.NoToneMapping }}
@@ -238,7 +261,8 @@ export default function Scene() {
       className="!touch-none"
     >
       <SimDriver />
-      <CameraRig />
+      {manual && <ManualDriver />}
+      <CameraRig framing={framing} />
       <MarkerTracker />
       <Studio />
       <ambientLight intensity={0.08} />

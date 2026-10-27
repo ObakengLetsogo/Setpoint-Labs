@@ -1,0 +1,21 @@
+{
+  "voice": {
+    "default": "azure:en-ZA-LukeNeural",
+    "fallback": "azure:en-ZA-LeahNeural",
+    "offline": "piper:en_GB-alan-medium",
+    "courses": {
+      "foundations": "azure:en-ZA-LukeNeural"
+    }
+  },
+  "fps": 30,
+  "formats": {
+    "landscape": { "width": 1920, "height": 1080 },
+    "portrait": { "width": 1080, "height": 1920 }
+  },
+  "sceneLeadIn": 0.25,
+  "pauseAfter": 0.6,
+  "introSeconds": 3,
+  "outroSeconds": 3,
+  "musicVolumeDb": -22,
+  "background": "#F4F5F6"
+}

@@ -16,6 +16,10 @@ The motor start stop bench is live:
 - Annotation stage: numbered markers pinned to parts, leader lines to cards, part renders in `public/parts/` (regenerate in development from `/render/parts?id=...`).
 - Teaching panels (`components/teach/`): lab track, animated wiring view, wiring table, steps, code reader with tour, story and explore modes, and a live scan monitor.
 - `window.setpointLabs` automation API for recording and tests.
+- Contactor body baked in headless Blender (`scripts/blender/`, `BLENDER_PY=<python with bpy> scripts/blender/build.sh contactor`), compressed with meshopt and WebP.
+- Progress, settings and edited code persist in the browser; a service worker keeps the bench usable offline.
+- Lesson videos: `npm run video -- <lessonId>` renders narrated, captioned MP4s from `scripts/video/lessons/`. See `scripts/video/README.md`.
+- End to end tests for lessons 1 to 3: `npm run test:e2e` (Playwright).
 
 Auth, payments, more rigs and platform packs come in later phases.
 

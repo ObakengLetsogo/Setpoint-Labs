@@ -2,7 +2,8 @@
 
 import { useEffect } from "react";
 import { useSim } from "@/store/sim";
-import type { PartId } from "@/rigs/motorStarter";
+import { useRecord, type RecordLabel } from "@/store/record";
+import type { Faults, PartId } from "@/rigs/motorStarter";
 
 export interface SetpointLabsApi {
   load: (lessonId: string) => void;
@@ -12,8 +13,15 @@ export interface SetpointLabsApi {
   step: () => void;
   setInput: (tag: string, value: boolean) => void;
   select: (part: PartId | null) => void;
-  focus: (part: PartId) => void;
+  /** Zoom to a part; glow false skips the selection tint, which reads too strong on large parts in video. */
+  focus: (part: PartId, glow?: boolean) => void;
   resetView: () => void;
+  rotate: (dir: 1 | -1) => void;
+  zoom: (factor: number) => void;
+  press: (button: "start" | "stop", down: boolean) => void;
+  setFault: (fault: keyof Faults, on: boolean) => void;
+  highlightRung: (n: number | null) => void;
+  showLabel: (label: RecordLabel | null) => void;
   explode: (on: boolean) => void;
   setReduceMotion: (on: boolean) => void;
   getState: () => {
@@ -22,6 +30,7 @@ export interface SetpointLabsApi {
     scanCount: number;
     memory: Record<string, boolean | number>;
     motorSpeed: number;
+    ready: boolean;
   };
 }
 
@@ -47,13 +56,22 @@ export function AutomationApi() {
         else if (tag === "Overload_OK") (value ? s().resetOverload : s().tripOverload)();
       },
       select: (part) => s().select(part),
-      focus: (part) => s().focusPart(part),
+      focus: (part, glow = true) => {
+        s().focusPart(part);
+        if (!glow) s().select(null);
+      },
       resetView: () => s().resetView(),
+      rotate: (dir) => s().rotate(dir),
+      zoom: (factor) => s().zoomBy(factor),
+      press: (button, down) => s().press(button, down),
+      setFault: (fault, on) => s().setFault(fault, on),
+      highlightRung: (n) => s().setHighlightRung(n),
+      showLabel: (label) => useRecord.getState().showLabel(label),
       explode: (on) => on !== s().exploded && s().toggleExplode(),
       setReduceMotion: (on) => s().setSetting("reduceMotion", on),
       getState: () => {
         const st = s();
-        return { lessonId: st.lessonId, running: st.running, scanCount: st.scanCount, memory: st.memory, motorSpeed: st.physical.motorSpeed };
+        return { lessonId: st.lessonId, running: st.running, scanCount: st.scanCount, memory: st.memory, motorSpeed: st.physical.motorSpeed, ready: Boolean(document.querySelector("canvas")) };
       },
     };
     return () => {
