@@ -1,8 +1,8 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useSim } from "@/store/sim";
-import { TAGS, contactorClosed, partById, readInputs } from "@/rigs/motorStarter";
+import { useInputs, useRig, useSim } from "@/store/sim";
+import type { Control } from "@/rigs/types";
 import { Segmented, Toggle } from "@/components/ui/controls";
 import { IconCrosshair, IconX } from "@/components/ui/icons";
 
@@ -40,141 +40,161 @@ function HoldButton({ label, onDown, onUp, tone }: { label: string; onDown: () =
   );
 }
 
-function Body({ id }: { id: string }) {
+function ControlRow({ c }: { c: Control }) {
   const s = useSim();
-  const inputs = readInputs(s.physical, s.faults, s.rigOptions);
-
-  switch (id) {
-    case "start":
+  const v = s.physical[("key" in c ? c.key : "") as string];
+  switch (c.kind) {
+    case "hold":
+      return <HoldButton label={c.label} tone={c.tone} onDown={() => s.press(c.part, true)} onUp={() => s.press(c.part, false)} />;
+    case "toggle":
       return (
-        <>
-          <HoldButton label="Hold to press" tone="#2e9e5b" onDown={() => s.press("start", true)} onUp={() => s.press("start", false)} />
-          <Row label="Inject fault: stuck closed">
-            <Toggle label="Start stuck closed" checked={s.faults.stuckStart} onChange={(v) => s.setFault("stuckStart", v)} />
-          </Row>
-        </>
-      );
-    case "stop":
-      return (
-        <>
-          <HoldButton label="Hold to press" tone="#d64545" onDown={() => s.press("stop", true)} onUp={() => s.press("stop", false)} />
-          <Row label="Inject fault: broken wire">
-            <Toggle label="Stop wire broken" checked={s.faults.brokenStop} onChange={(v) => s.setFault("brokenStop", v)} />
-          </Row>
-        </>
-      );
-    case "aux":
-      return <HoldButton label="Hold to press" tone="#3d434a" onDown={() => s.press("aux", true)} onUp={() => s.press("aux", false)} />;
-    case "beacon":
-      return (
-        <Row label="Q0.3 Beacon">
-          <span className="font-mono text-[12px]">{s.memory.Beacon ? "on" : "off"}</span>
-        </Row>
-      );
-    case "estop":
-      return (
-        <Row label="Mushroom head">
+        <Row label={c.label}>
           <Segmented
             size="sm"
-            value={s.physical.estopPressed ? "in" : "out"}
+            value={v ? "on" : "off"}
             options={[
-              { value: "out", label: "Released" },
-              { value: "in", label: "Pressed" },
+              { value: "off", label: c.off },
+              { value: "on", label: c.on },
             ]}
-            onChange={(v) => (v === "in") !== s.physical.estopPressed && s.toggleEstop()}
+            onChange={(next) => (next === "on") !== Boolean(v) && s.act(c, next === "on")}
           />
         </Row>
       );
-    case "overload":
+    case "slider":
       return (
-        <>
-          <div className="py-1.5">
-            <div className="mb-1.5 flex justify-between text-[12.5px]">
-              <span>Thermal load</span>
-              <span className="font-mono text-[11px] text-muted-ink">{Math.round(s.physical.heat * 100)} %</span>
-            </div>
-            <Meter value={s.physical.heat} tone={s.physical.heat > 0.7 ? "#d64545" : "#f26b1d"} />
+        <div className="py-1.5">
+          <div className="mb-1 flex justify-between text-[12.5px]">
+            <span>{c.label}</span>
+            <span className="font-mono text-[11px] text-muted-ink">
+              {Number(v ?? 0)} {c.unit}
+            </span>
           </div>
-          <div className="mt-2 grid grid-cols-2 gap-2">
-            <button type="button" onClick={s.tripOverload} className="rounded-lg border border-border py-1.5 text-[12px] font-medium hover:border-fault hover:text-fault">
-              Trip
-            </button>
-            <button type="button" onClick={s.resetOverload} className="rounded-lg bg-ink py-1.5 text-[12px] font-medium text-white">
-              Reset
-            </button>
+          <input
+            type="range"
+            min={c.min}
+            max={c.max}
+            step={c.step}
+            value={Number(v ?? 0)}
+            onChange={(e) => s.act(c, Number(e.target.value))}
+            className="w-full accent-[#f26b1d]"
+            aria-label={c.label}
+          />
+        </div>
+      );
+    case "meter": {
+      const n = Number(v ?? 0);
+      const shown = c.scale ? Math.round(n * c.scale) : n.toFixed(n < 10 ? 2 : 1);
+      return (
+        <div className="py-1.5">
+          <div className="mb-1.5 flex justify-between text-[12.5px]">
+            <span>{c.label}</span>
+            <span className="font-mono text-[11px] text-muted-ink">
+              {shown} {c.unit}
+            </span>
           </div>
-        </>
+          <Meter value={Math.min(1, n / c.max)} tone={c.tone} />
+        </div>
       );
-    case "motor":
+    }
+    case "action":
+      return null;
+    case "status": {
+      const st = c.value(s.physical, s.memory, s.running);
       return (
-        <>
-          <div className="py-1.5">
-            <div className="mb-1.5 flex justify-between text-[12.5px]">
-              <span>Speed</span>
-              <span className="font-mono text-[11px] text-muted-ink">{Math.round(s.physical.motorSpeed * 1420)} rpm</span>
-            </div>
-            <Meter value={s.physical.motorSpeed} tone="#2457a6" />
-          </div>
-          <Row label="Current">
-            <span className="font-mono text-[12px]">{s.physical.current.toFixed(2)} A</span>
-          </Row>
-          <Row label="Inject fault: jam the shaft">
-            <Toggle label="Jam shaft" checked={s.faults.jam} onChange={(v) => s.setFault("jam", v)} />
-          </Row>
-        </>
+        <Row label={c.label}>
+          <span className={`font-mono text-[11px] font-semibold uppercase tracking-[0.15em] ${st.on ? "text-energised" : "text-muted-ink"}`}>{st.text}</span>
+        </Row>
       );
-    case "plc":
-      return (
-        <>
-          <Row label="Mode">
-            <Segmented
-              size="sm"
-              value={s.running ? "run" : "stop"}
-              options={[
-                { value: "stop", label: "Stop" },
-                { value: "run", label: "Run" },
-              ]}
-              onChange={(v) => s.setRunning(v === "run")}
-            />
-          </Row>
-          <Row label="Scans completed">
-            <span className="font-mono text-[12px]">{s.scanCount}</span>
-          </Row>
-        </>
-      );
-    case "io":
-      return (
-        <div className="grid grid-cols-1 gap-1 py-1">
-          {TAGS.filter((t) => t.kind !== "marker").map((t) => {
-            const on = t.kind === "input" ? Boolean(inputs[t.tag]) : Boolean(s.memory[t.tag]);
+    }
+  }
+}
+
+function Body({ id }: { id: string }) {
+  const s = useSim();
+  const rig = useRig();
+  const inputs = useInputs();
+  const controls = rig.controls.filter((c) => c.part === id);
+  const actions = controls.filter((c) => c.kind === "action");
+  const faults = rig.faults.filter((f) => f.part === id);
+
+  if (id === "plc")
+    return (
+      <>
+        <Row label="Mode">
+          <Segmented
+            size="sm"
+            value={s.running ? "run" : "stop"}
+            options={[
+              { value: "stop", label: "Stop" },
+              { value: "run", label: "Run" },
+            ]}
+            onChange={(v) => s.setRunning(v === "run")}
+          />
+        </Row>
+        <Row label="Scans completed">
+          <span className="font-mono text-[12px]">{s.scanCount}</span>
+        </Row>
+      </>
+    );
+
+  if (id === "io")
+    return (
+      <div className="grid grid-cols-1 gap-1 py-1">
+        {rig.tags
+          .filter((t) => t.kind !== "marker")
+          .map((t) => {
+            const raw = t.kind === "input" ? inputs[t.tag] : s.memory[t.tag];
+            const on = Boolean(raw);
             return (
               <div key={t.tag} className="flex items-center gap-2 font-mono text-[11.5px]">
                 <span className={`h-2 w-2 rounded-full ${on ? (t.kind === "input" ? "bg-[#45d483]" : "bg-[#5aa2ff]") : "bg-[#d5d1c7]"}`} />
-                <span className="w-9 text-muted-ink">{t.address}</span>
+                <span className="w-10 text-muted-ink">{t.address}</span>
                 <span className="text-ink">{t.tag}</span>
+                {t.analog && <span className="ml-auto text-muted-ink">{Number(raw ?? 0)}</span>}
               </div>
             );
           })}
+      </div>
+    );
+
+  return (
+    <>
+      {controls.map((c, i) => (
+        <ControlRow key={i} c={c} />
+      ))}
+      {actions.length > 0 && (
+        <div className="mt-2 grid grid-cols-2 gap-2">
+          {actions.map((c, i) => (
+            <button
+              key={i}
+              type="button"
+              onClick={() => s.act(c)}
+              className={
+                c.kind === "action" && c.danger
+                  ? "rounded-lg border border-border py-1.5 text-[12px] font-medium hover:border-fault hover:text-fault"
+                  : "rounded-lg bg-ink py-1.5 text-[12px] font-medium text-white"
+              }
+            >
+              {c.label}
+            </button>
+          ))}
         </div>
-      );
-    case "contactor":
-      return (
-        <Row label="Main contacts">
-          <span className={`font-mono text-[11px] font-semibold uppercase tracking-[0.15em] ${s.running && contactorClosed(s.memory, s.physical) ? "text-energised" : "text-muted-ink"}`}>
-            {s.running && contactorClosed(s.memory, s.physical) ? "Closed" : "Open"}
-          </span>
+      )}
+      {faults.map((f) => (
+        <Row key={f.key} label={`Inject fault: ${f.label.toLowerCase()}`}>
+          <Toggle label={f.label} checked={Boolean(s.faults[f.key])} onChange={(v) => s.setFault(f.key, v)} />
         </Row>
-      );
-    default:
-      return null;
-  }
+      ))}
+    </>
+  );
 }
 
 export function PartPopover() {
   const selected = useSim((s) => s.selected);
   const select = useSim((s) => s.select);
   const focusPart = useSim((s) => s.focusPart);
-  const part = selected ? partById(selected) : null;
+  const rig = useRig();
+  const part = selected ? rig.parts.find((p) => p.id === selected) : null;
   if (!part) return null;
 
   return (

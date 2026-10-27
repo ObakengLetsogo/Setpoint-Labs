@@ -1,15 +1,15 @@
 "use client";
 
-import { PARTS } from "@/rigs/motorStarter";
-import { useSim } from "@/store/sim";
+import { useRig, useSim } from "@/store/sim";
 import { IconCrosshair } from "@/components/ui/icons";
 
 export function ComponentsSheetContent({ onDone }: { onDone: () => void }) {
   const focusPart = useSim((s) => s.focusPart);
   const selected = useSim((s) => s.selected);
+  const rig = useRig();
   return (
     <ul className="divide-y divide-border">
-      {PARTS.map((p) => (
+      {rig.parts.map((p) => (
         <li key={p.id}>
           <button
             type="button"

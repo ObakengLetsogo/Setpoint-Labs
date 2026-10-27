@@ -7,9 +7,8 @@ import { ContactShadows, Environment, Lightformer, OrbitControls } from "@react-
 import { Bloom, EffectComposer, N8AO, SMAA, ToneMapping } from "@react-three/postprocessing";
 import { ToneMappingMode } from "postprocessing";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
-import { useSim } from "@/store/sim";
-import { ANNOTATIONS } from "@/rigs/motorStarter";
-import { MotorStarterRig } from "./MotorStarterRig";
+import { useRig, useSim } from "@/store/sim";
+import { RigScene } from "@/components/rigs/RigScene";
 import { markerScreen } from "./annotationBus";
 
 const HOME_TARGET = new THREE.Vector3(-0.1, 0.7, 0.2);
@@ -161,9 +160,13 @@ const tmp = new THREE.Vector3();
 const box = new THREE.Box3();
 
 function MarkerTracker() {
-  const local = useRef<Record<number, THREE.Vector3>>({});
+  const rigId = useSim((s) => s.rigId);
+  const annotations = useRig().annotations;
+  const cache = useRef<{ rig: string; anchors: Record<number, THREE.Vector3> }>({ rig: "", anchors: {} });
   useFrame(({ camera, scene, size }) => {
-    for (const a of ANNOTATIONS) {
+    if (cache.current.rig !== rigId) cache.current = { rig: rigId, anchors: {} };
+    const local = { current: cache.current.anchors };
+    for (const a of annotations) {
       const obj = scene.getObjectByName(`part-${a.part}`);
       if (!obj) continue;
       let anchor = local.current[a.n];
@@ -185,6 +188,11 @@ function MarkerTracker() {
     }
   });
   return null;
+}
+
+function CurrentRig() {
+  const rigId = useSim((s) => s.rigId);
+  return <RigScene key={rigId} id={rigId} />;
 }
 
 function SimDriver() {
@@ -268,7 +276,7 @@ export default function Scene({ framing = "page", manual = false }: { framing?: 
       <ambientLight intensity={0.08} />
       <directionalLight position={[-6, 11, 7]} intensity={0.85} color="#fffaf2" />
       <directionalLight position={[8, 4, -6]} intensity={0.18} color="#e8f0ff" />
-      <MotorStarterRig />
+      <CurrentRig />
       <ContactShadows position={[0, -0.25, 0]} scale={[17, 13]} blur={2.4} opacity={0.32} far={3} resolution={512} color="#2a2f36" />
       <Effects fx={fx} />
     </Canvas>

@@ -1,9 +1,6 @@
 "use client";
 
-import { PLC_TERMINALS, WIRES } from "@/data/teach";
-import { TAGS } from "@/rigs/motorStarter";
-import { useSim } from "@/store/sim";
-import { readInputs } from "@/rigs/motorStarter";
+import { useInputs, useRig, useSim } from "@/store/sim";
 import { Legend, TERMINAL_DOT, TerminalChip, toneFor, usedTerminals } from "./Terminal";
 
 const TAG_SHORT: Record<string, string> = {
@@ -17,29 +14,27 @@ const TAG_SHORT: Record<string, string> = {
 };
 
 export function IoPinout({ wires, between }: { wires: number[]; between: string[] }) {
-  const used = usedTerminals(wires);
+  const rig = useRig();
+  const used = usedTerminals(wires, rig.wiring);
   const memory = useSim((s) => s.memory);
-  const physical = useSim((s) => s.physical);
-  const faults = useSim((s) => s.faults);
-  const rigOptions = useSim((s) => s.rigOptions);
-  const inputs = readInputs(physical, faults, rigOptions);
-  const inputsCol = PLC_TERMINALS.filter((t) => t.kind === "input" || t.id === "24V");
-  const outputsCol = PLC_TERMINALS.filter((t) => t.kind === "output" || t.id === "0V");
+  const inputs = useInputs();
+  const inputsCol = rig.wiring.terminals.filter((t) => t.kind === "input" || t.id === "24V");
+  const outputsCol = rig.wiring.terminals.filter((t) => t.kind === "output" || t.id === "0V");
 
   const live = (id: string) => {
-    const tag = TAGS.find((t) => t.address === id);
+    const tag = rig.tags.find((t) => t.address === id);
     if (!tag) return false;
     return tag.kind === "input" ? Boolean(inputs[tag.tag]) : Boolean(memory[tag.tag]);
   };
   const nameFor = (id: string) => {
-    const tag = TAGS.find((t) => t.address === id)?.tag;
-    const w = WIRES.find((x) => x.plc === id && wires.includes(x.n));
+    const tag = rig.tags.find((t) => t.address === id)?.tag;
+    const w = rig.wiring.wires.find((x) => x.plc === id && wires.includes(x.n));
     if (!w) return null;
     return tag ? TAG_SHORT[tag] ?? tag : id === "24V" ? "COM" : "A2";
   };
 
   const Row = ({ id, label, side }: { id: string; label: string; side: "left" | "right" }) => {
-    const tone = toneFor(id, used);
+    const tone = toneFor(id, used, rig.wiring);
     const name = nameFor(id);
     const on = live(id);
     const dot = (

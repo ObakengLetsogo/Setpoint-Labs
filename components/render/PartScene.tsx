@@ -7,19 +7,20 @@ import { useEffect } from "react";
 import { MotorStarterRig } from "@/components/stage/MotorStarterRig";
 import { INITIAL_PHYSICAL } from "@/rigs/motorStarter";
 import { useSim } from "@/store/sim";
+import type { PhysicalState } from "@/rigs/types";
 import type { RenderSpec, RenderState } from "./labRenders";
 
 const STATES: Record<RenderState, () => void> = {
-  idle: () => useSim.setState({ running: false, memory: {}, physical: INITIAL_PHYSICAL }),
+  idle: () => useSim.setState({ running: false, memory: {}, physical: INITIAL_PHYSICAL as unknown as PhysicalState }),
   run: () =>
     useSim.setState({
       running: true,
       memory: { Motor_Run: true, Run_Lamp: true, Run_Seal: true },
-      physical: { ...INITIAL_PHYSICAL, motorSpeed: 1, current: 0.6, heat: 0.3 },
+      physical: { ...INITIAL_PHYSICAL as unknown as PhysicalState, motorSpeed: 1, current: 0.6, heat: 0.3 },
     }),
   fault: () =>
-    useSim.setState({ running: true, memory: { Fault_Lamp: true }, physical: { ...INITIAL_PHYSICAL, overloadTripped: true, heat: 1 } }),
-  estop: () => useSim.setState({ running: true, memory: {}, physical: { ...INITIAL_PHYSICAL, estopPressed: true } }),
+    useSim.setState({ running: true, memory: { Fault_Lamp: true }, physical: { ...INITIAL_PHYSICAL as unknown as PhysicalState, overloadTripped: true, heat: 1 } }),
+  estop: () => useSim.setState({ running: true, memory: {}, physical: { ...INITIAL_PHYSICAL as unknown as PhysicalState, estopPressed: true } }),
 };
 
 export default function PartScene({ spec }: { spec: RenderSpec }) {

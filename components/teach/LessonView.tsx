@@ -2,8 +2,9 @@
 
 import { useState, type ReactNode } from "react";
 import type { Lesson } from "@/data/types";
-import { TEACH, WIRES } from "@/data/teach";
-import { useSim } from "@/store/sim";
+import { placeOf } from "@/data/curriculum";
+import { TEACH } from "@/data/teach";
+import { useRig, useSim } from "@/store/sim";
 import { CodeCard } from "@/components/code/CodeCard";
 import { IconBulb, IconCheck, IconCode, IconFlag, IconList, IconMonitor, IconWire } from "@/components/ui/icons";
 import { IoPinout } from "./IoPinout";
@@ -58,22 +59,27 @@ function Steps({ lessonId, steps }: { lessonId: string; steps: string[] }) {
 }
 
 export function LessonView({ lesson }: { lesson: Lesson }) {
+  const rig = useRig();
   const [mode, setMode] = useState<"lab" | "code">("lab");
   const teach = TEACH[lesson.id];
+  const place = placeOf(lesson.id);
+  const track = place?.track;
+  const chapter = place?.chapter;
+  const trackSize = track ? track.chapters.reduce((n, c) => n + c.lessons.length, 0) : 0;
   const completed = useSim((s) => s.completed[lesson.id]);
   const ran = useSim((s) => s.ranLessons[lesson.id]);
 
   if (!teach || lesson.locked) {
     return (
       <section id="lesson" className="rounded-2xl border border-dashed border-[#d5d9de] bg-white px-6 py-10 text-center">
-        <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-muted-ink">F{lesson.number} · planned</p>
+        <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-muted-ink">{lesson.chip} · planned</p>
         <p className="mt-2 text-[20px] font-semibold text-ink">{lesson.title}</p>
-        <p className="mt-1 text-[13.5px] text-[#5b6068]">This lab is being written. The first three run on the sim today.</p>
+        <p className="mt-1 text-[13.5px] text-[#5b6068]">This lab is being written. Every open lab on the track runs on the sim today.</p>
       </section>
     );
   }
 
-  const used = usedTerminals(teach.wires);
+  const used = usedTerminals(teach.wires, rig.wiring);
   const status = completed ? ["done by you", "bg-run text-white"] : ran ? ["runs on the sim", "bg-run/10 text-run"] : ["built, not run", "bg-[#fbeee4] text-[#b5531f]"];
   const stops = teach.tour.length;
   const nav: [string, string, ReactNode][] = [
@@ -88,7 +94,7 @@ export function LessonView({ lesson }: { lesson: Lesson }) {
     <section id="lesson" className="flex flex-col gap-4 scroll-mt-4">
       <div className="flex flex-wrap items-end justify-between gap-2">
         <h2 className="flex items-baseline gap-3 text-[26px] font-semibold tracking-[-0.01em] text-ink">
-          <span className="font-mono text-[14px] font-bold text-[#d9591a]">{String(lesson.number).padStart(2, "0")}</span>
+          <span className="font-mono text-[14px] font-bold text-[#d9591a]">{lesson.chip}</span>
           {lesson.title}
         </h2>
         <span className={`rounded-full px-2.5 py-1 font-mono text-[10.5px] font-semibold ${status[1]}`}>{status[0]}</span>
@@ -143,13 +149,15 @@ export function LessonView({ lesson }: { lesson: Lesson }) {
             <div className="relative flex flex-col gap-10 before:absolute before:bottom-4 before:left-4 before:top-8 before:w-px before:bg-[#e4e6e9]">
               <Section id="goal" n="00" icon={<IconFlag size={14} />} title="Goal">
                 <div className="rounded-2xl border border-[#e4e6e9] bg-white p-5">
-                  <p className="font-mono text-[10.5px] uppercase tracking-[0.18em] text-[#d9591a]">Foundations · lesson {lesson.number} of 20</p>
+                  <p className="font-mono text-[10.5px] uppercase tracking-[0.18em] text-[#d9591a]">
+                    {track?.name} · {chapter?.title} · lesson {lesson.number} of {trackSize}
+                  </p>
                   <p className="mt-2 text-[15px] leading-[1.6] text-ink">{teach.goal}</p>
                   <p className="mt-2 text-[13.5px] leading-[1.6] text-[#4b5058]">{lesson.summary}</p>
                   <p className="mt-4 font-mono text-[10px] uppercase tracking-[0.2em] text-muted-ink">On the rig</p>
                   <div className="mt-1.5 flex flex-wrap gap-1.5">
-                    {WIRES.filter((w) => teach.wires.includes(w.n)).map((w) => (
-                      <TerminalChip key={w.n} id={w.plc} tone={toneFor(w.plc, used)} label={`${w.plc} ${w.role}`} />
+                    {rig.wiring.wires.filter((w) => teach.wires.includes(w.n)).map((w) => (
+                      <TerminalChip key={w.n} id={w.plc} tone={toneFor(w.plc, used, rig.wiring)} label={`${w.plc} ${w.role}`} />
                     ))}
                   </div>
                   <p className="mt-4 font-mono text-[10px] uppercase tracking-[0.2em] text-muted-ink">You will learn</p>

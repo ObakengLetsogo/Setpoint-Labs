@@ -45,11 +45,23 @@ export interface SpecItem {
   value: string;
 }
 
+type Mem = Record<string, boolean | number>;
+
+/**
+ * Auto marking checks what the rig did, not how the program was written. Each step must pass
+ * on some scan, in order; the lesson is done when the last one passes.
+ */
+export interface Checkpoint {
+  steps: ((memory: Mem, inputs: Mem, faults: Record<string, boolean>) => boolean)[];
+  message: string;
+}
+
 /** What a lesson author writes. Title, icon, track, number and rig come from data/curriculum.ts. */
 export interface LessonContent {
   difficulty: Difficulty;
   /** Wiring changes the lesson makes on its rig. */
-  rigOptions?: import("@/rigs/motorStarter").RigOptions;
+  rigOptions?: import("@/rigs/types").RigOptions;
+  checkpoint?: Checkpoint;
   summary: string;
   facts: { icon: "press" | "watch" | "bolt" | "shield" | "info"; text: string }[];
   io: IoPoint[];
@@ -72,7 +84,8 @@ export interface Lesson {
   difficulty: Difficulty;
   completed: boolean;
   locked?: boolean;
-  rigOptions?: import("@/rigs/motorStarter").RigOptions;
+  rigOptions?: import("@/rigs/types").RigOptions;
+  checkpoint?: Checkpoint;
   summary: string;
   facts: { icon: "press" | "watch" | "bolt" | "shield" | "info"; text: string }[];
   io: IoPoint[];

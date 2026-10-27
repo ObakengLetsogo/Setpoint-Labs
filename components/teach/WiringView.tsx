@@ -1,9 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { FIELD_DEVICES, PLC_TERMINALS, WIRES } from "@/data/teach";
-import { readInputs } from "@/rigs/motorStarter";
-import { useSim } from "@/store/sim";
+import { useInputs, useRig, useSim } from "@/store/sim";
+import type { PlcTerminal } from "@/rigs/types";
 import { IconChevronLeft, IconChevronRight, IconPause, IconPlay } from "@/components/ui/icons";
 import { DeviceGlyph } from "./DeviceGlyph";
 import { TERMINAL_FILL, TerminalChip, toneFor, usedTerminals } from "./Terminal";
@@ -17,8 +16,8 @@ const TOP = 46;
 const CARD_H = 44;
 const CARD_GAP = 8;
 
-function plcY(id: string) {
-  const i = PLC_TERMINALS.findIndex((t) => t.id === id);
+function plcY(id: string, terminals: PlcTerminal[]) {
+  const i = terminals.findIndex((t) => t.id === id);
   return TOP + i * ROW;
 }
 
@@ -29,22 +28,20 @@ function deviceLayout(devices: string[]) {
 }
 
 export function WiringView({ wires }: { wires: number[] }) {
-  const list = useMemo(() => WIRES.filter((w) => wires.includes(w.n)), [wires]);
-  const devices = useMemo(() => FIELD_DEVICES.filter((d) => list.some((w) => w.device === d.id)), [list]);
+  const rig = useRig();
+  const list = useMemo(() => rig.wiring.wires.filter((w) => wires.includes(w.n)), [wires, rig.wiring.wires]);
+  const devices = useMemo(() => rig.wiring.devices.filter((d) => list.some((w) => w.device === d.id)), [list, rig.wiring.devices]);
   const dy = deviceLayout(devices.map((d) => d.id));
-  const used = usedTerminals(wires);
+  const used = usedTerminals(wires, rig.wiring);
   const [step, setStep] = useState(1);
   const [playing, setPlaying] = useState(true);
   const [signals, setSignals] = useState(false);
   const memory = useSim((s) => s.memory);
-  const physical = useSim((s) => s.physical);
-  const faults = useSim((s) => s.faults);
-  const rigOptions = useSim((s) => s.rigOptions);
   const reduce = useSim((s) => s.settings.reduceMotion);
-  const inputs = readInputs(physical, faults, rigOptions);
+  const inputs = useInputs();
   const total = list.length;
   const current = list[Math.min(step, total) - 1];
-  const height = Math.max(TOP + PLC_TERMINALS.length * ROW, 30 + devices.length * (CARD_H + CARD_GAP)) + 10;
+  const height = Math.max(TOP + rig.wiring.terminals.length * ROW, 30 + devices.length * (CARD_H + CARD_GAP)) + 10;
 
   useEffect(() => {
     if (!playing || reduce) return;
@@ -58,7 +55,7 @@ export function WiringView({ wires }: { wires: number[] }) {
   };
 
   const devTermY = (device: string, terminal: string) => {
-    const d = FIELD_DEVICES.find((x) => x.id === device)!;
+    const d = rig.wiring.devices.find((x) => x.id === device)!;
     const j = d.terminals.indexOf(terminal);
     return dy[device] + 15 + j * 16;
   };
@@ -102,10 +99,10 @@ export function WiringView({ wires }: { wires: number[] }) {
           <text x={44} y={22} className="wiring-kicker">
             PLC1 · SIGNAL BOARD
           </text>
-          <rect x={40} y={30} width={142} height={PLC_TERMINALS.length * ROW + 8} rx={10} fill="#262c34" />
-          {PLC_TERMINALS.map((t) => {
-            const y = plcY(t.id);
-            const tone = toneFor(t.id, used);
+          <rect x={40} y={30} width={142} height={rig.wiring.terminals.length * ROW + 8} rx={10} fill="#262c34" />
+          {rig.wiring.terminals.map((t) => {
+            const y = plcY(t.id, rig.wiring.terminals);
+            const tone = toneFor(t.id, used, rig.wiring);
             const isUsed = list.some((w) => w.plc === t.id);
             return (
               <g key={t.id}>
@@ -127,7 +124,7 @@ export function WiringView({ wires }: { wires: number[] }) {
               <text x={DEV_X + 46} y={dy[d.id] + 26} className="wiring-device">
                 {d.name}
               </text>
-              <DeviceGlyph id={d.id} x={DEV_X + CARD_W - 22} y={dy[d.id] + CARD_H / 2} live={liveOf(WIRES.find((w) => w.device === d.id && w.signal)?.signal)} />
+              <DeviceGlyph id={d.id} x={DEV_X + CARD_W - 22} y={dy[d.id] + CARD_H / 2} live={liveOf(rig.wiring.wires.find((w) => w.device === d.id && w.signal)?.signal)} />
               {d.terminals.map((term, j) => (
                 <g key={term}>
                   <circle cx={DEV_X + 14} cy={dy[d.id] + 15 + j * 16} r={4.5} fill="#ffffff" stroke="#8d949c" strokeWidth={1.4} />
@@ -142,7 +139,7 @@ export function WiringView({ wires }: { wires: number[] }) {
           {list.map((w, i) => {
             const shown = i < step;
             if (!shown) return null;
-            const y1 = plcY(w.plc);
+            const y1 = plcY(w.plc, rig.wiring.terminals);
             const y2 = devTermY(w.device, w.terminal);
             const x1 = PLC_X - 14;
             const x2 = DEV_X + 14;
@@ -188,8 +185,9 @@ export function WiringView({ wires }: { wires: number[] }) {
 }
 
 export function WiringTable({ wires }: { wires: number[] }) {
-  const used = usedTerminals(wires);
-  const list = WIRES.filter((w) => wires.includes(w.n));
+  const rig = useRig();
+  const used = usedTerminals(wires, rig.wiring);
+  const list = rig.wiring.wires.filter((w) => wires.includes(w.n));
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-[460px] border-collapse text-left text-[13px]">
@@ -202,7 +200,7 @@ export function WiringTable({ wires }: { wires: number[] }) {
         </thead>
         <tbody>
           {list.map((w) => {
-            const d = FIELD_DEVICES.find((x) => x.id === w.device)!;
+            const d = rig.wiring.devices.find((x) => x.id === w.device)!;
             return (
               <tr key={w.n} className="border-t border-[#eceef0]">
                 <td className="py-2.5 text-ink">
@@ -210,7 +208,7 @@ export function WiringTable({ wires }: { wires: number[] }) {
                   {d.name.split(" ").slice(0, -1).join(" ")} <span className="font-mono text-[11.5px] text-muted-ink">{w.terminal}</span>
                 </td>
                 <td className="py-2.5">
-                  <TerminalChip id={w.plc} tone={toneFor(w.plc, used)} />
+                  <TerminalChip id={w.plc} tone={toneFor(w.plc, used, rig.wiring)} />
                 </td>
                 <td className="py-2.5 text-[#4b5058]">{w.role}</td>
               </tr>

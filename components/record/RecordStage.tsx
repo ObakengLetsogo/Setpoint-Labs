@@ -7,9 +7,9 @@ import { AutomationApi } from "@/components/AutomationApi";
 import { LogoMark, Wordmark } from "@/components/Logo";
 import { LadderDiagram } from "@/components/ladder/LadderDiagram";
 import { lessons } from "@/data/lessons";
-import { TAGS, readInputs } from "@/rigs/motorStarter";
+
 import { useRecord } from "@/store/record";
-import { useSim } from "@/store/sim";
+import { useInputs, useRig, useSim } from "@/store/sim";
 
 const Scene = dynamic(() => import("@/components/stage/Scene"), { ssr: false });
 
@@ -116,11 +116,9 @@ function LadderPanel({ portrait }: { portrait?: boolean }) {
   const program = useSim((s) => s.program);
   const trace = useSim((s) => s.trace);
   const memory = useSim((s) => s.memory);
-  const physical = useSim((s) => s.physical);
-  const faults = useSim((s) => s.faults);
-  const rigOptions = useSim((s) => s.rigOptions);
   const highlight = useSim((s) => s.highlightRung);
-  const inputs = readInputs(physical, faults, rigOptions);
+  const inputs = useInputs();
+  const rig = useRig();
   const activeLine = highlight ? program?.rungs[highlight - 1]?.line : null;
 
   return (
@@ -133,7 +131,7 @@ function LadderPanel({ portrait }: { portrait?: boolean }) {
         {program && <LadderDiagram program={program} trace={trace} memory={memory} activeLine={activeLine} />}
       </div>
       <div className={`mt-5 grid gap-x-6 gap-y-2.5 border-t border-[#eceef0] pt-5 ${portrait ? "grid-cols-4" : "grid-cols-2"}`}>
-        {TAGS.filter((t) => t.kind !== "marker").map((t) => {
+        {rig.tags.filter((t) => t.kind !== "marker").map((t) => {
           const on = t.kind === "input" ? Boolean(inputs[t.tag]) : Boolean(memory[t.tag]);
           return (
             <div key={t.tag} className="flex items-center gap-2.5">

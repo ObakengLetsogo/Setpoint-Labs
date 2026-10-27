@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import type { LogicNode, OutputNode, Program } from "@/engine/ladder";
 import type { Memory, NodeTrace, RungTrace } from "@/engine/scan";
-import { tagAddress } from "@/rigs/motorStarter";
+import { useRig } from "@/store/sim";
 
 const CW = 76;
 const RH = 64;
@@ -70,7 +70,7 @@ function Contact({ x, y, op, tag, t }: { x: number; y: number; op: string; tag: 
   const closed = op === "XIC" ? Boolean(t?.value) : !t?.value;
   const cx = x + CW / 2;
   const plate = pout ? LIVE : INK;
-  const addr = tagAddress(tag);
+  const addr = useRig().tags.find((t) => t.tag === tag)?.address;
   return (
     <g>
       <Seg x1={x} y1={y} x2={cx - 8} y2={y} live={pin} />
@@ -129,7 +129,7 @@ function fmtMs(ms: number) {
 
 function Output({ o, x, y, live, mem }: { o: OutputNode; x: number; y: number; live: boolean; mem: Memory }) {
   const color = live ? LIVE : INK;
-  const addr = tagAddress(o.tag);
+  const addr = useRig().tags.find((t) => t.tag === o.tag)?.address;
   if (o.op === "MOV" || o.op === "ADD" || o.op === "SUB") {
     const expr = o.op === "MOV" ? o.src![0] : `${o.src![0]} ${o.op === "ADD" ? "+" : "−"} ${o.src![1]}`;
     return (

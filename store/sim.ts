@@ -4,20 +4,9 @@ import { create, type StateCreator } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { LadderError, collectTags, parseProgram, type Program } from "@/engine/ladder";
 import { scan, type Memory, type RungTrace } from "@/engine/scan";
-import {
-  INITIAL_PHYSICAL,
-  NO_FAULTS,
-  TAGS,
-  partById,
-  readInputs,
-  stepPhysics,
-  tagAddress,
-  type Faults,
-  type PartId,
-  type Physical,
-  type RigOptions,
-  type Vec3,
-} from "@/rigs/motorStarter";
+import { rigFor } from "@/rigs";
+import type { Control, FaultState, PhysicalState, RigDef, RigOptions, Vec3 } from "@/rigs/types";
+import type { RigId } from "@/data/curriculum";
 import { lessons } from "@/data/lessons";
 
 export interface LogLine {
@@ -49,19 +38,9 @@ export type CameraCommand =
   | { type: "reset" };
 const MAX_LOG = 300;
 
-// Auto marking checks what the rig did, not how the program was written.
-const CHECKPOINTS: Record<string, { test: (m: Memory, inputs: Memory) => boolean; message: string }> = {
-  "foundations-1": { test: (m) => Boolean(m.Motor_Run), message: "motor ran from the Start button" },
-  "foundations-2": {
-    test: (m, i) => Boolean(m.Motor_Run) && !i.Start_PB,
-    message: "motor kept running after Start was released",
-  },
-  "foundations-3": {
-    test: (m, i) => !i.Overload_OK && !m.Motor_Run && Boolean(m.Fault_Lamp),
-    message: "overload trip stopped the motor and lit the fault lamp",
-  },
-};
-const WATCHED = new Set(TAGS.map((t) => t.tag));
+// How far each lesson has got through its checkpoint steps this session.
+const checkpointStep: Record<string, number> = {};
+
 
 function compile(source: string): { program: Program | null; error: LadderError | null } {
   try {
@@ -74,6 +53,7 @@ function compile(source: string): { program: Program | null; error: LadderError 
 
 const initialSources = Object.fromEntries(lessons.map((l) => [l.id, l.code.join("\n")]));
 const first = lessons[0];
+const rigOf = (lessonId: string) => rigFor(lessons.find((l) => l.id === lessonId)?.rig);
 
 interface SimState {
   lessonId: string;
@@ -87,16 +67,18 @@ interface SimState {
   runStartedAt: number;
   memory: Memory;
   trace: RungTrace[];
-  physical: Physical;
-  faults: Faults;
+  /** The rig the current lesson runs on. */
+  rigId: RigId;
+  physical: PhysicalState;
+  faults: FaultState;
   log: LogLine[];
 
-  selected: PartId | null;
+  selected: string | null;
   /** Rung number (1 based) called out in the ladder view, used by lesson videos. */
   highlightRung: number | null;
   /** Wiring options of the current lesson. */
   rigOptions: RigOptions;
-  hovered: PartId | null;
+  hovered: string | null;
   exploded: boolean;
   rotationSteps: number;
   cameraCommand: CameraCommand | null;
@@ -115,17 +97,18 @@ interface SimState {
   stepScan: () => void;
   setScanMs: (ms: number) => void;
   tick: () => void;
-  press: (button: "start" | "stop" | "aux", down: boolean) => void;
-  toggleEstop: () => void;
-  tripOverload: () => void;
-  resetOverload: () => void;
-  setFault: (key: keyof Faults, value: boolean) => void;
-  select: (id: PartId | null) => void;
-  hover: (id: PartId | null) => void;
+  /** Press or release the hold button on a part, e.g. press("start", true). */
+  press: (part: string, down: boolean) => void;
+  setPhysical: (patch: PhysicalState) => void;
+  /** Run a popover control: toggles flip, actions apply their patch, sliders take a value. */
+  act: (control: Control, value?: number | boolean) => void;
+  setFault: (key: string, value: boolean) => void;
+  select: (id: string | null) => void;
+  hover: (id: string | null) => void;
   toggleExplode: () => void;
   rotate: (dir: 1 | -1) => void;
   zoomBy: (factor: number) => void;
-  focusPart: (id: PartId) => void;
+  focusPart: (id: string) => void;
   setHighlightRung: (n: number | null) => void;
   resetView: () => void;
   setSetting: (key: keyof Settings, value: boolean) => void;
@@ -143,14 +126,20 @@ const simStore: StateCreator<SimState> = (set, get) => {
     set({ log: [...log.slice(-(MAX_LOG - 1)), line] });
   };
 
+  const rig = (): RigDef => rigFor(get().rigId);
+  const inputsNow = () => rig().readInputs(get().physical, get().faults, get().rigOptions);
+
   const executeScan = (dtMs: number) => {
-    const { program, memory, physical, faults, scanCount } = get();
+    const { program, memory, faults, scanCount } = get();
     if (!program) return;
-    const inputs = readInputs(physical, faults, get().rigOptions);
+    const inputs = inputsNow();
+    const watched = rig().tags.filter((t) => !t.analog).map((t) => t.tag);
+    const tagAddress = (tag: string) => rig().tags.find((t) => t.tag === tag)?.address;
     const result = scan(program, { ...memory, ...inputs }, dtMs);
 
     const changes: string[] = [];
-    for (const tag of new Set([...WATCHED, ...collectTags(program)])) {
+    for (const tag of new Set([...watched, ...collectTags(program)])) {
+      if (typeof result.memory[tag] === "number" && !tag.includes(".")) continue;
       const before = Boolean(memory[tag]);
       const after = Boolean(result.memory[tag]);
       if (before !== after) {
@@ -162,17 +151,23 @@ const simStore: StateCreator<SimState> = (set, get) => {
     changes.forEach((c) => pushLog(`scan ${scanCount + 1} · ${c}`, "change"));
 
     const { lessonId, completed } = get();
-    const check = CHECKPOINTS[lessonId];
-    if (check && !completed[lessonId] && check.test(result.memory, inputs)) {
-      set({ completed: { ...completed, [lessonId]: true } });
-      pushLog(`checkpoint passed · ${check.message}`, "success");
+    const check = lessons.find((l) => l.id === lessonId)?.checkpoint;
+    if (check && !completed[lessonId]) {
+      const step = checkpointStep[lessonId] ?? 0;
+      if (check.steps[step]?.(result.memory, inputs, { ...faults })) {
+        checkpointStep[lessonId] = step + 1;
+        if (step + 1 >= check.steps.length) {
+          set({ completed: { ...completed, [lessonId]: true } });
+          pushLog(`checkpoint passed · ${check.message}`, "success");
+        }
+      }
     }
   };
 
   const evaluateIdle = () => {
-    const { program, memory, physical, faults } = get();
+    const { program, memory } = get();
     if (!program) return set({ trace: [] });
-    const inputs = readInputs(physical, faults, get().rigOptions);
+    const inputs = inputsNow();
     // Preview power flow without writing outputs, so a stopped PLC still shows which contacts would pass.
     const preview = scan(program, { ...memory, ...inputs }, 0);
     set({ trace: preview.trace });
@@ -189,8 +184,9 @@ const simStore: StateCreator<SimState> = (set, get) => {
     runStartedAt: 0,
     memory: {},
     trace: [],
-    physical: INITIAL_PHYSICAL,
-    faults: NO_FAULTS,
+    rigId: first.rig,
+    physical: rigFor(first.rig).initial,
+    faults: {},
     log: [],
 
     selected: null,
@@ -210,8 +206,19 @@ const simStore: StateCreator<SimState> = (set, get) => {
     setLesson: (id) => {
       const { sources, running } = get();
       if (running) get().setRunning(false);
-      const rigOptions = lessons.find((l) => l.id === id)?.rigOptions ?? {};
-      set({ lessonId: id, rigOptions, ...compile(sources[id] ?? ""), memory: {}, scanCount: 0, selected: null });
+      const lesson = lessons.find((l) => l.id === id);
+      const rigOptions = (lesson?.rigOptions ?? {}) as RigOptions;
+      const nextRig = rigOf(id);
+      const rigChanged = nextRig.id !== get().rigId;
+      set({
+        lessonId: id,
+        rigOptions,
+        ...compile(sources[id] ?? ""),
+        memory: {},
+        scanCount: 0,
+        selected: null,
+        ...(rigChanged ? { rigId: nextRig.id, physical: nextRig.initial, faults: {}, exploded: false } : {}),
+      });
       evaluateIdle();
     },
 
@@ -242,7 +249,7 @@ const simStore: StateCreator<SimState> = (set, get) => {
         set({ running: true, memory: {}, scanCount: 0, runStartedAt: Date.now(), log: [], ranLessons: { ...get().ranLessons, [get().lessonId]: true } });
         pushLog(`PLC to RUN · ${program.rungs.length} rung${program.rungs.length === 1 ? "" : "s"} loaded`);
       } else {
-        const outputsOff = Object.fromEntries(TAGS.filter((t) => t.kind === "output").map((t) => [t.tag, false]));
+        const outputsOff = Object.fromEntries(rig().tags.filter((t) => t.kind === "output").map((t) => [t.tag, false]));
         set({ running: false, memory: { ...get().memory, ...outputsOff } });
         pushLog("PLC to STOP · outputs off");
         evaluateIdle();
@@ -255,7 +262,7 @@ const simStore: StateCreator<SimState> = (set, get) => {
       if (running) get().setRunning(false);
       if (!runStartedAt) set({ runStartedAt: Date.now() });
       executeScan(get().scanMs);
-      set({ physical: stepPhysics(get().physical, get().faults, get().memory, get().scanMs) });
+      set({ physical: rig().step(get().physical, get().faults, get().memory, get().scanMs) });
     },
 
     setScanMs: (ms) => set({ scanMs: ms }),
@@ -265,38 +272,43 @@ const simStore: StateCreator<SimState> = (set, get) => {
       if (running) executeScan(scanMs);
       const before = get().physical;
       const memory = get().running ? get().memory : {};
-      const physical = stepPhysics(before, get().faults, memory, scanMs);
+      const physical = rig().step(before, get().faults, memory, scanMs);
       set({ physical });
-      if (!before.overloadTripped && physical.overloadTripped) pushLog("fault · overload tripped on high current", "fault");
+      rig().events?.(before, physical).forEach(([text, kind]) => pushLog(text, kind));
       if (!running) evaluateIdle();
     },
 
-    press: (button, down) => {
-      const key = button === "start" ? "startPressed" : button === "stop" ? "stopPressed" : "auxPressed";
-      set({ physical: { ...get().physical, [key]: down }, pressing: down });
+    press: (part, down) => {
+      const control = rig().controls.find((c) => c.kind === "hold" && c.part === part);
+      if (!control || control.kind !== "hold") return;
+      set({ physical: { ...get().physical, [control.key]: down }, pressing: down });
       if (!get().running) evaluateIdle();
     },
 
-    toggleEstop: () => {
-      const pressed = !get().physical.estopPressed;
-      set({ physical: { ...get().physical, estopPressed: pressed } });
-      pushLog(pressed ? "safety · e-stop pressed, coil circuit broken" : "safety · e-stop released", pressed ? "fault" : "info");
+    setPhysical: (patch) => {
+      set({ physical: { ...get().physical, ...patch } });
       if (!get().running) evaluateIdle();
     },
 
-    tripOverload: () => {
-      set({ physical: { ...get().physical, overloadTripped: true, heat: 1 } });
-      pushLog("fault · overload tripped by hand", "fault");
-    },
-
-    resetOverload: () => {
-      set({ physical: { ...get().physical, overloadTripped: false, heat: Math.min(get().physical.heat, 0.6) } });
-      pushLog("overload reset");
+    act: (control, value) => {
+      const p = get().physical;
+      if (control.kind === "toggle") {
+        const on = typeof value === "boolean" ? value : !p[control.key];
+        set({ physical: { ...p, [control.key]: on } });
+        const text = on ? control.logOn : control.logOff;
+        if (text) pushLog(text, on && control.logOn?.startsWith("safety") ? "fault" : "info");
+      } else if (control.kind === "slider") {
+        set({ physical: { ...p, [control.key]: Number(value ?? 0) } });
+      } else if (control.kind === "action") {
+        set({ physical: control.patch(p) });
+        if (control.log) pushLog(control.log, control.danger ? "fault" : "info");
+      }
+      if (!get().running) evaluateIdle();
     },
 
     setFault: (key, value) => {
       set({ faults: { ...get().faults, [key]: value } });
-      const label = { stuckStart: "start button stuck closed", brokenStop: "stop wire broken", jam: "motor shaft jammed" }[key];
+      const label = rig().faults.find((f) => f.key === key)?.label.toLowerCase() ?? key;
       pushLog(`${value ? "fault injected" : "fault cleared"} · ${label}`, value ? "fault" : "info");
       if (!get().running) evaluateIdle();
     },
@@ -309,7 +321,7 @@ const simStore: StateCreator<SimState> = (set, get) => {
     zoomBy: (factor) => set({ cameraCommand: { type: "zoom", factor }, cameraVersion: get().cameraVersion + 1 }),
 
     focusPart: (id) => {
-      const part = partById(id);
+      const part = rig().parts.find((p) => p.id === id);
       if (!part) return;
       set({
         selected: id,
@@ -363,10 +375,14 @@ export const useSim = create<SimState>()(
   }),
 );
 
+/** The rig the current lesson runs on. */
+export const useRig = () => rigFor(useSim((s) => s.rigId));
+
 /** Live input image of the rig, with the current lesson's wiring options applied. */
 export const useInputs = () => {
+  const rig = useRig();
   const physical = useSim((s) => s.physical);
   const faults = useSim((s) => s.faults);
   const options = useSim((s) => s.rigOptions);
-  return readInputs(physical, faults, options);
+  return rig.readInputs(physical, faults, options);
 };

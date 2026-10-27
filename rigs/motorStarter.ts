@@ -1,4 +1,6 @@
 import type { Memory } from "@/engine/scan";
+import type { Control, FaultState, LiveReadout, PhysicalState, RigDef } from "./types";
+import { FIELD_DEVICES, PLC_TERMINALS, WIRES } from "./motorStarterWiring";
 
 export type Vec3 = [number, number, number];
 
@@ -177,6 +179,7 @@ export interface Physical {
 /** Per lesson wiring choices, e.g. the safe stop lesson rewires Stop as normally closed. */
 export interface RigOptions {
   stopNC?: boolean;
+  [key: string]: boolean | number | string | undefined;
 }
 
 export interface Faults {
@@ -252,8 +255,8 @@ export const ANNOTATIONS: Annotation[] = [
     part: "start",
     title: "Pushbuttons",
     text: "Green Start, red Stop, both momentary. They only close while pressed, so the logic has to remember.",
-    labs: ["F1", "F2", "F3"],
-    more: 14,
+    labs: ["F2", "F4", "F6"],
+    more: 12,
     side: "left",
     icon: "pushbuttons",
   },
@@ -262,8 +265,8 @@ export const ANNOTATIONS: Annotation[] = [
     part: "estop",
     title: "E-stop",
     text: "Latching mushroom on a hardwired NC loop. It drops the coil directly, the PLC only watches it.",
-    labs: ["F3", "F16"],
-    more: 6,
+    labs: ["F14", "F15"],
+    more: 1,
     side: "left",
     icon: "estop",
   },
@@ -272,8 +275,8 @@ export const ANNOTATIONS: Annotation[] = [
     part: "plc",
     title: "PLC and I/O",
     text: "Reads inputs, runs the rungs top to bottom, writes outputs. One pass is a scan, 100 ms here.",
-    labs: ["F1", "F2", "F3"],
-    more: 17,
+    labs: ["F1", "F3", "F12"],
+    more: 12,
     side: "left",
     icon: "plc",
   },
@@ -282,8 +285,8 @@ export const ANNOTATIONS: Annotation[] = [
     part: "contactor",
     title: "Contactor",
     text: "Q0.0 energises a 24 V DC coil and three main contacts close to feed the motor.",
-    labs: ["F1", "F2", "F3"],
-    more: 9,
+    labs: ["F2", "F4", "F5"],
+    more: 12,
     side: "right",
     icon: "contactor",
   },
@@ -292,8 +295,8 @@ export const ANNOTATIONS: Annotation[] = [
     part: "overload",
     title: "Overload relay",
     text: "Heats with motor current and trips before the windings burn. Contact 95-96 is normally closed.",
-    labs: ["F3", "F16"],
-    more: 4,
+    labs: ["F7", "F10"],
+    more: 3,
     side: "right",
     icon: "overload",
   },
@@ -302,9 +305,98 @@ export const ANNOTATIONS: Annotation[] = [
     part: "motor",
     title: "Motor",
     text: "1.1 kW three phase induction motor. Pulls about six times rated current while it starts.",
-    labs: ["F1", "F2", "F3"],
-    more: 12,
+    labs: ["F7", "F12"],
+    more: 13,
     side: "right",
     icon: "motor",
   },
 ];
+
+const CONTROLS: Control[] = [
+  { kind: "hold", part: "start", label: "Hold to press", key: "startPressed", tone: "#2e9e5b" },
+  { kind: "hold", part: "stop", label: "Hold to press", key: "stopPressed", tone: "#d64545" },
+  { kind: "hold", part: "aux", label: "Hold to press", key: "auxPressed", tone: "#3d434a" },
+  {
+    kind: "toggle",
+    part: "estop",
+    label: "Mushroom head",
+    key: "estopPressed",
+    on: "Pressed",
+    off: "Released",
+    logOn: "safety · e-stop pressed, coil circuit broken",
+    logOff: "safety · e-stop released",
+  },
+  { kind: "meter", part: "overload", label: "Thermal load", key: "heat", max: 1, scale: 100, unit: "%", tone: "#f26b1d" },
+  {
+    kind: "action",
+    part: "overload",
+    label: "Trip",
+    danger: true,
+    patch: (p) => ({ ...p, overloadTripped: true, heat: 1 }),
+    log: "fault · overload tripped by hand",
+  },
+  {
+    kind: "action",
+    part: "overload",
+    label: "Reset",
+    patch: (p) => ({ ...p, overloadTripped: false, heat: Math.min(Number(p.heat), 0.6) }),
+    log: "overload reset",
+  },
+  { kind: "meter", part: "motor", label: "Speed", key: "motorSpeed", max: 1, scale: 1420, unit: "rpm", tone: "#2457a6" },
+  { kind: "meter", part: "motor", label: "Current", key: "current", max: 15, unit: "A", tone: "#6b4fa0" },
+  {
+    kind: "status",
+    part: "contactor",
+    label: "Main contacts",
+    value: (p, m, running) => {
+      const on = running && contactorClosed(m, p as unknown as Physical);
+      return { text: on ? "Closed" : "Open", on };
+    },
+  },
+  { kind: "status", part: "beacon", label: "Q0.3 beacon", value: (_p, m) => ({ text: m.Beacon ? "On" : "Off", on: Boolean(m.Beacon) }) },
+];
+
+function live(part: string, ps: PhysicalState, m: Memory, running: boolean): LiveReadout {
+  const p = ps as unknown as Physical;
+  switch (part) {
+    case "motor":
+      return p.motorSpeed > 0.02
+        ? { text: `${Math.round(p.motorSpeed * 1420)} rpm · ${p.current.toFixed(1)} A`, ring: p.current > 4 ? "warn" : "run" }
+        : { text: null, ring: null };
+    case "overload":
+      if (p.overloadTripped) return { text: "tripped", ring: "fault" };
+      return p.heat > 0.03 ? { text: `${Math.round(p.heat * 100)} % thermal`, ring: "warn" } : { text: null, ring: null };
+    case "contactor":
+      return running && contactorClosed(m, p) ? { text: "closed · coil on", ring: "run" } : { text: null, ring: null };
+    case "estop":
+      return p.estopPressed ? { text: "pressed", ring: "fault" } : { text: null, ring: null };
+    case "start":
+      return p.startPressed ? { text: "start pressed", ring: "run" } : p.stopPressed ? { text: "stop pressed", ring: "warn" } : { text: null, ring: null };
+    default:
+      return { text: null, ring: null };
+  }
+}
+
+export const motorStarter: RigDef = {
+  id: "motor-starter",
+  name: "Motor starter bench",
+  headline: ["Start", "stop"],
+  tagline: "Wire · Run · Watch · Read the code",
+  tags: TAGS,
+  parts: PARTS,
+  annotations: ANNOTATIONS,
+  initial: INITIAL_PHYSICAL as unknown as PhysicalState,
+  faults: [
+    { key: "stuckStart", label: "Start stuck closed", part: "start" },
+    { key: "brokenStop", label: "Stop wire broken", part: "stop" },
+    { key: "jam", label: "Jam the shaft", part: "motor" },
+  ],
+  controls: CONTROLS,
+  wiring: { terminals: PLC_TERMINALS, devices: FIELD_DEVICES, wires: WIRES },
+  readInputs: (p, f, o) => readInputs(p as unknown as Physical, { ...NO_FAULTS, ...f } as Faults, o as RigOptions),
+  step: (p, f, m, dt) => stepPhysics(p as unknown as Physical, { ...NO_FAULTS, ...f } as Faults, m, dt) as unknown as PhysicalState,
+  events: (b, a) => (!b.overloadTripped && a.overloadTripped ? [["fault · overload tripped on high current", "fault"]] : []),
+  live,
+};
+
+export type { FaultState };

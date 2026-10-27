@@ -1,15 +1,13 @@
-import { PLC_TERMINALS, WIRES, type TerminalKind } from "@/data/teach";
+import type { TerminalKind, Wiring } from "@/rigs/types";
 
 export type ChipTone = "used" | "safe" | "avoid" | "power" | "ground";
 
-const AVOID = new Set(["Q0.3"]);
-
-export function toneFor(id: string, used: Set<string>): ChipTone {
-  const t = PLC_TERMINALS.find((p) => p.id === id);
+export function toneFor(id: string, used: Set<string>, wiring: Wiring): ChipTone {
+  const t = wiring.terminals.find((p) => p.id === id);
   const kind: TerminalKind | undefined = t?.kind;
   if (kind === "power") return "power";
   if (kind === "ground") return "ground";
-  if (AVOID.has(id)) return "avoid";
+  if (wiring.avoid?.includes(id)) return "avoid";
   return used.has(id) ? "used" : "safe";
 }
 
@@ -57,8 +55,8 @@ export function Legend({ className = "" }: { className?: string }) {
   );
 }
 
-export function usedTerminals(wires: number[]) {
-  return new Set(WIRES.filter((w) => wires.includes(w.n)).map((w) => w.plc));
+export function usedTerminals(wires: number[], wiring: Wiring) {
+  return new Set(wiring.wires.filter((w) => wires.includes(w.n)).map((w) => w.plc));
 }
 
 export const TERMINAL_FILL: Record<ChipTone, string> = {

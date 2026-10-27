@@ -2,9 +2,8 @@
 
 import { useMemo, useState, type ReactNode } from "react";
 import { parseProgram, type LogicNode, type Program, type Rung } from "@/engine/ladder";
-import { TAGS } from "@/rigs/motorStarter";
 import { TEACH } from "@/data/teach";
-import { useSim } from "@/store/sim";
+import { useRig, useSim } from "@/store/sim";
 import { IconArrowLeft, IconArrowRight } from "@/components/ui/icons";
 
 type Mode = "tour" | "story" | "explore";
@@ -132,6 +131,7 @@ function Ring({ pct }: { pct: number }) {
 }
 
 export function CodeReader({ onBack }: { onBack: () => void }) {
+  const rig = useRig();
   const lessonId = useSim((s) => s.lessonId);
   const source = useSim((s) => s.sources[s.lessonId] ?? "");
   const teach = TEACH[lessonId];
@@ -280,7 +280,7 @@ export function CodeReader({ onBack }: { onBack: () => void }) {
                     <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-ink">Tags in this scene</p>
                     <div className="mt-1.5 space-y-1.5">
                       {tourScene.handsTo.map((t) => {
-                        const meta = TAGS.find((x) => x.tag === t);
+                        const meta = rig.tags.find((x) => x.tag === t);
                         return (
                           <div key={t} className="flex items-center justify-between rounded-lg border border-[#e4e6e9] px-3 py-2 font-mono text-[12px]">
                             <span className="text-ink">{t}</span>
@@ -332,7 +332,7 @@ export function CodeReader({ onBack }: { onBack: () => void }) {
                     <p className="mt-2 rounded-lg bg-[#f4f5f6] px-3 py-2.5 text-[13px] leading-[1.5] text-ink">{rungInEnglish(pickedRung)}</p>
                     <ul className="mt-3 space-y-2">
                       {instructionsOn(lines[pickedRung.line - 1]).map((x, k) => {
-                        const meta = TAGS.find((t) => t.tag === x.arg);
+                        const meta = rig.tags.find((t) => t.tag === x.arg);
                         return (
                           <li key={k} className="text-[12.5px] leading-[1.5] text-[#4b5058]">
                             <span className="font-mono font-semibold text-[#7a3fb0]">{x.op}</span>

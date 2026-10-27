@@ -4,10 +4,14 @@ import { createContext, Suspense, useContext, useEffect, useMemo, useRef, type R
 import * as THREE from "three";
 import { useFrame, type ThreeEvent } from "@react-three/fiber";
 import { useGLTF } from "@react-three/drei";
-import { useSim } from "@/store/sim";
-import { contactorClosed, partById, readInputs, type PartId } from "@/rigs/motorStarter";
+import { useInputs, useSim } from "@/store/sim";
+import { contactorClosed, motorStarter, partById, type PartId, type Physical } from "@/rigs/motorStarter";
+import type { PhysicalState } from "@/rigs/types";
 import { Cable, Decal, Dome, GLOW, GlowCtxValue, GlowScope, RBox, RCyl, Screw, ScrewRow, type V3 } from "./pbr";
 import { PlatePrint } from "./PlatePrint";
+
+/** This rig's physical state, typed. The store holds every rig's state as a plain record. */
+const ms = (p: PhysicalState) => p as unknown as Physical;
 
 const C = {
   housing: "#e6e8ea",
@@ -202,10 +206,7 @@ function Controller() {
 
 function SignalBoard() {
   const memory = useSim((s) => s.memory);
-  const physical = useSim((s) => s.physical);
-  const faults = useSim((s) => s.faults);
-  const rigOptions = useSim((s) => s.rigOptions);
-  const inputs = readInputs(physical, faults, rigOptions);
+  const inputs = useInputs();
   const ins = ["Start_PB", "Stop_PB", "Overload_OK", "EStop_OK", "Aux_PB"].map((t) => Boolean(inputs[t]));
   const outs = ["Motor_Run", "Run_Lamp", "Fault_Lamp", "Beacon"].map((t) => Boolean(memory[t]));
   return (
@@ -285,7 +286,7 @@ function ContactorProcedural() {
 
 /** Body is a baked Blender model (scripts/blender/contactor.py); the moving flag and print stay live. */
 function Contactor() {
-  const closed = useSim((s) => s.running && contactorClosed(s.memory, s.physical));
+  const closed = useSim((s) => s.running && contactorClosed(s.memory, ms(s.physical)));
   const flag = useRef<THREE.Group>(null);
   useFrame((_, dt) => {
     if (flag.current) flag.current.position.z = THREE.MathUtils.damp(flag.current.position.z, closed ? 0.06 : -0.06, 16, dt);
@@ -312,8 +313,8 @@ function Contactor() {
 }
 
 function OverloadRelay() {
-  const tripped = useSim((s) => s.physical.overloadTripped);
-  const heat = useSim((s) => s.physical.heat);
+  const tripped = useSim((s) => Boolean(s.physical.overloadTripped));
+  const heat = useSim((s) => Number(s.physical.heat));
   const w = 0.6 * Math.max(0.04, heat);
   return (
     <Part id="overload">
@@ -402,7 +403,7 @@ function Terminals() {
 const ST = { x: -3.3, z: 2.95 };
 
 function PushButton({ id, x, color, label }: { id: "start" | "stop" | "aux"; x: number; color: string; label: string }) {
-  const pressed = useSim((s) => (id === "start" ? s.physical.startPressed || s.faults.stuckStart : id === "stop" ? s.physical.stopPressed : s.physical.auxPressed));
+  const pressed = useSim((s) => Boolean(id === "start" ? s.physical.startPressed || s.faults.stuckStart : id === "stop" ? s.physical.stopPressed : s.physical.auxPressed));
   const cap = useRef<THREE.Group>(null);
   useFrame((_, dt) => {
     if (cap.current) cap.current.position.y = THREE.MathUtils.damp(cap.current.position.y, pressed ? -0.09 : 0, 25, dt);
@@ -427,7 +428,7 @@ function PushButton({ id, x, color, label }: { id: "start" | "stop" | "aux"; x: 
 }
 
 function EStop() {
-  const pressed = useSim((s) => s.physical.estopPressed);
+  const pressed = useSim((s) => Boolean(s.physical.estopPressed));
   const head = useRef<THREE.Group>(null);
   useFrame((_, dt) => {
     if (head.current) head.current.position.y = THREE.MathUtils.damp(head.current.position.y, pressed ? -0.11 : 0, 20, dt);
@@ -439,7 +440,8 @@ function EStop() {
         onPointerDown={(e) => {
           e.stopPropagation();
           useSim.getState().select("estop");
-          useSim.getState().toggleEstop();
+          const toggle = motorStarter.controls.find((c) => c.part === "estop");
+          if (toggle) useSim.getState().act(toggle);
         }}
       >
         <RCyl r={0.6} h={0.06} position={[0, 1.12, 0]} kind="plastic" color={C.yellow} fillet={0.02} />
@@ -517,7 +519,7 @@ const M = { x: 3.9, y: 1.42, z: 1.0 };
 function Motor() {
   const coupling = useRef<THREE.Group>(null);
   useFrame((_, dt) => {
-    if (coupling.current) coupling.current.rotation.x -= useSim.getState().physical.motorSpeed * dt * 14;
+    if (coupling.current) coupling.current.rotation.x -= Number(useSim.getState().physical.motorSpeed) * dt * 14;
   });
   const ribs = Array.from({ length: 22 }, (_, i) => (i / 22) * Math.PI * 2);
   return (
@@ -647,13 +649,11 @@ const IO_FRONT = (i: number) => -1.4 - 0.3 + i * 0.2;
 function Wiring() {
   const exploded = useSim((s) => s.exploded);
   const memory = useSim((s) => s.memory);
-  const physical = useSim((s) => s.physical);
-  const faults = useSim((s) => s.faults);
-  const rigOptions = useSim((s) => s.rigOptions);
+  const physical = useSim((s) => ms(s.physical));
   const running = useSim((s) => s.running);
   const shown = useShown("wiring");
+  const inputs = useInputs();
   if (exploded || !shown) return null;
-  const inputs = readInputs(physical, faults, rigOptions);
   const power = running && contactorClosed(memory, physical);
   const g = (on: unknown) => (on ? 0.32 : 0);
   const F: [boolean, boolean] = [true, false];

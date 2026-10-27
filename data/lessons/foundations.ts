@@ -4,6 +4,7 @@ import { IO } from "./io";
 export const FOUNDATIONS: Record<string, LessonContent> = {
   "foundations-1": {
     difficulty: "beginner",
+    checkpoint: { steps: [(m) => Boolean(m.Motor_Run)], message: "motor ran from the Start button" },
     summary:
       "Every ladder program is built from a few symbols. A contact asks a question about an input, a coil acts on the answer. Hold Start and the motor runs. Let go and it stops.",
     facts: [
@@ -27,6 +28,7 @@ export const FOUNDATIONS: Record<string, LessonContent> = {
   },
   "foundations-2": {
     difficulty: "beginner",
+    checkpoint: { steps: [(m, i) => Boolean(m.Motor_Run) && !i.Start_PB], message: "motor kept running after Start was released" },
     summary:
       "A momentary button can keep a motor running if the logic remembers it. A branch around Start, driven by the output itself, holds the rung true after you let go. This one pattern is in almost every motor panel.",
     facts: [
@@ -55,6 +57,10 @@ export const FOUNDATIONS: Record<string, LessonContent> = {
   },
   "foundations-3": {
     difficulty: "beginner",
+    checkpoint: {
+      steps: [(m, i) => !i.Overload_OK && !m.Motor_Run && Boolean(m.Fault_Lamp)],
+      message: "overload trip stopped the motor and lit the fault lamp",
+    },
     summary:
       "A breaker protects cables from short circuits, but a motor that works too hard heats up slowly. The thermal overload relay watches the current and trips before the windings burn. Its contact is normally closed, so a trip, or a broken wire, stops the motor.",
     facts: [

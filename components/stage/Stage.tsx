@@ -3,12 +3,13 @@
 import dynamic from "next/dynamic";
 import { useEffect, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
-import { useSim } from "@/store/sim";
-import { ANNOTATIONS, contactorClosed, type Annotation, type PartId } from "@/rigs/motorStarter";
+import { useRig, useSim } from "@/store/sim";
+import type { Annotation } from "@/rigs/types";
 import { markerScreen } from "./annotationBus";
 import { PartPopover } from "./PartPopover";
 import { Sheet } from "@/components/shell/Sheet";
 import { IconCrosshair, IconRotateLeft, IconRotateRight, IconZoomIn, IconZoomOut } from "@/components/ui/icons";
+import { lessons } from "@/data/lessons";
 
 const Scene = dynamic(() => import("./Scene"), {
   ssr: false,
@@ -17,7 +18,6 @@ const Scene = dynamic(() => import("./Scene"), {
   ),
 });
 
-const LAB_ICON: Record<string, string> = { F1: "pushbuttons", F2: "contactor", F3: "overload", F16: "estop" };
 
 type Tone = "run" | "warn" | "fault" | "idle";
 interface Live {
@@ -26,29 +26,13 @@ interface Live {
 }
 
 /** Live state for a part, shown in its card and as a ring around its marker, never floating in the scene. */
-function useLive(part: PartId): Live {
+function useLive(part: string): Live {
+  const rig = useRig();
   return useSim(
     useShallow((s): Live => {
-    const p = s.physical;
-    switch (part) {
-      case "motor":
-        return p.motorSpeed > 0.02
-          ? { text: `${Math.round(p.motorSpeed * 1420)} rpm · ${p.current.toFixed(1)} A`, ring: p.current > 4 ? "warn" : "run" }
-          : { text: null, ring: null };
-      case "overload":
-        if (p.overloadTripped) return { text: "tripped", ring: "fault" };
-        return p.heat > 0.03 ? { text: `${Math.round(p.heat * 100)} % thermal`, ring: "warn" } : { text: null, ring: null };
-      case "contactor":
-        return s.running && contactorClosed(s.memory, p) ? { text: "closed · coil on", ring: "run" } : { text: null, ring: null };
-      case "plc":
-        return s.running ? { text: `run · scan ${s.scanCount}`, ring: "run" } : { text: "stop", ring: null };
-      case "estop":
-        return p.estopPressed ? { text: "pressed", ring: "fault" } : { text: null, ring: null };
-      case "start":
-        return p.startPressed || s.faults.stuckStart ? { text: "start pressed", ring: "run" } : p.stopPressed ? { text: "stop pressed", ring: "warn" } : { text: null, ring: null };
-      default:
-        return { text: null, ring: null };
-    }
+      if (part === "plc") return s.running ? { text: `run · scan ${s.scanCount}`, ring: "run" } : { text: "stop", ring: null };
+      const stuck = part === "start" && s.faults.stuckStart;
+      return stuck ? { text: "start stuck closed", ring: "warn" } : rig.live(part, s.physical, s.memory, s.running);
     }),
   );
 }
@@ -68,11 +52,20 @@ const RING: Record<Tone, string> = {
 };
 
 export function LabChip({ code }: { code: string }) {
-  const icon = LAB_ICON[code] ?? "plc";
+  const lesson = lessons.find((l) => l.chip === code);
   return (
-    <span className="inline-flex items-center gap-1 rounded-full border border-[#e3e5e8] bg-white py-[3px] pl-1 pr-2 font-mono text-[10.5px] font-semibold text-ink">
+    <span title={lesson?.title} className="inline-flex items-center gap-1 rounded-full border border-[#e3e5e8] bg-white py-[3px] pl-1 pr-2 font-mono text-[10.5px] font-semibold text-ink">
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={`/parts/${icon}.png`} alt="" width={16} height={16} className="h-4 w-4 object-contain" />
+      <img
+        src={lesson ? `/parts/labs/${lesson.id}.png` : "/parts/plc.png"}
+        onError={(e) => {
+          if (!e.currentTarget.src.endsWith("/parts/plc.png")) e.currentTarget.src = "/parts/plc.png";
+        }}
+        alt=""
+        width={16}
+        height={16}
+        className="h-4 w-4 object-contain"
+      />
       {code}
     </span>
   );
@@ -167,6 +160,7 @@ function Markers({
   const lines = useRef<Record<number, SVGLineElement | null>>({});
   const dots = useRef<Record<number, SVGCircleElement | null>>({});
   const hovered = useSim((s) => s.hovered);
+  const ANNOTATIONS = useRig().annotations;
 
   useEffect(() => {
     let raf = 0;
@@ -215,7 +209,7 @@ function Markers({
     };
     loop();
     return () => cancelAnimationFrame(raf);
-  }, [bodyRef, canvasRef, cards]);
+  }, [bodyRef, canvasRef, cards, ANNOTATIONS]);
 
   return (
     <>
@@ -305,6 +299,8 @@ export function MeetTheRig() {
   const canvas = useRef<HTMLDivElement>(null);
   const cards = useRef<Record<number, HTMLDivElement | null>>({});
   const [sheet, setSheet] = useState<Annotation | null>(null);
+  const rig = useRig();
+  const ANNOTATIONS = rig.annotations;
   const focusPart = useSim((s) => s.focusPart);
   const hover = useSim((s) => s.hover);
   const resetView = useSim((s) => s.resetView);
@@ -330,7 +326,7 @@ export function MeetTheRig() {
       <div className="flex flex-col gap-2 px-5 pt-5 sm:flex-row sm:items-start sm:justify-between sm:px-6">
         <h2 className="font-display text-[22px] font-bold uppercase tracking-[0.08em] text-ink">Meet the rig</h2>
         <p className="max-w-[440px] text-[13px] leading-[1.5] text-[#4b5058] sm:text-right">
-          Six parts you will use lesson after lesson. Drag the rig to turn it; pick a part to light it up and see which labs use it.
+          {ANNOTATIONS.length} parts you will use lesson after lesson. Drag the rig to turn it; pick a part to light it up and see which labs use it.
         </p>
       </div>
 

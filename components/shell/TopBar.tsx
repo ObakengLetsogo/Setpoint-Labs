@@ -4,12 +4,13 @@ import { LogoMark } from "@/components/Logo";
 import { IconBook, IconKeyboard, IconLanguage, IconSliders } from "@/components/ui/icons";
 import { CURRICULUM } from "@/data/curriculum";
 import { lessons } from "@/data/lessons";
-import { useSim } from "@/store/sim";
+import { useRig, useSim } from "@/store/sim";
 
 export function TopBar({ onOpen }: { onOpen: (sheet: "reference" | "settings" | "components" | "language") => void }) {
   const lessonId = useSim((s) => s.lessonId);
   const running = useSim((s) => s.running);
   const lesson = lessons.find((l) => l.id === lessonId)!;
+  const rig = useRig();
   return (
     <header className="flex flex-wrap items-center justify-between gap-3">
       <div className="flex items-center gap-3">
@@ -19,7 +20,7 @@ export function TopBar({ onOpen }: { onOpen: (sheet: "reference" | "settings" | 
         <div className="leading-none">
           <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-ink">Setpoint labs</p>
           <p className="mt-1 font-display text-[22px] font-bold tracking-[0.01em] text-ink">
-            Motor control <span className="text-accent">bench guide</span>
+            {rig.name} <span className="text-accent">guide</span>
           </p>
         </div>
       </div>
@@ -92,18 +93,19 @@ export function Hero({ onReadCode }: { onReadCode: () => void }) {
   const completed = useSim((s) => s.completed);
   const done = Object.values(completed).filter(Boolean).length;
   const ready = lessons.filter((l) => !l.locked).length;
+  const rig = useRig();
   return (
     <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
       <div>
         <h1 className="font-display text-[56px] font-extrabold uppercase leading-[0.9] tracking-[0.01em] text-ink sm:text-[76px]">
-          Start <span className="text-accent">stop</span>
+          {rig.headline[0]} <span className="text-accent">{rig.headline[1]}</span>
         </h1>
-        <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.3em] text-muted-ink">Wire · Run · Watch · Read the code</p>
+        <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.3em] text-muted-ink">{rig.tagline}</p>
       </div>
       <div className="flex items-stretch gap-3">
         <div className="flex divide-x divide-[#e4e6e9] rounded-2xl border border-[#e4e6e9] bg-white shadow-[0_1px_2px_rgba(27,36,48,0.05)]">
           {[
-            [6, "on the rig", "text-run"],
+            [rig.annotations.length, "on the rig", "text-run"],
             [done, "done by you", "text-accent"],
             [ready, "ready to try", "text-ink"],
           ].map(([n, label, tone]) => (
