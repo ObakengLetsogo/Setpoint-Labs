@@ -204,9 +204,10 @@ function SignalBoard() {
   const memory = useSim((s) => s.memory);
   const physical = useSim((s) => s.physical);
   const faults = useSim((s) => s.faults);
-  const inputs = readInputs(physical, faults);
-  const ins = ["Start_PB", "Stop_PB", "Overload_OK", "EStop_OK"].map((t) => Boolean(inputs[t]));
-  const outs = ["Motor_Run", "Run_Lamp", "Fault_Lamp"].map((t) => Boolean(memory[t]));
+  const rigOptions = useSim((s) => s.rigOptions);
+  const inputs = readInputs(physical, faults, rigOptions);
+  const ins = ["Start_PB", "Stop_PB", "Overload_OK", "EStop_OK", "Aux_PB"].map((t) => Boolean(inputs[t]));
+  const outs = ["Motor_Run", "Run_Lamp", "Fault_Lamp", "Beacon"].map((t) => Boolean(memory[t]));
   return (
     <Part id="io">
       <group position={[-1.4, 0.12, -2.2]}>
@@ -214,17 +215,17 @@ function SignalBoard() {
         <TerminalCover width={0.86} z={-0.76} count={4} />
         <TerminalCover width={0.86} z={0.76} count={4} />
         <RBox size={[0.8, 0.04, 1.04]} position={[0, 1.395, 0]} radius={0.02} kind="plastic" color={C.housingDark} />
-        <Decal text="DI   DQ" position={[0, 1.42, -0.43]} width={0.6} height={0.09} color="#97a1ad" weight={700} />
+        <Decal text="DI   DQ" position={[0, 1.42, -0.45]} width={0.6} height={0.09} color="#97a1ad" weight={700} />
         {ins.map((on, i) => (
           <group key={`i${i}`}>
-            <Led on={on} position={[-0.27, 1.415, -0.26 + i * 0.19]} />
-            <Decal text={`.${i}`} position={[-0.13, 1.42, -0.26 + i * 0.19]} width={0.13} height={0.08} color="#97a1ad" />
+            <Led on={on} position={[-0.27, 1.415, -0.3 + i * 0.17]} />
+            <Decal text={`.${i}`} position={[-0.13, 1.42, -0.3 + i * 0.17]} width={0.13} height={0.08} color="#97a1ad" />
           </group>
         ))}
         {outs.map((on, i) => (
           <group key={`q${i}`}>
-            <Led on={on} color="#4da3ff" position={[0.08, 1.415, -0.26 + i * 0.19]} />
-            <Decal text={`.${i}`} position={[0.22, 1.42, -0.26 + i * 0.19]} width={0.13} height={0.08} color="#97a1ad" />
+            <Led on={on} color="#4da3ff" position={[0.08, 1.415, -0.3 + i * 0.17]} />
+            <Decal text={`.${i}`} position={[0.22, 1.42, -0.3 + i * 0.17]} width={0.13} height={0.08} color="#97a1ad" />
           </group>
         ))}
       </group>
@@ -400,8 +401,8 @@ function Terminals() {
 
 const ST = { x: -3.3, z: 2.95 };
 
-function PushButton({ id, x, color, label }: { id: "start" | "stop"; x: number; color: string; label: string }) {
-  const pressed = useSim((s) => (id === "start" ? s.physical.startPressed || s.faults.stuckStart : s.physical.stopPressed));
+function PushButton({ id, x, color, label }: { id: "start" | "stop" | "aux"; x: number; color: string; label: string }) {
+  const pressed = useSim((s) => (id === "start" ? s.physical.startPressed || s.faults.stuckStart : id === "stop" ? s.physical.stopPressed : s.physical.auxPressed));
   const cap = useRef<THREE.Group>(null);
   useFrame((_, dt) => {
     if (cap.current) cap.current.position.y = THREE.MathUtils.damp(cap.current.position.y, pressed ? -0.09 : 0, 25, dt);
@@ -414,12 +415,12 @@ function PushButton({ id, x, color, label }: { id: "start" | "stop"; x: number; 
   return (
     <Part id={id}>
       <group position={[x, 0, ST.z + 0.3]}>
-        <RCyl r={0.38} h={0.09} position={[0, 1.13, 0]} kind="steel" color="#d9dde1" fillet={0.035} />
+        <RCyl r={0.33} h={0.09} position={[0, 1.13, 0]} kind="steel" color="#d9dde1" fillet={0.035} />
         <group ref={cap}>
-          <RCyl r={0.28} h={0.2} position={[0, 1.27, 0]} kind="plastic" color={color} fillet={0.06} onPointerDown={down} />
+          <RCyl r={0.25} h={0.2} position={[0, 1.27, 0]} kind="plastic" color={color} fillet={0.06} onPointerDown={down} />
         </group>
-        <RBox size={[0.62, 0.02, 0.17]} position={[0, 1.1, 0.53]} radius={0.008} kind="plastic" color="#2b3036" />
-        <Decal text={label} position={[0, 1.112, 0.53]} width={0.5} height={0.11} color="#f2f4f6" letterSpacing={0.06} />
+        <RBox size={[0.6, 0.02, 0.17]} position={[0, 1.1, 0.5]} radius={0.008} kind="plastic" color="#2b3036" />
+        <Decal text={label} position={[0, 1.112, 0.5]} width={0.48} height={0.11} color="#f2f4f6" letterSpacing={0.06} />
       </group>
     </Part>
   );
@@ -464,6 +465,25 @@ function PilotLamp({ x, on, color, label }: { x: number; on: boolean; color: str
   );
 }
 
+function Beacon() {
+  const on = useSim((s) => Boolean(s.memory.Beacon));
+  if (!useShown("beacon")) return null;
+  return (
+    <Part id="beacon">
+      <group position={[-0.95, 0, 3.05]}>
+        <RCyl r={0.3} h={0.1} position={[0, 0.05, 0]} kind="paint" color="#3a3f45" fillet={0.03} />
+        <RCyl r={0.13} h={0.7} position={[0, 0.45, 0]} kind="brushed" color={C.aluDark} fillet={0.02} />
+        <RCyl r={0.24} h={0.22} position={[0, 0.91, 0]} kind="plastic" color="#2b3036" fillet={0.04} />
+        {[0, 1, 2, 3].map((k) => (
+          <RBox key={k} size={[0.3, 0.012, 0.02]} position={[0, 0.88 + k * 0.03 - 0.03, 0.235]} radius={0.004} kind="plastic" color="#1d2126" />
+        ))}
+        <RCyl r={0.22} h={0.5} position={[0, 1.27, 0]} kind="lens" color={on ? "#ffb42e" : "#e2c58f"} emissive="#ff9f1a" emissiveIntensity={on ? 12 : 0} fillet={0.03} />
+        <Dome r={0.22} squash={0.55} position={[0, 1.52, 0]} kind="plastic" color="#2b3036" />
+      </group>
+    </Part>
+  );
+}
+
 function Station() {
   const runLamp = useSim((s) => Boolean(s.memory.Run_Lamp));
   const faultLamp = useSim((s) => Boolean(s.memory.Fault_Lamp));
@@ -481,9 +501,11 @@ function Station() {
           <RCyl r={0.12} h={0.08} position={[ST.x, 0.6, ST.z - 0.98]} rotation={[Math.PI / 2, 0, 0]} kind="plastic" color="#2b3036" fillet={0.02} />
         </Explode>
       )}
-      <PushButton id="start" x={-4.3} color={C.green} label="START" />
-      <PushButton id="stop" x={-3.4} color={C.red} label="STOP" />
+      <PushButton id="start" x={-4.65} color={C.green} label="START" />
+      <PushButton id="stop" x={-3.95} color={C.red} label="STOP" />
+      <PushButton id="aux" x={-3.25} color="#2b3036" label="AUX" />
       <EStop />
+      <Beacon />
     </>
   );
 }
@@ -627,10 +649,11 @@ function Wiring() {
   const memory = useSim((s) => s.memory);
   const physical = useSim((s) => s.physical);
   const faults = useSim((s) => s.faults);
+  const rigOptions = useSim((s) => s.rigOptions);
   const running = useSim((s) => s.running);
   const shown = useShown("wiring");
   if (exploded || !shown) return null;
-  const inputs = readInputs(physical, faults);
+  const inputs = readInputs(physical, faults, rigOptions);
   const power = running && contactorClosed(memory, physical);
   const g = (on: unknown) => (on ? 0.32 : 0);
   const F: [boolean, boolean] = [true, false];
@@ -704,6 +727,7 @@ function Wiring() {
         />
       ))}
       <Cable color="#5c636b" radius={0.1} points={[[-6.6, 0.18, 1.98], [-5.5, 0.2, 1.98], [-3.8, 0.22, 1.98], [-2.08, 0.24, 1.97]]} />
+      <Cable color="#3a4047" radius={0.06} points={[[-0.95, 0.08, 2.78], [-1.15, 0.1, 2.6], [-1.45, 0.3, 2.55], [-1.56, 0.45, 2.55]]} />
 
       {[C.brown, C.black, C.grey].map((color, i) => (
         <Cable

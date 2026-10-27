@@ -21,7 +21,8 @@ export function IoPinout({ wires, between }: { wires: number[]; between: string[
   const memory = useSim((s) => s.memory);
   const physical = useSim((s) => s.physical);
   const faults = useSim((s) => s.faults);
-  const inputs = readInputs(physical, faults);
+  const rigOptions = useSim((s) => s.rigOptions);
+  const inputs = readInputs(physical, faults, rigOptions);
   const inputsCol = PLC_TERMINALS.filter((t) => t.kind === "input" || t.id === "24V");
   const outputsCol = PLC_TERMINALS.filter((t) => t.kind === "output" || t.id === "0V");
 

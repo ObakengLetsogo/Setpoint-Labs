@@ -160,3 +160,47 @@ describe("lesson programs", async () => {
     expect(h[2].Fault_Lamp).toBe(true);
   });
 });
+
+describe("one shot, compare and math", () => {
+  it("ONS passes for exactly one scan per press", () => {
+    const h = run("RUNG 1: XIC(Btn) ONS(Btn_OS) OTE(Pulse)", [
+      { set: { Btn: true } },
+      { set: { Btn: true } },
+      { set: { Btn: false } },
+      { set: { Btn: true } },
+    ]);
+    expect(h.map((m) => m.Pulse)).toEqual([true, false, false, true]);
+  });
+
+  it("compares tags against numbers and other tags", () => {
+    const src = "RUNG 1: GRT(Level, 80) OTE(High)\nRUNG 2: LEQ(Level, Low_SP) OTE(Low)";
+    const h = run(src, [{ set: { Level: 90, Low_SP: 20 } }, { set: { Level: 50 } }, { set: { Level: 20 } }]);
+    expect(h.map((m) => [m.High, m.Low])).toEqual([
+      [true, false],
+      [false, false],
+      [false, true],
+    ]);
+  });
+
+  it("MOV, ADD and SUB write numbers while the rung is true", () => {
+    const src = "RUNG 1: XIC(Load) MOV(10, Count)\nRUNG 2: XIC(Inc) ONS(Inc_OS) ADD(Count, 1, Count)\nRUNG 3: XIC(Dec) SUB(Count, 3, Count)";
+    const h = run(src, [{ set: { Load: true } }, { set: { Load: false, Inc: true } }, { set: {} }, { set: { Inc: false, Dec: true } }]);
+    expect(h.map((m) => m.Count)).toEqual([10, 11, 11, 8]);
+  });
+
+  it("CTD counts down on each rising edge", () => {
+    const src = "RUNG 1: XIC(Load) MOV(3, C1.ACC)\nRUNG 2: XIC(Pulse) CTD(C1, 1)";
+    const h = run(src, [{ set: { Load: true } }, { set: { Load: false, Pulse: true } }, { set: { Pulse: false } }, { set: { Pulse: true } }]);
+    expect(h.map((m) => [m["C1.ACC"], m["C1.DN"]])).toEqual([
+      [3, true],
+      [2, true],
+      [2, true],
+      [1, true],
+    ]);
+  });
+
+  it("explains a bad compare clearly", () => {
+    expect(() => parseProgram("RUNG 1: GRT(Level) OTE(High)")).toThrow(/compares two values/);
+    expect(() => parseProgram("RUNG 1: XIC(A) MOV(5) ")).toThrow(/destination tag/);
+  });
+});

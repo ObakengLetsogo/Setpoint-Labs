@@ -1,9 +1,11 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { CURRICULUM, type Track } from "@/data/curriculum";
 import { lessons } from "@/data/lessons";
 import type { LessonIcon } from "@/data/types";
 import { useSim } from "@/store/sim";
-import { IconCheck } from "@/components/ui/icons";
+import { IconCheck, IconChevronDown } from "@/components/ui/icons";
 
 export const LESSON_RENDER: Record<LessonIcon, string> = {
   contacts: "pushbuttons",
@@ -63,132 +65,144 @@ export function StatusLegend() {
 
 interface Node {
   id: string;
-  code: string;
+  chip: string;
   title: string;
-  icon: string;
+  icon: LessonIcon;
   status: Status;
   open: boolean;
 }
 
-function Group({
-  name,
-  blurb,
-  ring,
-  nodes,
-  activeId,
-  onOpen,
-}: {
-  name: string;
-  blurb: string;
-  ring: string;
-  nodes: Node[];
-  activeId: string;
-  onOpen: (id: string) => void;
-}) {
-  const working = nodes.filter((n) => n.status === "done" || n.status === "runs").length;
-  const built = nodes.filter((n) => n.status !== "planned").length;
-  const pct = built ? working / nodes.length : 0;
-  const r = 19;
-  const c = 2 * Math.PI * r;
+function LessonNode({ n, active, onOpen }: { n: Node; active: boolean; onOpen: (id: string) => void }) {
   return (
-    <div className="relative grid gap-4 overflow-hidden rounded-2xl border border-[#e4e6e9] bg-white p-4 pl-5 sm:grid-cols-[220px_minmax(0,1fr)] sm:items-center">
-      <span className="absolute inset-y-0 left-0 w-1" style={{ background: ring }} />
-      <div className="flex items-center gap-3">
-        <span className="relative flex h-12 w-12 shrink-0 items-center justify-center">
-          <svg viewBox="0 0 44 44" className="absolute inset-0 -rotate-90">
-            <circle cx="22" cy="22" r={r} fill="none" stroke="#eceef0" strokeWidth="4" />
-            <circle cx="22" cy="22" r={r} fill="none" stroke={ring} strokeWidth="4" strokeDasharray={c} strokeDashoffset={c * (1 - pct)} strokeLinecap="round" />
-          </svg>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={`/parts/${nodes[0]?.icon ?? "plc"}.png`} alt="" width={26} height={26} className="h-[26px] w-[26px] object-contain" />
+    <button
+      type="button"
+      disabled={!n.open}
+      onClick={() => onOpen(n.id)}
+      className="group flex w-[78px] shrink-0 flex-col items-center gap-1 disabled:cursor-default"
+      title={`${n.chip} ${n.title} · ${STATUS_LABEL[n.status]}`}
+    >
+      <span
+        className={`relative flex h-[58px] w-[58px] items-center justify-center rounded-[14px] transition ${
+          n.status === "planned"
+            ? "border-[1.5px] border-dashed border-[#c5cad0] bg-[#fafbfb]"
+            : active
+              ? "border-2 border-run bg-[#e8f5ef] shadow-[0_0_0_3px_rgba(31,157,107,0.15)]"
+              : "border border-[#d9dde1] bg-[#f3f5f6] group-hover:-translate-y-0.5 group-hover:border-[#b9c0c7]"
+        }`}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={`/parts/labs/${n.id}.png`}
+          onError={(e) => {
+            const img = e.currentTarget;
+            const fallback = `/parts/${LESSON_RENDER[n.icon]}.png`;
+            if (!img.src.endsWith(fallback)) img.src = fallback;
+          }}
+          alt=""
+          width={44}
+          height={44}
+          className={`h-11 w-11 object-contain ${n.status === "planned" ? "opacity-45 grayscale" : ""}`}
+        />
+        <span className="absolute -bottom-1.5 -right-1.5">
+          <StatusDot status={n.status} />
         </span>
-        <div>
-          <p className="font-display text-[17px] font-bold uppercase leading-none tracking-[0.06em] text-ink">{name}</p>
-          <p className="mt-1 text-[12px] text-[#5b6068]">{blurb}</p>
-          <p className="mt-1.5 font-mono text-[11px] text-muted-ink">
-            <span className="font-display text-[17px] font-bold text-ink">{working}</span>/{nodes.length} working
-          </p>
-        </div>
-      </div>
-      <div className="no-scrollbar flex gap-3 overflow-x-auto pb-2 pr-2 pt-1.5">
-        {nodes.map((n) => {
-          const active = n.id === activeId;
-          return (
-            <button
-              key={n.id}
-              type="button"
-              disabled={!n.open}
-              onClick={() => onOpen(n.id)}
-              className="group flex w-[74px] shrink-0 flex-col items-center gap-1 disabled:cursor-default"
-              title={`${n.code} ${n.title} · ${STATUS_LABEL[n.status]}`}
-            >
-              <span
-                className={`relative flex h-[58px] w-[58px] items-center justify-center rounded-[14px] transition ${
-                  n.status === "planned"
-                    ? "border-[1.5px] border-dashed border-[#c5cad0] bg-[#fafbfb]"
-                    : active
-                      ? "border-2 border-run bg-[#e8f5ef] shadow-[0_0_0_3px_rgba(31,157,107,0.15)]"
-                      : "border border-[#d9dde1] bg-[#f3f5f6] group-hover:-translate-y-0.5 group-hover:border-[#b9c0c7]"
-                }`}
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={`/parts/labs/${n.id}.png`} alt="" width={44} height={44} className={`h-11 w-11 object-contain ${n.status === "planned" ? "opacity-45 grayscale" : ""}`} />
-                <span className="absolute -bottom-1.5 -right-1.5">
-                  <StatusDot status={n.status} />
-                </span>
-              </span>
-              <span className={`font-mono text-[10.5px] font-bold ${n.status === "planned" ? "text-muted-ink" : "text-[#d9591a]"}`}>{n.code}</span>
-              <span className={`text-center text-[11px] leading-[1.25] ${n.status === "planned" ? "text-muted-ink" : "font-medium text-ink"}`}>{n.title}</span>
-            </button>
-          );
-        })}
-      </div>
-    </div>
+      </span>
+      <span className={`font-mono text-[10.5px] font-bold ${n.status === "planned" ? "text-muted-ink" : "text-[#d9591a]"}`}>{n.chip}</span>
+      <span className={`text-center text-[11px] leading-[1.25] ${n.status === "planned" ? "text-muted-ink" : "font-medium text-ink"}`}>{n.title}</span>
+    </button>
   );
 }
 
-const LATER: { name: string; blurb: string; ring: string; prefix: string; items: [string, string][] }[] = [
-  {
-    name: "Process control",
-    blurb: "Level, flow, pumps and analog scaling",
-    ring: "#2457a6",
-    prefix: "P",
-    items: [
-      ["Tank level", "terminals"],
-      ["Duplex pumps", "motor"],
-      ["Analog scaling", "plc"],
-      ["Alarms", "pushbuttons"],
-      ["Motor protection and VSD", "overload"],
-    ],
-  },
-  {
-    name: "Wiring and commissioning",
-    blurb: "Schematics, terminals, loop checks",
-    ring: "#8a5cc2",
-    prefix: "W",
-    items: [
-      ["Read a schematic", "terminals"],
-      ["Terminal numbering", "terminals"],
-      ["Continuity test", "breaker"],
-      ["I/O loop check", "plc"],
-      ["Commissioning sheet", "contactor"],
-    ],
-  },
-];
+function Ring({ pct, color, label }: { pct: number; color: string; label: string }) {
+  const r = 19;
+  const c = 2 * Math.PI * r;
+  return (
+    <span className="relative flex h-12 w-12 shrink-0 items-center justify-center">
+      <svg viewBox="0 0 44 44" className="absolute inset-0 -rotate-90">
+        <circle cx="22" cy="22" r={r} fill="none" stroke="#eceef0" strokeWidth="4" />
+        <circle cx="22" cy="22" r={r} fill="none" stroke={color} strokeWidth="4" strokeDasharray={c} strokeDashoffset={c * (1 - pct)} strokeLinecap="round" />
+      </svg>
+      <span className="font-display text-[19px] font-bold leading-none" style={{ color }}>
+        {label}
+      </span>
+    </span>
+  );
+}
+
+function TrackSection({ track, nodes, activeId, open, onToggle, onOpen }: { track: Track; nodes: Node[]; activeId: string; open: boolean; onToggle: () => void; onOpen: (id: string) => void }) {
+  const working = nodes.filter((n) => n.status === "done" || n.status === "runs").length;
+  const ready = nodes.filter((n) => n.open).length;
+  const byId = new Map(nodes.map((n) => [n.id, n]));
+  return (
+    <div id={`track-${track.id}`} className="relative scroll-mt-4 overflow-hidden rounded-2xl border border-[#e4e6e9] bg-white">
+      <span className="absolute inset-y-0 left-0 w-1" style={{ background: track.ring }} />
+      <button type="button" onClick={onToggle} aria-expanded={open} className="flex w-full items-center gap-3 p-4 pl-5 text-left">
+        <Ring pct={nodes.length ? working / nodes.length : 0} color={track.ring} label={track.code} />
+        <div className="min-w-0 flex-1">
+          <p className="font-display text-[18px] font-bold uppercase leading-none tracking-[0.06em] text-ink">{track.name}</p>
+          <p className="mt-1 text-[12.5px] text-[#5b6068]">{track.blurb}</p>
+        </div>
+        <div className="hidden shrink-0 text-right sm:block">
+          <p className="font-mono text-[11px] text-muted-ink">
+            <span className="font-display text-[18px] font-bold text-ink">{working}</span>/{nodes.length} working
+          </p>
+          <p className="font-mono text-[10.5px] text-muted-ink">
+            {ready} open · {track.chapters.length} chapters
+          </p>
+        </div>
+        <IconChevronDown size={18} className={`shrink-0 text-muted-ink transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+      {open && (
+        <div className="grid gap-x-6 gap-y-4 border-t border-[#eceef0] px-5 pb-4 pt-4 lg:grid-cols-2">
+          {track.chapters.map((ch, i) => (
+            <div key={ch.id} className="min-w-0">
+              <p className="font-mono text-[10.5px] font-semibold uppercase tracking-[0.18em] text-muted-ink">
+                Chapter {i + 1} · <span className="text-ink">{ch.title}</span>
+              </p>
+              <p className="mt-0.5 text-[12px] text-[#6b6f76]">{ch.blurb}</p>
+              <div className="no-scrollbar mt-2 flex gap-2 overflow-x-auto pb-1 pt-1.5">
+                {ch.lessons.map((ref) => {
+                  const n = byId.get(ref.id)!;
+                  return <LessonNode key={n.id} n={n} active={n.id === activeId} onOpen={onOpen} />;
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function LabTrack({ onOpen }: { onOpen: (id: string) => void }) {
   const completed = useSim((s) => s.completed);
   const ran = useSim((s) => s.ranLessons);
   const lessonId = useSim((s) => s.lessonId);
+  const activeTrack = lessons.find((l) => l.id === lessonId)?.trackId;
+  const [openTracks, setOpenTracks] = useState<Record<string, boolean>>({});
+  const isOpen = (id: string) => openTracks[id] ?? id === activeTrack;
 
-  const foundations: Node[] = lessons.map((l) => ({
-    id: l.id,
-    code: `F${l.number}`,
-    title: l.title,
-    icon: LESSON_RENDER[l.icon],
-    open: !l.locked,
-    status: l.locked ? "planned" : completed[l.id] ? "done" : ran[l.id] ? "runs" : "built",
-  }));
+  // The track pills link to #track-<id>; open that track when one is followed.
+  useEffect(() => {
+    const onHash = () => {
+      const id = window.location.hash.replace("#track-", "");
+      if (CURRICULUM.some((t) => t.id === id)) setOpenTracks((o) => ({ ...o, [id]: true }));
+    };
+    window.addEventListener("hashchange", onHash);
+    return () => window.removeEventListener("hashchange", onHash);
+  }, []);
+
+  const node = (id: string): Node => {
+    const l = lessons.find((x) => x.id === id)!;
+    return {
+      id: l.id,
+      chip: l.chip,
+      title: l.title,
+      icon: l.icon,
+      open: !l.locked,
+      status: l.locked ? "planned" : completed[l.id] ? "done" : ran[l.id] ? "runs" : "built",
+    };
+  };
 
   return (
     <section id="labs" className="flex flex-col gap-3">
@@ -196,16 +210,15 @@ export function LabTrack({ onOpen }: { onOpen: (id: string) => void }) {
         <h2 className="font-display text-[22px] font-bold uppercase tracking-[0.08em] text-ink">All labs</h2>
         <StatusLegend />
       </div>
-      <Group name="Foundations" blurb="Contacts, seal-in, protection, timers" ring="#1f9d6b" nodes={foundations} activeId={lessonId} onOpen={onOpen} />
-      {LATER.map((g) => (
-        <Group
-          key={g.name}
-          name={g.name}
-          blurb={g.blurb}
-          ring={g.ring}
+      {CURRICULUM.map((t) => (
+        <TrackSection
+          key={t.id}
+          track={t}
+          nodes={t.chapters.flatMap((c) => c.lessons.map((r) => node(r.id)))}
           activeId={lessonId}
+          open={isOpen(t.id)}
+          onToggle={() => setOpenTracks((o) => ({ ...o, [t.id]: !isOpen(t.id) }))}
           onOpen={onOpen}
-          nodes={g.items.map(([title, icon], i) => ({ id: `${g.prefix}${i + 1}`, code: `${g.prefix}${i + 1}`, title, icon, open: false, status: "planned" }))}
         />
       ))}
     </section>

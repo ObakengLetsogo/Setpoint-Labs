@@ -54,6 +54,8 @@ const GLYPHS: Record<string, (live: boolean) => React.ReactNode> = {
       <path d="M 9 15 h 12" stroke={energised ? "#ffffff" : "#2457a6"} strokeWidth={1.2} strokeDasharray="2 2" />
     </>
   ),
+  aux: (live) => button("#3d434a", live),
+  beacon: (lit) => lamp("#f0a526", lit),
   runLamp: (lit) => lamp("#22a061", lit),
   faultLamp: (lit) => lamp("#e5484d", lit),
 };

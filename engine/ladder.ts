@@ -3,14 +3,21 @@
 // means (Start OR Run) AND NOT Stop. Parentheses group branches, and two
 // instructions written side by side are in series (implicit AND).
 
-export type ContactOp = "XIC" | "XIO";
-export type OutputOp = "OTE" | "OTL" | "OTU" | "TON" | "TOF" | "CTU" | "RES";
+export type CompareOp = "GRT" | "LES" | "EQU" | "NEQ" | "GEQ" | "LEQ";
+export type ContactOp = "XIC" | "XIO" | "ONS" | CompareOp;
+export type OutputOp = "OTE" | "OTL" | "OTU" | "TON" | "TOF" | "CTU" | "CTD" | "RES" | "MOV" | "ADD" | "SUB";
+
+export const COMPARE_OPS: CompareOp[] = ["GRT", "LES", "EQU", "NEQ", "GEQ", "LEQ"];
+export const isCompare = (op: string): op is CompareOp => (COMPARE_OPS as string[]).includes(op);
 
 export interface ContactNode {
   kind: "contact";
   id: string;
   op: ContactOp;
+  /** The bit to test, the one shot storage bit, or the first operand of a compare. */
   tag: string;
+  /** Second operand of a compare: a tag or a number. */
+  b?: string;
 }
 
 export interface GroupNode {
@@ -24,8 +31,11 @@ export type LogicNode = ContactNode | GroupNode;
 export interface OutputNode {
   id: string;
   op: OutputOp;
+  /** The bit, timer or counter written, or the destination of MOV, ADD and SUB. */
   tag: string;
   preset?: number;
+  /** Source operands of MOV, ADD and SUB: tags or numbers. */
+  src?: string[];
 }
 
 export interface Rung {
@@ -49,9 +59,12 @@ export class LadderError extends Error {
   }
 }
 
-const CONTACTS = new Set<string>(["XIC", "XIO"]);
-const OUTPUTS = new Set<string>(["OTE", "OTL", "OTU", "TON", "TOF", "CTU", "RES"]);
+const CONTACTS = new Set<string>(["XIC", "XIO", "ONS", ...COMPARE_OPS]);
+const OUTPUTS = new Set<string>(["OTE", "OTL", "OTU", "TON", "TOF", "CTU", "CTD", "RES", "MOV", "ADD", "SUB"]);
 const TAG_RE = /^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z0-9_]+)?$/;
+const NUM_RE = /^-?\d+(\.\d+)?$/;
+const isOperand = (a: string | undefined): a is string => Boolean(a && (TAG_RE.test(a) || NUM_RE.test(a)));
+const SOURCES: Partial<Record<OutputOp, number>> = { MOV: 1, ADD: 2, SUB: 2 };
 
 type Token =
   | { t: "instr"; op: string; args: string[]; col: number }
@@ -88,7 +101,7 @@ function tokenize(src: string, line: number): Token[] {
       continue;
     }
     if (!CONTACTS.has(upper) && !OUTPUTS.has(upper)) {
-      throw new LadderError(line, `Unknown instruction "${w}". Try XIC, XIO, OTE, OTL, OTU, TON, TOF, CTU or RES.`);
+      throw new LadderError(line, `Unknown instruction "${w}". Try XIC, XIO, ONS, GRT, EQU, OTE, OTL, OTU, TON, TOF, CTU, RES or MOV.`);
     }
     const rest = src.slice(i + w.length);
     const call = /^\s*\(([^()]*)\)/.exec(rest);
@@ -143,6 +156,12 @@ function parseLogic(tokens: Token[], line: number): LogicNode {
     }
     if (tok.t === "instr") {
       pos++;
+      if (OUTPUTS.has(tok.op)) throw new LadderError(line, `${tok.op} is an output and goes at the end of the rung.`);
+      if (isCompare(tok.op)) {
+        const [a, b] = tok.args;
+        if (!isOperand(a) || !isOperand(b)) throw new LadderError(line, `${tok.op} compares two values, for example ${tok.op}(Tank_Level, 80).`);
+        return { kind: "contact", id: nextId("c"), op: tok.op, tag: a, b };
+      }
       const tag = tok.args[0];
       if (!tag || !TAG_RE.test(tag)) throw new LadderError(line, `${tok.op} has an invalid tag "${tag ?? ""}".`);
       return { kind: "contact", id: nextId("c"), op: tok.op as ContactOp, tag };
@@ -167,14 +186,24 @@ export function parseRung(text: string, line: number, number: number): Rung {
     if (tok.t !== "instr" || !OUTPUTS.has(tok.op)) {
       throw new LadderError(line, "Outputs go at the end of the rung. Move contacts before the first output.");
     }
+    const sources = SOURCES[tok.op as OutputOp];
+    if (sources) {
+      const src = tok.args.slice(0, sources);
+      const dest = tok.args[sources];
+      const example = tok.op === "MOV" ? "MOV(0, Count)" : `${tok.op}(Count, 1, Count)`;
+      if (tok.args.length !== sources + 1 || !src.every(isOperand) || !dest || !TAG_RE.test(dest)) {
+        throw new LadderError(line, `${tok.op} takes ${sources === 1 ? "a source" : "two values"} and a destination tag, for example ${example}.`);
+      }
+      return { id: nextId("o"), op: tok.op as OutputOp, tag: dest, src };
+    }
     const [tag, presetRaw] = tok.args;
     if (!tag || !TAG_RE.test(tag)) throw new LadderError(line, `${tok.op} has an invalid tag "${tag ?? ""}".`);
     const out: OutputNode = { id: nextId("o"), op: tok.op as OutputOp, tag };
-    if (tok.op === "TON" || tok.op === "TOF" || tok.op === "CTU") {
+    if (tok.op === "TON" || tok.op === "TOF" || tok.op === "CTU" || tok.op === "CTD") {
       const preset = Number(presetRaw);
       if (!presetRaw || !Number.isFinite(preset) || preset <= 0) {
-        const unit = tok.op === "CTU" ? "count" : "time in ms";
-        throw new LadderError(line, `${tok.op}(${tag}, ...) needs a preset ${unit}, for example ${tok.op}(${tag}, ${tok.op === "CTU" ? 5 : 3000}).`);
+        const counter = tok.op === "CTU" || tok.op === "CTD";
+        throw new LadderError(line, `${tok.op}(${tag}, ...) needs a preset ${counter ? "count" : "time in ms"}, for example ${tok.op}(${tag}, ${counter ? 5 : 3000}).`);
       }
       out.preset = preset;
     }
@@ -204,14 +233,20 @@ export function parseProgram(source: string): Program {
 
 export function collectTags(program: Program): string[] {
   const tags = new Set<string>();
+  const add = (a?: string) => a && TAG_RE.test(a) && tags.add(a);
   const walk = (n: LogicNode | null) => {
     if (!n) return;
-    if (n.kind === "contact") tags.add(n.tag);
-    else n.children.forEach(walk);
+    if (n.kind === "contact") {
+      add(n.tag);
+      add(n.b);
+    } else n.children.forEach(walk);
   };
   for (const r of program.rungs) {
     walk(r.logic);
-    r.outputs.forEach((o) => tags.add(o.tag));
+    r.outputs.forEach((o) => {
+      add(o.tag);
+      o.src?.forEach(add);
+    });
   }
   return [...tags];
 }

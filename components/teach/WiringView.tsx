@@ -39,8 +39,9 @@ export function WiringView({ wires }: { wires: number[] }) {
   const memory = useSim((s) => s.memory);
   const physical = useSim((s) => s.physical);
   const faults = useSim((s) => s.faults);
+  const rigOptions = useSim((s) => s.rigOptions);
   const reduce = useSim((s) => s.settings.reduceMotion);
-  const inputs = readInputs(physical, faults);
+  const inputs = readInputs(physical, faults, rigOptions);
   const total = list.length;
   const current = list[Math.min(step, total) - 1];
   const height = Math.max(TOP + PLC_TERMINALS.length * ROW, 30 + devices.length * (CARD_H + CARD_GAP)) + 10;

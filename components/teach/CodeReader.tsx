@@ -19,31 +19,75 @@ const INSTR: Record<string, string> = {
   TON: "on-delay timer. Counts while the rung is true, DN goes 1 at the preset.",
   TOF: "off-delay timer. Holds DN for the preset after the rung goes false.",
   CTU: "up counter. Adds one on every false to true change of the rung.",
+  CTD: "down counter. Takes one away on every false to true change of the rung.",
   RES: "reset. Clears a timer or counter.",
+  ONS: "one shot. Passes power for a single scan when the rung before it turns on.",
+  GRT: "compare. Passes power while the first value is greater than the second.",
+  LES: "compare. Passes power while the first value is less than the second.",
+  EQU: "compare. Passes power while both values are equal.",
+  NEQ: "compare. Passes power while the values differ.",
+  GEQ: "compare. Passes power while the first value is at least the second.",
+  LEQ: "compare. Passes power while the first value is at most the second.",
+  MOV: "move. Copies a value into a tag while the rung is true.",
+  ADD: "add. Writes the sum of two values into a tag while the rung is true.",
+  SUB: "subtract. Writes the difference of two values into a tag while the rung is true.",
 };
 
+const CMP_WORD: Record<string, string> = { GRT: "is above", LES: "is below", EQU: "equals", NEQ: "is not", GEQ: "is at least", LEQ: "is at most" };
+const OPS = "XIC|XIO|ONS|GRT|LES|EQU|NEQ|GEQ|LEQ|OTE|OTL|OTU|TON|TOF|CTU|CTD|RES|MOV|ADD|SUB";
+
 function describe(node: LogicNode, top = true): string {
-  if (node.kind === "contact") return `${node.tag} is ${node.op === "XIC" ? "on" : "off"}`;
+  if (node.kind === "contact") {
+    if (node.op === "ONS") return "the rung has just turned on";
+    if (node.b !== undefined) return `${node.tag} ${CMP_WORD[node.op]} ${node.b}`;
+    return `${node.tag} is ${node.op === "XIC" ? "on" : "off"}`;
+  }
   const parts = node.children.map((c) => describe(c, false));
   const joined = parts.join(node.kind === "series" ? " and " : " or ");
   return !top && node.kind === "parallel" ? `(${joined})` : joined;
 }
 
 export function rungInEnglish(r: Rung) {
-  const outs = r.outputs.map((o) => o.tag).join(" and ");
-  const verb = r.outputs[0]?.op === "OTL" ? "latches on" : r.outputs[0]?.op === "OTU" ? "is cleared" : r.outputs.length > 1 ? "are on" : "is on";
-  return r.logic ? `${outs} ${verb} while ${describe(r.logic)}.` : `${outs} ${verb} every scan.`;
+  const phrase = (o: Rung["outputs"][number]) => {
+    switch (o.op) {
+      case "OTL":
+        return `${o.tag} latches on`;
+      case "OTU":
+        return `${o.tag} is cleared`;
+      case "TON":
+        return `timer ${o.tag} counts up to ${o.preset! / 1000} s`;
+      case "TOF":
+        return `off-delay ${o.tag} stays done`;
+      case "CTU":
+        return `counter ${o.tag} adds one each time this turns on`;
+      case "CTD":
+        return `counter ${o.tag} takes one away each time this turns on`;
+      case "RES":
+        return `${o.tag} is reset`;
+      case "MOV":
+        return `${o.tag} is set to ${o.src![0]}`;
+      case "ADD":
+        return `${o.tag} becomes ${o.src![0]} plus ${o.src![1]}`;
+      case "SUB":
+        return `${o.tag} becomes ${o.src![0]} minus ${o.src![1]}`;
+      default:
+        return `${o.tag} is on`;
+    }
+  };
+  const outs = r.outputs.map(phrase).join(", and ");
+  const when = r.outputs.some((o) => o.op === "CTU" || o.op === "CTD") ? "when" : "while";
+  return r.logic ? `${outs} ${when} ${describe(r.logic)}.` : `${outs} every scan.`;
 }
 
 function instructionsOn(line: string) {
-  return [...line.matchAll(/\b(XIC|XIO|OTE|OTL|OTU|TON|TOF|CTU|RES)\s*\(([^)]*)\)/g)].map((m) => ({ op: m[1], arg: m[2].split(",")[0].trim() }));
+  return [...line.matchAll(new RegExp(`\\b(${OPS})\\s*\\(([^)]*)\\)`, "g"))].map((m) => ({ op: m[1], arg: m[2].split(",")[0].trim() }));
 }
 
 function highlight(line: string): ReactNode[] {
   const out: ReactNode[] = [];
   const at = line.indexOf("//");
   const code = at >= 0 ? line.slice(0, at) : line;
-  const re = /(RUNG\s+\d+\s*:)|\b(XIC|XIO|OTE|OTL|OTU|TON|TOF|CTU|RES)\b|\b(AND|OR)\b|([A-Za-z_][A-Za-z0-9_.]*)/g;
+  const re = new RegExp(`(RUNG\\s+\\d+\\s*:)|\\b(${OPS})\\b|\\b(AND|OR)\\b|([A-Za-z_][A-Za-z0-9_.]*)`, "g");
   let last = 0;
   let m: RegExpExecArray | null;
   let k = 0;

@@ -36,6 +36,34 @@ function Seg({ x1, y1, x2, y2, live }: { x1: number; y1: number; x2: number; y2:
   );
 }
 
+const CMP_SIGN: Record<string, string> = { GRT: ">", LES: "<", EQU: "=", NEQ: "≠", GEQ: "≥", LEQ: "≤" };
+
+/** Box style input instruction: one shot and compares. */
+function InputBox({ x, y, op, tag, b, t, mem }: { x: number; y: number; op: string; tag: string; b?: string; t?: NodeTrace; mem: Memory }) {
+  const pin = Boolean(t?.powerIn);
+  const pout = Boolean(t?.powerOut);
+  const color = pout ? LIVE : INK;
+  const val = (a: string) => (/^-?\d/.test(a) ? a : String(Number(mem[a] ?? 0)));
+  return (
+    <g>
+      <Seg x1={x} y1={y} x2={x + 6} y2={y} live={pin} />
+      <Seg x1={x + CW - 6} y1={y} x2={x + CW} y2={y} live={pout} />
+      <rect x={x + 6} y={y - 19} width={CW - 12} height={38} rx={4} fill={pout ? "#e7f5ec" : "#fffdf9"} stroke={color} strokeWidth={1.5} />
+      <text x={x + CW / 2} y={y - 6} textAnchor="middle" className="ladder-box-title">
+        {op}
+      </text>
+      <text x={x + CW / 2} y={y + 7} textAnchor="middle" className="ladder-addr" fill={INK}>
+        {b === undefined ? tag : `${tag} ${CMP_SIGN[op]} ${b}`}
+      </text>
+      {b !== undefined && (
+        <text x={x + CW / 2} y={y + 16} textAnchor="middle" className="ladder-addr" fill={pout ? LIVE : DIM}>
+          {val(tag)} {CMP_SIGN[op]} {val(b)}
+        </text>
+      )}
+    </g>
+  );
+}
+
 function Contact({ x, y, op, tag, t }: { x: number; y: number; op: string; tag: string; t?: NodeTrace }) {
   const pin = Boolean(t?.powerIn);
   const pout = Boolean(t?.powerOut);
@@ -62,24 +90,25 @@ function Contact({ x, y, op, tag, t }: { x: number; y: number; op: string; tag: 
   );
 }
 
-function drawLogic(node: LogicNode, col: number, row: number, nodes: Record<string, NodeTrace>, out: ReactNode[]): Size {
+function drawLogic(node: LogicNode, col: number, row: number, nodes: Record<string, NodeTrace>, out: ReactNode[], mem: Memory): Size {
   const size = measure(node);
   const x = LEFT + col * CW;
   const y = PAD_TOP + row * RH + RH / 2;
   if (node.kind === "contact") {
-    out.push(<Contact key={node.id} x={x} y={y} op={node.op} tag={node.tag} t={nodes[node.id]} />);
+    if (node.op === "XIC" || node.op === "XIO") out.push(<Contact key={node.id} x={x} y={y} op={node.op} tag={node.tag} t={nodes[node.id]} />);
+    else out.push(<InputBox key={node.id} x={x} y={y} op={node.op} tag={node.tag} b={node.b} t={nodes[node.id]} mem={mem} />);
     return size;
   }
   if (node.kind === "series") {
     let c = col;
-    for (const child of node.children) c += drawLogic(child, c, row, nodes, out).w;
+    for (const child of node.children) c += drawLogic(child, c, row, nodes, out, mem).w;
     return size;
   }
   const t = nodes[node.id];
   let r = row;
   const rows: number[] = [];
   for (const child of node.children) {
-    const s = drawLogic(child, col, r, nodes, out);
+    const s = drawLogic(child, col, r, nodes, out, mem);
     const cy = PAD_TOP + r * RH + RH / 2;
     rows.push(cy);
     if (s.w < size.w) {
@@ -101,8 +130,26 @@ function fmtMs(ms: number) {
 function Output({ o, x, y, live, mem }: { o: OutputNode; x: number; y: number; live: boolean; mem: Memory }) {
   const color = live ? LIVE : INK;
   const addr = tagAddress(o.tag);
-  if (o.op === "TON" || o.op === "TOF" || o.op === "CTU") {
-    const isTimer = o.op !== "CTU";
+  if (o.op === "MOV" || o.op === "ADD" || o.op === "SUB") {
+    const expr = o.op === "MOV" ? o.src![0] : `${o.src![0]} ${o.op === "ADD" ? "+" : "−"} ${o.src![1]}`;
+    return (
+      <g>
+        <Seg x1={x} y1={y} x2={x + 10} y2={y} live={live} />
+        <rect x={x + 10} y={y - 21} width={OUT_W - 22} height={42} rx={4} fill="#fffdf9" stroke={color} strokeWidth={1.6} />
+        <text x={x + 16} y={y - 8} className="ladder-box-title">
+          {o.op}
+        </text>
+        <text x={x + 16} y={y + 4} className="ladder-addr" fill={INK}>
+          {expr}
+        </text>
+        <text x={x + 16} y={y + 15} className="ladder-addr" fill={live ? LIVE : DIM}>
+          → {o.tag} {Number(mem[o.tag] ?? 0)}
+        </text>
+      </g>
+    );
+  }
+  if (o.op === "TON" || o.op === "TOF" || o.op === "CTU" || o.op === "CTD") {
+    const isTimer = o.op === "TON" || o.op === "TOF";
     const acc = Number(mem[`${o.tag}.ACC`] ?? 0);
     const done = Boolean(mem[`${o.tag}.DN`]);
     return (
@@ -175,7 +222,7 @@ export function LadderDiagram({
         const height = PAD_TOP + rows * RH + 6;
         const power = Boolean(t?.power);
         const elements: ReactNode[] = [];
-        if (rung.logic) drawLogic(rung.logic, 0, 0, nodes, elements);
+        if (rung.logic) drawLogic(rung.logic, 0, 0, nodes, elements, memory);
         const y0 = PAD_TOP + RH / 2;
         const highlighted = activeLine === rung.line;
 

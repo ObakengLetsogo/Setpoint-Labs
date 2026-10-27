@@ -42,7 +42,7 @@ function HoldButton({ label, onDown, onUp, tone }: { label: string; onDown: () =
 
 function Body({ id }: { id: string }) {
   const s = useSim();
-  const inputs = readInputs(s.physical, s.faults);
+  const inputs = readInputs(s.physical, s.faults, s.rigOptions);
 
   switch (id) {
     case "start":
@@ -62,6 +62,14 @@ function Body({ id }: { id: string }) {
             <Toggle label="Stop wire broken" checked={s.faults.brokenStop} onChange={(v) => s.setFault("brokenStop", v)} />
           </Row>
         </>
+      );
+    case "aux":
+      return <HoldButton label="Hold to press" tone="#3d434a" onDown={() => s.press("aux", true)} onUp={() => s.press("aux", false)} />;
+    case "beacon":
+      return (
+        <Row label="Q0.3 Beacon">
+          <span className="font-mono text-[12px]">{s.memory.Beacon ? "on" : "off"}</span>
+        </Row>
       );
     case "estop":
       return (

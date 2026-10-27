@@ -22,11 +22,34 @@ export interface ScanResult {
 
 export const bool = (mem: Memory, tag: string) => Boolean(mem[tag]);
 const num = (mem: Memory, tag: string) => Number(mem[tag] ?? 0);
+/** An operand is a number literal or a tag holding a number (or a bit, read as 0 or 1). */
+export const operand = (mem: Memory, a: string) => (/^-?\d/.test(a) ? Number(a) : num(mem, a));
+
+const COMPARE: Record<string, (a: number, b: number) => boolean> = {
+  GRT: (a, b) => a > b,
+  LES: (a, b) => a < b,
+  EQU: (a, b) => a === b,
+  NEQ: (a, b) => a !== b,
+  GEQ: (a, b) => a >= b,
+  LEQ: (a, b) => a <= b,
+};
 
 function evaluate(node: LogicNode, powerIn: boolean, mem: Memory, nodes: Record<string, NodeTrace>): boolean {
   if (node.kind === "contact") {
-    const value = bool(mem, node.tag);
-    const passes = node.op === "XIC" ? value : !value;
+    let passes: boolean;
+    let value: boolean;
+    if (node.op === "ONS") {
+      // One shot: passes for a single scan on the rising edge of its rung-in power.
+      value = bool(mem, node.tag);
+      passes = !value;
+      mem[node.tag] = powerIn;
+    } else if (node.b !== undefined) {
+      passes = COMPARE[node.op](operand(mem, node.tag), operand(mem, node.b));
+      value = passes;
+    } else {
+      value = bool(mem, node.tag);
+      passes = node.op === "XIC" ? value : !value;
+    }
     const powerOut = powerIn && passes;
     nodes[node.id] = { powerIn, powerOut, value };
     return powerOut;
@@ -112,6 +135,23 @@ export function scan(program: Program, input: Memory, dtMs: number): ScanResult 
           mem[`${t}.PRE`] = preset;
           break;
         }
+        case "CTD": {
+          const preset = out.preset!;
+          if (power && !bool(mem, `${t}.CD`)) mem[`${t}.ACC`] = num(mem, `${t}.ACC`) - 1;
+          mem[`${t}.CD`] = power;
+          mem[`${t}.DN`] = num(mem, `${t}.ACC`) >= preset;
+          mem[`${t}.PRE`] = preset;
+          break;
+        }
+        case "MOV":
+          if (power) mem[t] = operand(mem, out.src![0]);
+          break;
+        case "ADD":
+          if (power) mem[t] = operand(mem, out.src![0]) + operand(mem, out.src![1]);
+          break;
+        case "SUB":
+          if (power) mem[t] = operand(mem, out.src![0]) - operand(mem, out.src![1]);
+          break;
         case "RES":
           if (power) {
             mem[`${t}.ACC`] = 0;

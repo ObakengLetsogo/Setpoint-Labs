@@ -2,15 +2,9 @@
 
 import { LogoMark } from "@/components/Logo";
 import { IconBook, IconKeyboard, IconLanguage, IconSliders } from "@/components/ui/icons";
+import { CURRICULUM } from "@/data/curriculum";
 import { lessons } from "@/data/lessons";
 import { useSim } from "@/store/sim";
-
-const TRACKS = [
-  { id: "foundations", name: "Foundations", total: 20, icon: "pushbuttons" },
-  { id: "process", name: "Process control", total: 10, icon: "motor", soon: true },
-  { id: "wiring", name: "Wiring & commissioning", total: 10, icon: "terminals", soon: true },
-  { id: "advanced", name: "Advanced", total: 10, icon: "plc", soon: true },
-];
 
 export function TopBar({ onOpen }: { onOpen: (sheet: "reference" | "settings" | "components" | "language") => void }) {
   const lessonId = useSim((s) => s.lessonId);
@@ -34,7 +28,7 @@ export function TopBar({ onOpen }: { onOpen: (sheet: "reference" | "settings" | 
           <span className={`h-2 w-2 rounded-full ${running ? "bg-run shadow-[0_0_0_3px_rgba(31,157,107,0.3)]" : "bg-[#7c838c]"}`} />
           On the bench now
           <span className="rounded-full bg-[#2c3644] px-2 py-0.5 text-[#7ee2b5]">
-            {String(lesson.number).padStart(2, "0")} {lesson.title.toLowerCase()}
+            {lesson.chip} {lesson.title.toLowerCase()}
           </span>
         </span>
         <nav className="flex items-center rounded-full border border-[#e4e6e9] bg-white p-1 text-[12.5px] font-medium">
@@ -58,37 +52,36 @@ export function TopBar({ onOpen }: { onOpen: (sheet: "reference" | "settings" | 
 
 export function TrackPills() {
   const completed = useSim((s) => s.completed);
-  const done = lessons.filter((l) => l.trackId === "foundations" && completed[l.id]).length;
+  const lessonId = useSim((s) => s.lessonId);
+  const current = lessons.find((l) => l.id === lessonId)?.trackId;
   return (
-    <div className="flex flex-wrap gap-2 py-1">
-      {TRACKS.map((t, i) => {
-        const count = i === 0 ? done : 0;
-        const active = i === 0;
+    <div className="no-scrollbar -mx-1 flex gap-2 overflow-x-auto px-1 py-1">
+      {CURRICULUM.map((t) => {
+        const inTrack = lessons.filter((l) => l.trackId === t.id);
+        const done = inTrack.filter((l) => completed[l.id]).length;
+        const open = inTrack.filter((l) => !l.locked).length;
+        const active = t.id === current;
         return (
-          <span
+          <a
             key={t.id}
-            className={`inline-flex shrink-0 items-center gap-2 rounded-full border py-1 pl-1.5 pr-3 text-[12.5px] font-medium ${
+            href={`#track-${t.id}`}
+            className={`inline-flex shrink-0 items-center gap-2 rounded-full border py-1 pl-1.5 pr-3 text-[12.5px] font-medium transition hover:border-ink/30 ${
               active ? "border-accent/60 bg-white text-ink shadow-[0_0_0_3px_rgba(242,107,29,0.1)]" : "border-[#e4e6e9] bg-white text-[#4b5058]"
             }`}
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={`/parts/${t.icon}.png`} alt="" width={22} height={22} className="h-[22px] w-[22px] object-contain" />
+            <span className="flex h-[22px] w-[22px] items-center justify-center rounded-full font-display text-[12px] font-bold text-white" style={{ background: t.ring }}>
+              {t.code}
+            </span>
             {t.name}
-            {t.soon ? (
-              <span className="font-mono text-[10px] text-muted-ink">soon</span>
-            ) : (
-              <>
-                <span className="flex gap-[2px]">
-                  {Array.from({ length: 10 }, (_, k) => (
-                    <span key={k} className={`h-3 w-[3px] rounded-full ${k < Math.round((count / t.total) * 10) ? "bg-run" : "bg-[#dfe2e6]"}`} />
-                  ))}
-                </span>
-                <span className="font-mono text-[10.5px] text-muted-ink">
-                  {count}/{t.total}
-                </span>
-              </>
-            )}
-          </span>
+            <span className="flex gap-[2px]">
+              {Array.from({ length: 10 }, (_, k) => (
+                <span key={k} className={`h-3 w-[3px] rounded-full ${k < Math.round((done / inTrack.length) * 10) ? "bg-run" : "bg-[#dfe2e6]"}`} />
+              ))}
+            </span>
+            <span className="font-mono text-[10.5px] text-muted-ink">
+              {open === 0 ? "soon" : `${done}/${inTrack.length}`}
+            </span>
+          </a>
         );
       })}
     </div>

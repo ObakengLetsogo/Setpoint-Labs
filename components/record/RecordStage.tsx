@@ -118,8 +118,9 @@ function LadderPanel({ portrait }: { portrait?: boolean }) {
   const memory = useSim((s) => s.memory);
   const physical = useSim((s) => s.physical);
   const faults = useSim((s) => s.faults);
+  const rigOptions = useSim((s) => s.rigOptions);
   const highlight = useSim((s) => s.highlightRung);
-  const inputs = readInputs(physical, faults);
+  const inputs = readInputs(physical, faults, rigOptions);
   const activeLine = highlight ? program?.rungs[highlight - 1]?.line : null;
 
   return (

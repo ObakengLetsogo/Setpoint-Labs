@@ -15,6 +15,7 @@ import {
   type Faults,
   type PartId,
   type Physical,
+  type RigOptions,
   type Vec3,
 } from "@/rigs/motorStarter";
 import { lessons } from "@/data/lessons";
@@ -93,6 +94,8 @@ interface SimState {
   selected: PartId | null;
   /** Rung number (1 based) called out in the ladder view, used by lesson videos. */
   highlightRung: number | null;
+  /** Wiring options of the current lesson. */
+  rigOptions: RigOptions;
   hovered: PartId | null;
   exploded: boolean;
   rotationSteps: number;
@@ -112,7 +115,7 @@ interface SimState {
   stepScan: () => void;
   setScanMs: (ms: number) => void;
   tick: () => void;
-  press: (button: "start" | "stop", down: boolean) => void;
+  press: (button: "start" | "stop" | "aux", down: boolean) => void;
   toggleEstop: () => void;
   tripOverload: () => void;
   resetOverload: () => void;
@@ -143,7 +146,7 @@ const simStore: StateCreator<SimState> = (set, get) => {
   const executeScan = (dtMs: number) => {
     const { program, memory, physical, faults, scanCount } = get();
     if (!program) return;
-    const inputs = readInputs(physical, faults);
+    const inputs = readInputs(physical, faults, get().rigOptions);
     const result = scan(program, { ...memory, ...inputs }, dtMs);
 
     const changes: string[] = [];
@@ -169,7 +172,7 @@ const simStore: StateCreator<SimState> = (set, get) => {
   const evaluateIdle = () => {
     const { program, memory, physical, faults } = get();
     if (!program) return set({ trace: [] });
-    const inputs = readInputs(physical, faults);
+    const inputs = readInputs(physical, faults, get().rigOptions);
     // Preview power flow without writing outputs, so a stopped PLC still shows which contacts would pass.
     const preview = scan(program, { ...memory, ...inputs }, 0);
     set({ trace: preview.trace });
@@ -192,6 +195,7 @@ const simStore: StateCreator<SimState> = (set, get) => {
 
     selected: null,
     highlightRung: null,
+    rigOptions: first.rigOptions ?? {},
     hovered: null,
     exploded: false,
     rotationSteps: 0,
@@ -206,7 +210,8 @@ const simStore: StateCreator<SimState> = (set, get) => {
     setLesson: (id) => {
       const { sources, running } = get();
       if (running) get().setRunning(false);
-      set({ lessonId: id, ...compile(sources[id] ?? ""), memory: {}, scanCount: 0, selected: null });
+      const rigOptions = lessons.find((l) => l.id === id)?.rigOptions ?? {};
+      set({ lessonId: id, rigOptions, ...compile(sources[id] ?? ""), memory: {}, scanCount: 0, selected: null });
       evaluateIdle();
     },
 
@@ -267,7 +272,7 @@ const simStore: StateCreator<SimState> = (set, get) => {
     },
 
     press: (button, down) => {
-      const key = button === "start" ? "startPressed" : "stopPressed";
+      const key = button === "start" ? "startPressed" : button === "stop" ? "stopPressed" : "auxPressed";
       set({ physical: { ...get().physical, [key]: down }, pressing: down });
       if (!get().running) evaluateIdle();
     },
@@ -357,3 +362,11 @@ export const useSim = create<SimState>()(
     onRehydrateStorage: () => (state) => state?.setLesson(state.lessonId),
   }),
 );
+
+/** Live input image of the rig, with the current lesson's wiring options applied. */
+export const useInputs = () => {
+  const physical = useSim((s) => s.physical);
+  const faults = useSim((s) => s.faults);
+  const options = useSim((s) => s.rigOptions);
+  return readInputs(physical, faults, options);
+};

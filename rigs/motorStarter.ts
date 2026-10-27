@@ -30,16 +30,21 @@ export type PartId =
   | "contactor"
   | "overload"
   | "motor"
-  | "terminals";
+  | "terminals"
+  | "aux"
+  | "beacon";
 
 export const TAGS: RigTag[] = [
   { tag: "Start_PB", address: "I0.0", kind: "input", color: "#2e9e5b", connectsTo: "Start pushbutton, NO" },
   { tag: "Stop_PB", address: "I0.1", kind: "input", color: "#d64545", connectsTo: "Stop pushbutton, NO" },
   { tag: "Overload_OK", address: "I0.2", kind: "input", color: "#f26b1d", connectsTo: "Overload aux contact 95-96, NC" },
   { tag: "EStop_OK", address: "I0.3", kind: "input", color: "#c9a227", connectsTo: "E-stop monitoring contact, NC" },
+  { tag: "Aux_PB", address: "I0.4", kind: "input", color: "#3d434a", connectsTo: "Black AUX pushbutton, NO" },
+  { tag: "Motor_Amps", address: "IW64", kind: "input", color: "#6b4fa0", connectsTo: "Current transducer, 0.1 A per count" },
   { tag: "Motor_Run", address: "Q0.0", kind: "output", color: "#2457a6", connectsTo: "Contactor coil A1-A2" },
   { tag: "Run_Lamp", address: "Q0.1", kind: "output", color: "#2e9e5b", connectsTo: "Green pilot lamp" },
   { tag: "Fault_Lamp", address: "Q0.2", kind: "output", color: "#d64545", connectsTo: "Red pilot lamp" },
+  { tag: "Beacon", address: "Q0.3", kind: "output", color: "#e0a526", connectsTo: "Amber beacon and sounder" },
   { tag: "Run_Seal", address: "M0.0", kind: "marker", color: "#6b6f76", connectsTo: "Internal memory bit" },
 ];
 
@@ -128,6 +133,24 @@ export const PARTS: RigPart[] = [
     explode: 0.9,
   },
   {
+    id: "aux",
+    name: "AUX button",
+    kicker: "INPUT · I0.4",
+    spec: "22 MM · BLACK · 1 NO",
+    description: "A spare momentary button. Lessons use it as jog, reset or alarm acknowledge.",
+    anchor: [-3.1, 1.35, 2.52],
+    explode: 1.4,
+  },
+  {
+    id: "beacon",
+    name: "Beacon",
+    kicker: "OUTPUT · Q0.3",
+    spec: "24 V DC · AMBER · 85 DB SOUNDER",
+    description: "Warns people nearby: before a start, while an alarm is waiting to be acknowledged, or when service is due.",
+    anchor: [-0.9, 2.3, 3.0],
+    explode: 1.0,
+  },
+  {
     id: "terminals",
     name: "Terminals",
     kicker: "WIRING · X1",
@@ -143,11 +166,17 @@ export const partById = (id: string) => PARTS.find((p) => p.id === id);
 export interface Physical {
   startPressed: boolean;
   stopPressed: boolean;
+  auxPressed: boolean;
   estopPressed: boolean;
   overloadTripped: boolean;
   motorSpeed: number;
   current: number;
   heat: number;
+}
+
+/** Per lesson wiring choices, e.g. the safe stop lesson rewires Stop as normally closed. */
+export interface RigOptions {
+  stopNC?: boolean;
 }
 
 export interface Faults {
@@ -159,6 +188,7 @@ export interface Faults {
 export const INITIAL_PHYSICAL: Physical = {
   startPressed: false,
   stopPressed: false,
+  auxPressed: false,
   estopPressed: false,
   overloadTripped: false,
   motorSpeed: 0,
@@ -168,12 +198,16 @@ export const INITIAL_PHYSICAL: Physical = {
 
 export const NO_FAULTS: Faults = { stuckStart: false, brokenStop: false, jam: false };
 
-export function readInputs(p: Physical, f: Faults): Memory {
+export function readInputs(p: Physical, f: Faults, o: RigOptions = {}): Memory {
+  // A broken wire always reads 0. Wired normally closed, that looks like Stop pressed, which is the safe way to fail.
+  const stopClosed = o.stopNC ? !p.stopPressed : p.stopPressed;
   return {
     Start_PB: p.startPressed || f.stuckStart,
-    Stop_PB: f.brokenStop ? false : p.stopPressed,
+    Stop_PB: f.brokenStop ? false : stopClosed,
     Overload_OK: !p.overloadTripped,
     EStop_OK: !p.estopPressed,
+    Aux_PB: p.auxPressed,
+    Motor_Amps: Math.round(p.current * 10),
   };
 }
 
