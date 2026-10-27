@@ -10,30 +10,42 @@
     "test": "vitest run",
     "video": "node scripts/video/run.mjs",
     "video:setup": "bash scripts/video/setup.sh",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "tsx scripts/db/migrate.mts",
+    "db:seed": "tsx scripts/db/seed.mts"
   },
   "dependencies": {
+    "@node-rs/argon2": "^2.2.2",
     "@react-three/drei": "^10.7.9",
     "@react-three/fiber": "^9.8.2",
     "@react-three/postprocessing": "^3.2.2",
+    "drizzle-orm": "^0.45.4",
+    "mysql2": "^3.24.6",
     "next": "16.4.3",
+    "nodemailer": "^10.2.1",
     "postprocessing": "^6.39.5",
     "react": "19.3.0",
     "react-dom": "19.3.0",
+    "server-only": "^0.0.1",
     "three": "^0.186.1",
+    "zod": "^4.6.7",
     "zustand": "^5.0.16"
   },
   "devDependencies": {
     "@playwright/test": "1.63.0",
     "@tailwindcss/turbopack": "^4",
     "@types/node": "^22.20.5",
+    "@types/nodemailer": "^8.0.2",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/three": "^0.186.0",
+    "drizzle-kit": "^0.31.11",
     "eslint": "^9",
     "eslint-config-next": "16.4.3",
     "playwright": "1.63.0",
     "tailwindcss": "^4",
+    "tsx": "^4.23.15",
     "typescript": "^5",
     "vitest": "^5.0.5"
   }
