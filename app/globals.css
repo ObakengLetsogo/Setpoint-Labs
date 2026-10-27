@@ -1,0 +1,86 @@
+@import "tailwindcss";
+
+@theme {
+  /* Setpoint Labs design tokens: light only, no dark theme */
+  --color-background: #faf8f3;
+  --color-surface: #fffdf9;
+  --color-border: #e6e2d9;
+  --color-ink: #1b2430;
+  --color-muted-ink: #6b6f76;
+  --color-primary: #2457a6;
+  --color-accent: #f26b1d;
+  --color-energised: #2e9e5b;
+  --color-fault: #d64545;
+  --color-wire: #8a8f98;
+
+  --font-display: var(--font-barlow-condensed), "Arial Narrow", sans-serif;
+  --font-body: var(--font-inter), sans-serif;
+  --font-mono: var(--font-jetbrains-mono), monospace;
+
+  --shadow-card: 0 1px 2px rgba(27, 36, 48, 0.04), 0 8px 24px -8px rgba(27, 36, 48, 0.12);
+}
+
+html {
+  color-scheme: light;
+}
+
+body {
+  background: var(--color-background);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+}
+
+* {
+  border-color: var(--color-border);
+}
+
+@keyframes draw-curve {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes pop-dot {
+  0%,
+  60% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes sheet-in {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-up {
+  animation: fade-up 0.4s ease-out both;
+}
+
+/* Hide scrollbar for the lesson carousel while keeping it scrollable */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
