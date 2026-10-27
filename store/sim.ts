@@ -10,6 +10,7 @@ import { rigFor } from "@/rigs";
 import type { Control, FaultState, PhysicalState, RigDef, RigOptions, Vec3 } from "@/rigs/types";
 import type { RigId } from "@/data/curriculum";
 import { lessons } from "@/data/lessons";
+import { isSandbox, sandboxRig, starterProgram } from "@/data/sandbox";
 
 export interface LogLine {
   id: number;
@@ -57,6 +58,7 @@ const initialSources = Object.fromEntries(lessons.map((l) => [l.id, l.code.join(
 
 /** The lesson's ladder program translated to structured text, the starting point for the ST view. */
 export function defaultST(lessonId: string) {
+  if (isSandbox(lessonId)) return starterProgram(rigFor(sandboxRig(lessonId)));
   const lesson = lessons.find((l) => l.id === lessonId);
   if (!lesson || lesson.locked) return "";
   try {
@@ -77,7 +79,7 @@ function compileST(source: string): { stProgram: StProgram | null; stError: StEr
 
 export type CodeLang = "ladder" | "st";
 const first = lessons[0];
-const rigOf = (lessonId: string) => rigFor(lessons.find((l) => l.id === lessonId)?.rig);
+const rigOf = (lessonId: string) => rigFor(sandboxRig(lessonId) ?? lessons.find((l) => l.id === lessonId)?.rig);
 
 interface SimState {
   lessonId: string;
@@ -266,10 +268,12 @@ const simStore: StateCreator<SimState> = (set, get) => {
       const rigOptions = (lesson?.rigOptions ?? {}) as RigOptions;
       const nextRig = rigOf(id);
       const rigChanged = nextRig.id !== get().rigId;
+      const source = sources[id] ?? (isSandbox(id) ? starterProgram(nextRig) : "");
       set({
         lessonId: id,
         rigOptions,
-        ...compile(sources[id] ?? ""),
+        sources: sources[id] === undefined ? { ...sources, [id]: source } : sources,
+        ...compile(source),
         ...compileST(stSources[id] ?? defaultST(id)),
         stLines: {},
         memory: {},
@@ -303,8 +307,9 @@ const simStore: StateCreator<SimState> = (set, get) => {
     resetSource: () => {
       const { lessonId, codeLang } = get();
       const lesson = lessons.find((l) => l.id === lessonId);
-      if (!lesson) return;
-      get().setSource(codeLang === "st" ? defaultST(lessonId) : lesson.code.join("\n"));
+      if (codeLang === "st") get().setSource(defaultST(lessonId));
+      else if (isSandbox(lessonId)) get().setSource(starterProgram(rigFor(get().rigId)));
+      else if (lesson) get().setSource(lesson.code.join("\n"));
     },
 
     toggleRun: () => get().setRunning(!get().running),
@@ -444,7 +449,7 @@ export const useSim = create<SimState>()(
       return {
         ...current,
         ...p,
-        lessonId: lessons.some((l) => l.id === p.lessonId) ? p.lessonId! : current.lessonId,
+        lessonId: p.lessonId && (lessons.some((l) => l.id === p.lessonId) || sandboxRig(p.lessonId)) ? p.lessonId : current.lessonId,
         sources: { ...current.sources, ...p.sources },
         stSources: { ...current.stSources, ...p.stSources },
         completed: { ...current.completed, ...p.completed },

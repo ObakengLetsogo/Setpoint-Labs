@@ -1,9 +1,12 @@
 import type { RigPiece } from "@/components/stage/MotorStarterRig";
+import type { RigId } from "@/data/curriculum";
 
 export type RenderState = "idle" | "run" | "fault" | "estop";
 
 export interface RenderSpec {
-  only: RigPiece[];
+  /** Pieces to show; on a rig other than the motor starter, its part ids, or empty for all of it. */
+  only: RigPiece[] | string[];
+  rig?: RigId;
   /** Camera azimuth in radians around the pieces, 0 looks from the front. */
   az?: number;
   /** Camera elevation in radians above the horizon. */
@@ -28,6 +31,21 @@ export const LAB_RENDERS: Record<string, RenderSpec> = {
   "f-edge": { only: ["start"], az: 1.0, el: 0.4 },
   "f-estop": { only: ["estop"], state: "estop", az: 0.5 },
   "f-safe-stop": { only: ["estop", "stop"], az: -0.4 },
+  "m-star-delta": { rig: "star-delta", only: [], az: 0.55, el: 0.5 },
+  "m-interlock": { rig: "star-delta", only: [], az: -0.7, el: 0.8 },
+  "m-reversing": { rig: "reversing", only: [], az: 0.5, el: 0.55 },
+  "m-conveyor": { rig: "conveyor", only: [], az: 0.45, el: 0.5 },
+  "m-sorting": { rig: "sorting", only: [], az: -0.5, el: 0.6 },
+  "m-bottling": { rig: "bottling", only: [], az: 0.6, el: 0.45 },
+  "m-traffic": { rig: "traffic", only: [], az: 0.5, el: 0.8 },
+  "m-lift": { rig: "lift", only: [], az: 0.45, el: 0.35 },
+  "m-mixer": { rig: "mixer", only: [], az: -0.5, el: 0.45 },
+  "p-tank-level": { rig: "tank", only: [], az: 0.5, el: 0.45 },
+  "p-analog": { rig: "tank", only: [], az: -0.8, el: 0.6 },
+  "p-duplex": { rig: "pumps", only: [], az: 0.5, el: 0.5 },
+  "p-alarms": { rig: "pumps", only: [], az: -0.7, el: 0.7 },
+  "p-vsd": { rig: "vsd", only: [], az: 0.5, el: 0.45 },
+  "p-vsd-faults": { rig: "vsd", only: [], az: -0.7, el: 0.6 },
   "w-schematics": { only: ["terminals"], az: 0.2, el: 0.9 },
   "w-power-control": { only: ["mcb", "contactor"], az: 0.5 },
   "w-terminals": { only: ["terminals"], az: -0.7 },

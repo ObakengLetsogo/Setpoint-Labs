@@ -4,7 +4,9 @@ import * as THREE from "three";
 import { Canvas } from "@react-three/fiber";
 import { Bounds, Environment, Lightformer } from "@react-three/drei";
 import { useEffect } from "react";
-import { MotorStarterRig } from "@/components/stage/MotorStarterRig";
+import { MotorStarterRig, type RigPiece } from "@/components/stage/MotorStarterRig";
+import { RigScene } from "@/components/rigs/RigScene";
+import { rigFor } from "@/rigs";
 import { INITIAL_PHYSICAL } from "@/rigs/motorStarter";
 import { useSim } from "@/store/sim";
 import type { PhysicalState } from "@/rigs/types";
@@ -25,7 +27,10 @@ const STATES: Record<RenderState, () => void> = {
 
 export default function PartScene({ spec }: { spec: RenderSpec }) {
   const { az = 0.67, el = 0.49, state = "idle" } = spec;
-  useEffect(() => STATES[state](), [state]);
+  useEffect(() => {
+    if (spec.rig) useSim.setState({ rigId: spec.rig, running: false, memory: {}, physical: rigFor(spec.rig).initial });
+    else STATES[state]();
+  }, [state, spec.rig]);
   const r = 20;
   const position: [number, number, number] = [r * Math.cos(el) * Math.sin(az), r * Math.sin(el), r * Math.cos(el) * Math.cos(az)];
   return (
@@ -42,8 +47,8 @@ export default function PartScene({ spec }: { spec: RenderSpec }) {
       </Environment>
       <ambientLight intensity={0.2} />
       <directionalLight position={[-6, 11, 7]} intensity={1.2} />
-      <Bounds fit clip margin={1.3}>
-        <MotorStarterRig only={spec.only} />
+      <Bounds fit clip margin={spec.rig ? 1.0 : 1.3}>
+        {spec.rig ? <RigScene id={spec.rig} only={spec.only.length ? (spec.only as string[]) : undefined} /> : <MotorStarterRig only={spec.only as RigPiece[]} />}
       </Bounds>
     </Canvas>
   );

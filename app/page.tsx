@@ -7,6 +7,8 @@ import { TopBar, TrackPills, Hero } from "@/components/shell/TopBar";
 import { MeetTheRig } from "@/components/stage/Stage";
 import { LabTrack } from "@/components/teach/LabTrack";
 import { LessonView } from "@/components/teach/LessonView";
+import { SandboxPicker, SandboxView } from "@/components/teach/Sandbox";
+import { isSandbox } from "@/data/sandbox";
 import { Sheet } from "@/components/shell/Sheet";
 import { ComponentsSheetContent } from "@/components/shell/sheets/ComponentsSheet";
 import { ReferenceSheetContent } from "@/components/shell/sheets/ReferenceSheet";
@@ -98,7 +100,8 @@ export default function Home() {
             setTimeout(() => document.getElementById("lesson")?.scrollIntoView({ behavior: "smooth" }), 50);
           }}
         />
-        <LessonView key={lesson.id} lesson={lesson} />
+        <SandboxPicker onOpen={() => setTimeout(() => document.getElementById("lesson")?.scrollIntoView({ behavior: "smooth" }), 50)} />
+        {isSandbox(lessonId) ? <SandboxView /> : <LessonView key={lesson.id} lesson={lesson} />}
 
         <p className="text-center font-mono text-[10px] uppercase tracking-[0.2em] text-muted-ink">
           Setpoint Labs is for education only. Not for use on live plant.

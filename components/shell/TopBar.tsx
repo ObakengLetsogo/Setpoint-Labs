@@ -1,7 +1,7 @@
 "use client";
 
 import { LogoMark } from "@/components/Logo";
-import { IconBook, IconKeyboard, IconLanguage, IconSliders } from "@/components/ui/icons";
+import { IconBook, IconCode, IconKeyboard, IconLanguage, IconSliders } from "@/components/ui/icons";
 import { CURRICULUM } from "@/data/curriculum";
 import { lessons } from "@/data/lessons";
 import { useRig, useSim } from "@/store/sim";
@@ -9,7 +9,7 @@ import { useRig, useSim } from "@/store/sim";
 export function TopBar({ onOpen }: { onOpen: (sheet: "reference" | "settings" | "components" | "language") => void }) {
   const lessonId = useSim((s) => s.lessonId);
   const running = useSim((s) => s.running);
-  const lesson = lessons.find((l) => l.id === lessonId)!;
+  const lesson = lessons.find((l) => l.id === lessonId);
   const rig = useRig();
   return (
     <header className="flex flex-wrap items-center justify-between gap-3">
@@ -29,12 +29,15 @@ export function TopBar({ onOpen }: { onOpen: (sheet: "reference" | "settings" | 
           <span className={`h-2 w-2 rounded-full ${running ? "bg-run shadow-[0_0_0_3px_rgba(31,157,107,0.3)]" : "bg-[#7c838c]"}`} />
           On the bench now
           <span className="rounded-full bg-[#2c3644] px-2 py-0.5 text-[#7ee2b5]">
-            {lesson.chip} {lesson.title.toLowerCase()}
+            {lesson ? `${lesson.chip} ${lesson.title.toLowerCase()}` : "sandbox"}
           </span>
         </span>
         <nav className="flex items-center rounded-full border border-[#e4e6e9] bg-white p-1 text-[12.5px] font-medium">
           <a href="#labs" className="inline-flex items-center gap-1.5 rounded-full bg-ink px-3 py-1.5 text-white">
             <IconBook size={14} /> Labs
+          </a>
+          <a href="#sandbox" className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[#3d434a] hover:text-ink">
+            <IconCode size={14} /> <span className="hidden sm:inline">Sandbox</span>
           </a>
           <button type="button" onClick={() => onOpen("reference")} className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[#3d434a] hover:text-ink">
             <IconKeyboard size={14} /> <span className="hidden sm:inline">Controls</span>

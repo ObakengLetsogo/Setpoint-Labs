@@ -174,7 +174,7 @@ export function CodeCard() {
           <IconButton label={copied ? "Copied" : "Copy program"} onClick={copy}>
             {copied ? <IconCheck size={15} /> : <IconCopy size={15} />}
           </IconButton>
-          <IconButton label="Reset to lesson program" onClick={resetSource}>
+          <IconButton label="Reset program" onClick={resetSource}>
             <IconReset size={15} />
           </IconButton>
           <IconButton label="Step one scan (.)" onClick={stepScan}>
