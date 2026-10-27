@@ -16,7 +16,8 @@ export default defineConfig({
   },
   webServer: {
     // Set E2E_SKIP_BUILD=1 to reuse an existing production build.
-    command: `${process.env.E2E_SKIP_BUILD ? "" : "npm run build && "}npx next start -p ${PORT} -H 127.0.0.1`,
+    // The app builds as a standalone server, which needs its static files and public folder beside it.
+    command: `${process.env.E2E_SKIP_BUILD ? "" : "npm run build && "}cp -r .next/static .next/standalone/.next/ && cp -r public .next/standalone/ && PORT=${PORT} HOSTNAME=127.0.0.1 node .next/standalone/server.js`,
     url: `http://127.0.0.1:${PORT}`,
     reuseExistingServer: !process.env.CI,
     timeout: 300_000,

@@ -88,7 +88,7 @@ export async function certificatePdf(cert: NonNullable<Awaited<ReturnType<typeof
   page.drawRectangle({ x: 24, y: 24, width: width - 48, height: height - 48, borderColor: rgb(0.89, 0.9, 0.91), borderWidth: 1.5 });
   page.drawRectangle({ x: 24, y: height - 30, width: width - 48, height: 6, color: orange });
 
-  const logo = await pdf.embedPng(await readFile(path.join(process.cwd(), "public/brand/logo-horizontal.png")));
+  const logo = await pdf.embedPng(await readFile(path.join(/*turbopackIgnore: true*/ process.cwd(), "public/brand/logo-horizontal.png")));
   const lw = 190;
   page.drawImage(logo, { x: (width - lw) / 2, y: height - 110, width: lw, height: (lw * logo.height) / logo.width });
 

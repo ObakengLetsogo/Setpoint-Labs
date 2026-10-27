@@ -22,7 +22,7 @@ export const KINDS: Record<VideoKind, { ext: string[]; type: string; column: "vi
 };
 
 const TTL_S = 2 * 60 * 60;
-export const videoDir = () => path.resolve(process.env.VIDEO_DIR ?? "storage/videos");
+export const videoDir = () => path.resolve(/*turbopackIgnore: true*/ process.env.VIDEO_DIR ?? "storage/videos");
 const secret = () => process.env.VIDEO_URL_SECRET ?? (process.env.NODE_ENV === "production" ? "" : "dev-video-secret");
 
 const sign = (lessonId: string, kind: VideoKind, exp: number) => createHmac("sha256", secret()).update(`${lessonId}:${kind}:${exp}`).digest("base64url");

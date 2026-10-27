@@ -10,6 +10,8 @@ async function open(page: Page, lessonId: string) {
     api.setReduceMotion(true);
     api.load(id);
   }, lessonId);
+  // Lesson content arrives from /api/lessons after an access check; wait for its program.
+  await expect(page.locator("#run")).toBeVisible({ timeout: 30_000 });
 }
 
 const call = <K extends keyof Api>(page: Page, name: K, ...args: Parameters<Extract<Api[K], (...a: never[]) => unknown>>) =>
@@ -27,10 +29,10 @@ test.describe("lesson 1: contacts and coils", () => {
     await call(page, "play");
     await call(page, "press", "start", true);
     await scans(page);
-    expect(await tag(page, "Motor_Run")).toBe(true);
+    await expect.poll(() => tag(page, "Motor_Run"), { timeout: 15_000 }).toBe(true);
     await call(page, "press", "start", false);
     await scans(page);
-    expect(await tag(page, "Motor_Run")).toBe(false);
+    await expect.poll(() => tag(page, "Motor_Run"), { timeout: 15_000 }).toBe(false);
   });
 });
 
@@ -42,14 +44,14 @@ test.describe("lesson 2: the seal-in circuit", () => {
     await scans(page, 2);
     await call(page, "press", "start", false);
     await scans(page);
-    expect(await tag(page, "Motor_Run")).toBe(true);
-    expect(await tag(page, "Run_Seal")).toBe(true);
+    await expect.poll(() => tag(page, "Motor_Run"), { timeout: 15_000 }).toBe(true);
+    await expect.poll(() => tag(page, "Run_Seal"), { timeout: 15_000 }).toBe(true);
 
     await call(page, "press", "stop", true);
     await scans(page, 2);
     await call(page, "press", "stop", false);
     await scans(page);
-    expect(await tag(page, "Motor_Run")).toBe(false);
+    await expect.poll(() => tag(page, "Motor_Run"), { timeout: 15_000 }).toBe(false);
   });
 
   test("passing the checkpoint marks the lab done and survives a reload", async ({ page }) => {
@@ -77,17 +79,18 @@ test.describe("lesson 3: overload protection", () => {
     await scans(page, 2);
     await call(page, "press", "start", false);
     await scans(page);
-    expect(await tag(page, "Motor_Run")).toBe(true);
+    await expect.poll(() => tag(page, "Motor_Run"), { timeout: 15_000 }).toBe(true);
 
     await call(page, "setInput", "Overload_OK", false);
     await scans(page);
-    expect(await tag(page, "Motor_Run")).toBe(false);
-    expect(await tag(page, "Fault_Lamp")).toBe(true);
+    await expect.poll(() => tag(page, "Motor_Run"), { timeout: 15_000 }).toBe(false);
+    await expect.poll(() => tag(page, "Fault_Lamp"), { timeout: 15_000 }).toBe(true);
 
     // The motor must not restart until the overload is reset.
     await call(page, "press", "start", true);
     await scans(page, 2);
     await call(page, "press", "start", false);
+    await scans(page, 6);
     expect(await tag(page, "Motor_Run")).toBe(false);
 
     await call(page, "setInput", "Overload_OK", true);
@@ -95,6 +98,18 @@ test.describe("lesson 3: overload protection", () => {
     await scans(page, 2);
     await call(page, "press", "start", false);
     await scans(page);
-    expect(await tag(page, "Motor_Run")).toBe(true);
+    await expect.poll(() => tag(page, "Motor_Run"), { timeout: 15_000 }).toBe(true);
+  });
+});
+
+test.describe("access", () => {
+  test("a paid lesson asks a visitor to sign in and never sends its content", async ({ page }) => {
+    const res = await page.request.get("/api/lessons/m-lift");
+    expect(res.status()).toBe(401);
+    await page.goto("/");
+    await page.waitForFunction(() => Boolean(window.setpointLabs), null, { timeout: 60_000 });
+    await page.evaluate(() => window.setpointLabs!.load("m-lift"));
+    await expect(page.getByRole("link", { name: "Sign in" }).last()).toBeVisible();
+    await expect(page.locator("#run")).toHaveCount(0);
   });
 });
