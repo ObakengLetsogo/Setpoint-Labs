@@ -69,3 +69,28 @@ export async function revokeCert(form: FormData) {
   await revokeCertificate(String(form.get("code")), me.id);
   revalidatePath("/admin");
 }
+
+/** Chapters as "m:ss Title" lines. */
+function parseChapters(text: string) {
+  // Browsers submit textarea lines with CRLF endings.
+  return text
+    .split(/\r?\n/)
+    .map((l) => /^\s*(?:(\d+):)?(\d{1,2}):(\d{2})\s+(.+)$/.exec(l))
+    .filter((m): m is RegExpExecArray => Boolean(m))
+    .map((m) => ({ t: Number(m[1] ?? 0) * 3600 + Number(m[2]) * 60 + Number(m[3]), title: m[4].trim() }))
+    .sort((a, b) => a.t - b.t);
+}
+
+export async function saveVideoDetails(_: FormState, form: FormData): Promise<FormState> {
+  const me = await admin();
+  const lessonId = String(form.get("lessonId"));
+  const { lessonVideos } = await import("@/db/schema");
+  const row = (await db.select().from(lessonVideos).where(eq(lessonVideos.lessonId, lessonId)).limit(1))[0];
+  const published = form.get("published") === "on";
+  if (published && !row?.videoFile) return { error: "Upload the video file before publishing." };
+  const set = { chapters: parseChapters(String(form.get("chapters") ?? "")), durationS: Number(form.get("duration")) || null, published, updatedBy: me.id, updatedAt: new Date() };
+  await db.insert(lessonVideos).values({ lessonId, ...set }).onDuplicateKeyUpdate({ set });
+  await audit(me.id, published ? "video.published" : "video.saved", lessonId);
+  revalidatePath("/admin/videos");
+  return { ok: published ? "Saved and published." : "Saved. Not published yet." };
+}

@@ -367,3 +367,17 @@ export const auditLog = mysqlTable(
   },
   (t) => [index("audit_log_action").on(t.action, t.createdAt)],
 );
+
+// ── Lesson videos (files live outside the web root, see lib/server/videos.ts) ──
+
+export const lessonVideos = mysqlTable("lesson_videos", {
+  lessonId: varchar("lesson_id", { length: 60 }).primaryKey(),
+  videoFile: varchar("video_file", { length: 120 }),
+  posterFile: varchar("poster_file", { length: 120 }),
+  captionsFile: varchar("captions_file", { length: 120 }),
+  durationS: int("duration_s"),
+  chapters: json("chapters").$type<{ t: number; title: string }[]>(),
+  published: boolean("published").notNull().default(false),
+  updatedBy: ref("updated_by"),
+  updatedAt: datetime("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});

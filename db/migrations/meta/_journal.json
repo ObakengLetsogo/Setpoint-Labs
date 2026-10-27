@@ -8,6 +8,13 @@
       "when": 1793138340350,
       "tag": "0000_init",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "5",
+      "when": 1793140122896,
+      "tag": "0001_lesson_videos",
+      "breakpoints": true
     }
   ]
 }

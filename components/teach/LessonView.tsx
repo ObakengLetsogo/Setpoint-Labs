@@ -7,7 +7,6 @@ import { bundleOf, useRig, useSim } from "@/store/sim";
 import { LessonGate } from "./LessonGate";
 import { CodeCard } from "@/components/code/CodeCard";
 import { IconBulb, IconCheck, IconCode, IconFlag, IconList, IconMonitor, IconPlay, IconWire } from "@/components/ui/icons";
-import { videoFor } from "@/data/videos";
 import { LessonVideo } from "./LessonVideo";
 import { Quiz } from "./Quiz";
 import { Multimeter } from "./Multimeter";
@@ -162,7 +161,7 @@ export function LessonView({ lesson }: { lesson: LessonMeta }) {
 
             <div className="relative flex flex-col gap-10 before:absolute before:bottom-4 before:left-4 before:top-8 before:w-px before:bg-[#e4e6e9]">
               <Section id="watch" n="00" icon={<IconPlay size={13} />} title="Watch">
-                <LessonVideo video={videoFor(lesson.id)} title={lesson.title} />
+                <LessonVideo video={bundle.video} title={lesson.title} />
               </Section>
 
               <Section id="goal" n="01" icon={<IconFlag size={14} />} title="Goal">

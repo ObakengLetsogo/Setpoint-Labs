@@ -6,6 +6,7 @@ import type { RigOptions } from "@/rigs/types";
 import type { QuizQuestion } from "./quizzes/types";
 import type { LessonTeach } from "./teach";
 import type { Difficulty } from "./types";
+import type { LessonVideo } from "./videos";
 
 export type CheckpointStep = (memory: Memory, inputs: Memory, faults: Record<string, boolean>) => boolean;
 
@@ -19,6 +20,8 @@ export interface LessonBundle {
   checkpoint?: { steps: CheckpointStep[]; message: string };
   teach: LessonTeach;
   quiz: QuizQuestion[];
+  /** The video lecture, with short lived signed URLs, once one is uploaded and published. */
+  video?: LessonVideo;
 }
 
 export type WireBundle = Omit<LessonBundle, "checkpoint"> & { checkpoint?: { steps: string[]; message: string } };

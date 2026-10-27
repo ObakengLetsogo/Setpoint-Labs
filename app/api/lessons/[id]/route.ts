@@ -2,6 +2,7 @@ import { metaOf } from "@/data/catalog";
 import { canOpenLesson } from "@/lib/server/access";
 import { currentUser } from "@/lib/server/auth";
 import { wireBundle } from "@/lib/server/content";
+import { videoForLesson } from "@/lib/server/videos";
 
 /** Lesson content, only for those allowed to open it. Free lessons need no account. */
 export async function GET(_req: Request, ctx: RouteContext<"/api/lessons/[id]">) {
@@ -15,5 +16,7 @@ export async function GET(_req: Request, ctx: RouteContext<"/api/lessons/[id]">)
   }
   const bundle = wireBundle(id);
   if (!bundle) return Response.json({ error: "not found" }, { status: 404 });
-  return Response.json(bundle, { headers: { "Cache-Control": meta.free ? "public, max-age=300" : "private, no-store" } });
+  const video = await videoForLesson(id);
+  // Signed video links are per response, so nothing with them is cached in shared caches.
+  return Response.json({ ...bundle, video }, { headers: { "Cache-Control": meta.free && !video ? "public, max-age=300" : "private, no-store" } });
 }

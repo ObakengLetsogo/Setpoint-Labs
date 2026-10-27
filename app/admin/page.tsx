@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { and, desc, eq, gt, sql } from "drizzle-orm";
 import { Suspense } from "react";
 import { payInvoice, revokeAccess, revokeCert } from "@/app/actions/admin";
@@ -64,6 +65,8 @@ async function Admin() {
           </div>
         ))}
       </div>
+
+      <p className="text-[13px]"><Link href="/admin/videos" className="font-medium text-[#d9591a] hover:underline">Manage lesson videos</Link></p>
 
       <Panel title="Grant access">
         <div className="p-4"><GrantForm plans={plans} /></div>
