@@ -26,6 +26,18 @@ const RV = {
   rl: io("Q0.3", "Rev_Lamp", "#2457a6", "Reverse lamp", "Lit while running in reverse"),
 };
 
+const CV = {
+  start: io("I0.0", "Start_PB", "#2e9e5b", "Start pushbutton", "Momentary, normally open"),
+  stop: io("I0.1", "Stop_PB", "#d64545", "Stop pushbutton", "Normally closed: 1 at rest"),
+  estop: io("I0.2", "EStop_OK", "#c9a227", "E-stop monitoring", "1 while released"),
+  entry: io("I0.3", "PE_Entry", "#3d434a", "Entry photo-eye", "1 while product blocks the beam"),
+  exit: io("I0.4", "PE_Exit", "#3d434a", "Exit photo-eye", "1 while product blocks the beam"),
+  belt: io("Q0.0", "Belt_Run", "#2457a6", "Belt drive contactor", "Runs the belt"),
+  lamp: io("Q0.1", "Run_Lamp", "#2e9e5b", "Green run lamp", "Lit while the belt runs"),
+};
+
+const AUTO = "RUNG 1: (XIC(Start_PB) OR XIC(Auto)) AND XIC(Stop_PB) AND XIC(EStop_OK) OTE(Auto)";
+
 const SEAL = "RUNG 1: (XIC(Start_PB) OR XIC(Run_Seal)) AND XIC(Stop_PB) AND XIC(Overload_OK) AND XIC(EStop_OK) OTE(Run_Seal)";
 
 /** Lessons on the machines track. */
@@ -143,6 +155,127 @@ export const MACHINES: Record<string, LessonContent> = {
       { label: "Rungs", value: "4" },
       { label: "Interlocks", value: "Run bits and outputs" },
       { label: "Restart", value: "From zero speed" },
+      { label: "Level", value: "Intermediate" },
+    ],
+  },
+
+  "m-conveyor": {
+    difficulty: "intermediate",
+    checkpoint: {
+      steps: [(m) => Boolean(m.Belt_Run), (m) => Boolean(m.Auto) && !m.Belt_Run, (m) => Boolean(m.Jam)],
+      message: "ran, stopped itself when empty and caught a jam",
+    },
+    summary:
+      "A conveyor should not run empty all day. In automatic it runs while there is product and stops 8 s after the last carton leaves. A carton sitting on the exit eye for 3 s while the belt runs means the discharge has jammed; the program latches a fault and stops the belt.",
+    facts: [
+      { icon: "press", text: "Tap Start. The belt runs and cartons travel to the end." },
+      { icon: "watch", text: "Turn the infeed off. 8 s after the last carton leaves, the belt stops by itself." },
+      { icon: "bolt", text: "Turn the feed on and jam the exit from the exit eye's popover. After 3 s the jam lamp lights." },
+    ],
+    io: [CV.start, CV.stop, CV.estop, CV.entry, CV.exit, CV.belt, CV.lamp, io("Q0.2", "Jam_Lamp", "#d64545", "Red jam lamp", "Lit while a jam is latched")],
+    steps: [
+      { line: 2, text: "Auto seals in like a motor run bit, and drops on a jam." },
+      { line: 3, text: "Empty_T times while neither eye sees product. Any carton resets it." },
+      { line: 4, text: "The belt runs in auto until the belt has been empty for 8 s." },
+      { line: 5, text: "Jam_T times while the exit eye stays blocked with the belt running." },
+      { line: 6, text: "After 3 s, Jam latches." },
+      { line: 7, text: "Press Stop once the exit is clear to reset the jam." },
+      { line: 8, text: "The jam lamp shows the latched fault." },
+    ],
+    code: [
+      "// Run on demand, stop 8 s after the belt empties, latch a jam.",
+      "RUNG 1: (XIC(Start_PB) OR XIC(Auto)) AND XIC(Stop_PB) AND XIC(EStop_OK) AND XIO(Jam) OTE(Auto)",
+      "RUNG 2: XIC(Auto) XIO(PE_Entry) XIO(PE_Exit) TON(Empty_T, 8000)",
+      "RUNG 3: XIC(Auto) XIO(Empty_T.DN) OTE(Belt_Run) OTE(Run_Lamp)",
+      "RUNG 4: XIC(PE_Exit) XIC(Belt_Run) TON(Jam_T, 3000)",
+      "RUNG 5: XIC(Jam_T.DN) OTL(Jam)",
+      "RUNG 6: XIO(Stop_PB) XIO(PE_Exit) OTU(Jam)",
+      "RUNG 7: XIC(Jam) OTE(Jam_Lamp)",
+    ],
+    specs: [
+      { label: "Rungs", value: "7" },
+      { label: "Run-on", value: "8 s empty" },
+      { label: "Jam time", value: "3 s" },
+      { label: "Level", value: "Intermediate" },
+    ],
+  },
+
+  "m-sorting": {
+    difficulty: "intermediate",
+    checkpoint: { steps: [(_m, i) => Number(i.Sorted) >= 3], message: "pushed three metal cans into the bin" },
+    summary:
+      "The inductive sensor sees metal, but it sits upstream of the pusher. The program has to remember what it saw until that item arrives. Here the sensor and pusher are close enough that only one item fits between them, so one remembered bit is enough. A one shot catches each arrival at the pusher.",
+    facts: [
+      { icon: "press", text: "Tap Start. Cartons and cans travel down the belt." },
+      { icon: "watch", text: "Each can lights the metal sensor. When it reaches the pusher, the pusher fires." },
+      { icon: "info", text: "Cartons go on to the end of the belt. The pusher card counts sorted and wrong items." },
+    ],
+    io: [CV.start, CV.stop, CV.estop, io("I0.5", "Metal_Sensor", "#6b4fa0", "Inductive sensor", "1 while metal is under it"), io("I0.6", "PE_Divert", "#3d434a", "Pusher photo-eye", "1 while any item is at the pusher"), CV.belt, CV.lamp, io("Q0.2", "Pusher_Out", "#f26b1d", "Pusher valve", "Extends the pusher")],
+    steps: [
+      { line: 4, text: "A metal can latches Metal_Seen as it passes the inductive sensor." },
+      { line: 5, text: "ONS turns each arrival at the pusher into a single scan pulse." },
+      { line: 6, text: "If the arriving item was metal, latch Push." },
+      { line: 7, text: "Every arrival clears Metal_Seen, ready for the next item." },
+      { line: 8, text: "Push lasts 0.4 s." },
+      { line: 10, text: "The valve follows Push." },
+    ],
+    code: [
+      "// Remember metal at the sensor, push it at the pusher.",
+      AUTO,
+      "RUNG 2: XIC(Auto) OTE(Belt_Run) OTE(Run_Lamp)",
+      "RUNG 3: XIC(Metal_Sensor) OTL(Metal_Seen)",
+      "RUNG 4: XIC(PE_Divert) ONS(Div_OS) OTE(At_Pusher)",
+      "RUNG 5: XIC(At_Pusher) XIC(Metal_Seen) OTL(Push)",
+      "RUNG 6: XIC(At_Pusher) OTU(Metal_Seen)",
+      "RUNG 7: XIC(Push) TON(Push_T, 400)",
+      "RUNG 8: XIC(Push_T.DN) OTU(Push)",
+      "RUNG 9: XIC(Push) OTE(Pusher_Out)",
+    ],
+    specs: [
+      { label: "Rungs", value: "9" },
+      { label: "Tracking", value: "One bit" },
+      { label: "Push time", value: "0.4 s" },
+      { label: "Level", value: "Intermediate" },
+    ],
+  },
+
+  "m-bottling": {
+    difficulty: "intermediate",
+    checkpoint: { steps: [(m) => Boolean(m.Fill_Valve), (m) => Boolean(m["Case.DN"])], message: "filled six bottles and lit the case full beacon" },
+    summary:
+      "A gate holds each bottle under the nozzle. The filler opens for a set time, then the gate drops to let the full bottle go and rises for the next. A counter on the exit eye counts bottles into cases of six.",
+    facts: [
+      { icon: "press", text: "Tap Start. The first bottle stops under the nozzle." },
+      { icon: "watch", text: "The valve opens for 2.4 s, the gate drops, the bottle moves on." },
+      { icon: "bolt", text: "After six bottles the case beacon lights. Press Stop to start a new case." },
+    ],
+    io: [CV.start, CV.stop, CV.estop, CV.exit, io("I0.5", "PE_Filler", "#3d434a", "Filler photo-eye", "1 while a bottle stands under the nozzle"), CV.belt, io("Q0.2", "Stopper_Down", "#f26b1d", "Stopper valve", "Lowers the gate"), io("Q0.3", "Fill_Valve", "#3d8fd6", "Fill valve", "Opens the nozzle"), io("Q0.4", "Case_Full", "#e0a526", "Case beacon", "Lit after six bottles")],
+    steps: [
+      { line: 3, text: "Fill_T times while a bottle waits under the nozzle and is not yet filled." },
+      { line: 4, text: "The valve is open while the timer runs." },
+      { line: 5, text: "At the preset the bottle is full: Filled latches." },
+      { line: 6, text: "Filled drops the gate." },
+      { line: 7, text: "Once the bottle has left the eye, Filled clears and the gate rises." },
+      { line: 8, text: "Each bottle leaving the line adds one to the case counter." },
+      { line: 9, text: "Six bottles light the beacon. Stop resets the count." },
+    ],
+    code: [
+      "// Hold, fill for 2.4 s, release, count six to a case.",
+      AUTO,
+      "RUNG 2: XIC(Auto) OTE(Belt_Run) OTE(Run_Lamp)",
+      "RUNG 3: XIC(Auto) XIC(PE_Filler) XIO(Filled) TON(Fill_T, 2400)",
+      "RUNG 4: XIC(Auto) XIC(PE_Filler) XIO(Filled) XIO(Fill_T.DN) OTE(Fill_Valve)",
+      "RUNG 5: XIC(Fill_T.DN) OTL(Filled)",
+      "RUNG 6: XIC(Filled) OTE(Stopper_Down)",
+      "RUNG 7: XIC(Filled) XIO(PE_Filler) OTU(Filled)",
+      "RUNG 8: XIC(PE_Exit) ONS(Exit_OS) CTU(Case, 6)",
+      "RUNG 9: XIC(Case.DN) OTE(Case_Full)",
+      "RUNG 10: XIO(Stop_PB) RES(Case)",
+    ],
+    specs: [
+      { label: "Rungs", value: "10" },
+      { label: "Fill time", value: "2.4 s" },
+      { label: "Case", value: "6 bottles" },
       { label: "Level", value: "Intermediate" },
     ],
   },

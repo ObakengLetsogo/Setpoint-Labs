@@ -90,4 +90,85 @@ export const TEACH_MACHINES: Record<string, LessonTeach> = {
     ],
     words: [...W, { term: "Plugging", meaning: "Reversing a motor while it still turns. It brakes hard and draws a very large current." }, { term: "Zero speed switch", meaning: "A sensor on the shaft that turns on when it has stopped." }],
   },
+
+  "m-conveyor": {
+    goal: "Run a belt only while there is product, stop it 8 s after it empties, and latch a jam at the discharge.",
+    learn: ["photo-eyes", "auto mode", "run-on timer", "jam detection", "fault reset"],
+    wires: [1, 2, 3, 4, 5, 6, 7, 8],
+    steps: [
+      "Run the PLC and tap Start. Watch cartons pass the entry and exit eyes.",
+      "Open the infeed popover and turn the feed off.",
+      "Watch Empty_T count once the last carton leaves. At 8 s the belt stops but Auto stays on.",
+      "Turn the feed on. The first carton blocks the entry eye and the belt restarts.",
+      "Jam the exit from the exit eye popover. After 3 s the jam lamp lights and the belt stops.",
+    ],
+    between: ["PNP sensors switch 24 V onto the input when they see product.", "A run-on timer saves energy and belt wear.", ...SAFE],
+    tour: [
+      { kicker: "Scene 1 of 3 · Auto", title: "Armed, not necessarily running", lines: [2, 2], lead: "Auto seals in like a run bit.", body: "Auto means the conveyor may run. Whether the belt actually moves is decided by the next rungs.", handsTo: ["Auto"] },
+      { kicker: "Scene 2 of 3 · Run-on", title: "Stop when empty", lines: [3, 4], lead: "Empty_T times while neither eye sees product.", body: "Any carton on an eye resets the timer. 8 s of nothing stops the belt, and the next carton at the entry starts it again.", precise: "8 s is longer than a carton takes to cross the belt, so a carton between the eyes is never stranded.", handsTo: ["Empty_T", "Belt_Run"] },
+      { kicker: "Scene 3 of 3 · Jam", title: "Too long on the exit eye", lines: [5, 8], lead: "Jam_T times while the exit is blocked with the belt running.", body: "A carton crosses the eye in well under a second. Three seconds means it is stuck. Jam latches, drops Auto and lights the lamp.", handsTo: ["Jam", "Jam_Lamp"] },
+    ],
+    story: [
+      { t: "you", text: "You tap Start. Auto seals and the belt runs." },
+      { t: "cartons", text: "Each carton blocks the entry eye, then the exit eye." },
+      { t: "feed off", text: "No more cartons. Empty_T counts to 8 s and the belt stops." },
+      { t: "jam", text: "A carton sticks on the exit eye. Jam_T reaches 3 s." },
+      { t: "fault", text: "Jam latches, Auto drops, the jam lamp lights. Clear it and press Stop to reset." },
+    ],
+    words: [...W, { term: "Photo-eye", meaning: "A light beam sensor. Retro-reflective types bounce the beam off a reflector across the belt." }, { term: "Run-on", meaning: "Keeping a machine running for a set time after its last demand." }],
+  },
+
+  "m-sorting": {
+    goal: "Push every metal can into the bin, and let every carton through.",
+    learn: ["inductive sensor", "tracking", "one shot on arrival", "pulse output", "remember then act"],
+    wires: [1, 2, 3, 4, 7, 8, 9, 10, 11],
+    steps: [
+      "Run the PLC and tap Start.",
+      "Watch the metal sensor light only for cans.",
+      "Watch Metal_Seen latch, then the pusher fire when the can reaches it.",
+      "Check the pusher card: sorted cans counting up, no wrong items.",
+      "Delete rung 6 and run again. Explain why cartons start getting pushed.",
+    ],
+    between: ["Inductive sensors only see metal.", "If items can bunch up between sensor and pusher you need a shift register.", ...SAFE],
+    tour: [
+      { kicker: "Scene 1 of 3 · See", title: "Remember the metal", lines: [4, 4], lead: "XIC(Metal_Sensor) latches Metal_Seen.", body: "The can is past the sensor long before it reaches the pusher, so the program must remember it.", handsTo: ["Metal_Sensor", "Metal_Seen"] },
+      { kicker: "Scene 2 of 3 · Arrive", title: "One pulse per item", lines: [5, 7], lead: "ONS turns the pusher eye into a one scan At_Pusher pulse.", body: "On that scan, a remembered can latches Push. Every arrival, can or carton, then clears Metal_Seen for the next item.", precise: "Reading Metal_Seen before clearing it is the read before write rule again.", handsTo: ["At_Pusher", "Push"] },
+      { kicker: "Scene 3 of 3 · Push", title: "A timed stroke", lines: [8, 10], lead: "Push lasts 0.4 s, then unlatches.", body: "The valve follows Push. The cylinder extends, kicks the can into the bin and returns.", handsTo: ["Pusher_Out"] },
+    ],
+    story: [
+      { t: "can", text: "A can passes the inductive sensor. Metal_Seen latches." },
+      { t: "arrive", text: "It reaches the pusher eye. At_Pusher pulses for one scan." },
+      { t: "push", text: "Metal_Seen was 1, so Push latches. The cylinder extends." },
+      { t: "0.4 s", text: "Push_T is done. Push clears, the pusher returns." },
+      { t: "carton", text: "A carton arrives. Metal_Seen is 0, so it goes past." },
+    ],
+    words: [...W, { term: "Inductive sensor", meaning: "A proximity sensor that switches when metal comes near its face." }, { term: "Tracking", meaning: "Remembering what each item is between where it is measured and where it is acted on." }],
+  },
+
+  "m-bottling": {
+    goal: "Fill each bottle for a fixed time while a gate holds it, then release it and count cases of six.",
+    learn: ["stopper gate", "timed fill", "latch until clear", "counting with an edge", "case counter"],
+    wires: [1, 2, 3, 4, 6, 7, 8, 9, 10, 11],
+    steps: [
+      "Run the PLC and tap Start.",
+      "Watch the first bottle stop at the gate. The valve opens and the bottle fills.",
+      "After 2.4 s the gate drops and the bottle moves on. The gate rises for the next one.",
+      "Count six bottles past the exit eye. The case beacon lights.",
+      "Change Fill_T to 3000 and run again. Watch the filler card for spills.",
+    ],
+    between: ["Timed fills are simple; real fillers often use flow meters or weigh cells.", "Release, then wait for the bottle to clear before re-arming.", ...SAFE],
+    tour: [
+      { kicker: "Scene 1 of 3 · Fill", title: "Time it while it waits", lines: [4, 5], lead: "Fill_T times while a bottle is under the nozzle and not yet filled.", body: "The valve is open for exactly as long as the timer is counting.", handsTo: ["Fill_T", "Fill_Valve"] },
+      { kicker: "Scene 2 of 3 · Release", title: "Gate down until it clears", lines: [6, 8], lead: "Filled latches at the preset and drops the gate.", body: "It stays latched until the bottle has left the eye, then the gate rises to catch the next one.", handsTo: ["Filled", "Stopper_Down"] },
+      { kicker: "Scene 3 of 3 · Count", title: "Six to a case", lines: [9, 11], lead: "ONS on the exit eye counts each bottle once.", body: "At six, Case.DN lights the beacon. Stop resets the counter for the next case.", handsTo: ["Case", "Case_Full"] },
+    ],
+    story: [
+      { t: "arrive", text: "A bottle stops against the gate. PE_Filler turns on." },
+      { t: "fill", text: "Fill_T counts, the valve is open." },
+      { t: "2.4 s", text: "Fill_T is done. Filled latches and drops the gate." },
+      { t: "leave", text: "The bottle moves off the eye. Filled clears, the gate rises." },
+      { t: "case", text: "The sixth bottle past the exit eye lights the case beacon." },
+    ],
+    words: [...W, { term: "Stopper", meaning: "A gate that rises through the conveyor to hold product at a station." }, { term: "Counter", meaning: "CTU adds one on each rising edge of its rung; DN turns on at the preset." }],
+  },
 };

@@ -56,3 +56,38 @@ describe("machines lessons", () => {
     expect(b.done()).toBe(true);
   });
 });
+
+describe("conveyor lessons", () => {
+  it("conveyor runs, stops when empty and latches a jam", () => {
+    const b = bench("m-conveyor");
+    tap(b, "startPressed");
+    b.run(6000);
+    expect(b.mem().Belt_Run).toBe(true);
+    b.run(100, { feed: false });
+    b.run(20000);
+    expect(b.mem().Belt_Run).toBe(false);
+    expect(b.mem().Auto).toBe(true);
+    b.run(100, { feed: true }, { jam: true });
+    b.run(20000);
+    expect(b.mem().Jam).toBe(true);
+    expect(b.done()).toBe(true);
+  });
+
+  it("sorting pushes metal and nothing else", () => {
+    const b = bench("m-sorting");
+    tap(b, "startPressed");
+    b.run(40000);
+    expect(Number(b.phys().sortedMetal)).toBeGreaterThanOrEqual(3);
+    expect(Number(b.phys().missorted)).toBe(0);
+    expect(b.done()).toBe(true);
+  });
+
+  it("bottling fills without spilling and counts a case", () => {
+    const b = bench("m-bottling");
+    tap(b, "startPressed");
+    b.run(60000);
+    expect(Number(b.phys().spilled)).toBe(0);
+    expect(b.mem()["Case.DN"]).toBe(true);
+    expect(b.done()).toBe(true);
+  });
+});
