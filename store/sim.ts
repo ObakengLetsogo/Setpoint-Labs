@@ -117,6 +117,9 @@ interface SimState {
   pressing: boolean;
   completed: Record<string, boolean>;
   ranLessons: Record<string, boolean>;
+  /** Best quiz score per lesson, out of the number of questions. */
+  quizScores: Record<string, number>;
+  setQuizScore: (lessonId: string, score: number) => void;
   settings: Settings;
   language: string;
 
@@ -251,6 +254,8 @@ const simStore: StateCreator<SimState> = (set, get) => {
     pressing: false,
     completed: Object.fromEntries(lessons.map((l) => [l.id, l.completed])),
     ranLessons: {},
+    quizScores: {},
+    setQuizScore: (lessonId, score) => set({ quizScores: { ...get().quizScores, [lessonId]: Math.max(score, get().quizScores[lessonId] ?? 0) } }),
     settings: DEFAULT_SETTINGS,
     language: "EN",
 
@@ -430,6 +435,7 @@ export const useSim = create<SimState>()(
       codeLang: s.codeLang,
       completed: s.completed,
       ranLessons: s.ranLessons,
+      quizScores: s.quizScores,
       settings: s.settings,
       language: s.language,
     }),

@@ -6,7 +6,11 @@ import { placeOf } from "@/data/curriculum";
 import { TEACH } from "@/data/teach";
 import { useRig, useSim } from "@/store/sim";
 import { CodeCard } from "@/components/code/CodeCard";
-import { IconBulb, IconCheck, IconCode, IconFlag, IconList, IconMonitor, IconWire } from "@/components/ui/icons";
+import { IconBulb, IconCheck, IconCode, IconFlag, IconList, IconMonitor, IconPlay, IconWire } from "@/components/ui/icons";
+import { videoFor } from "@/data/videos";
+import { LessonVideo } from "./LessonVideo";
+import { Quiz } from "./Quiz";
+import { quizFor } from "@/data/quizzes";
 import { IoPinout } from "./IoPinout";
 import { WiringTable, WiringView } from "./WiringView";
 import { CodeReader } from "./CodeReader";
@@ -83,11 +87,13 @@ export function LessonView({ lesson }: { lesson: Lesson }) {
   const status = completed ? ["done by you", "bg-run text-white"] : ran ? ["runs on the sim", "bg-run/10 text-run"] : ["built, not run", "bg-[#fbeee4] text-[#b5531f]"];
   const stops = teach.tour.length;
   const nav: [string, string, ReactNode][] = [
+    ["watch", "Watch", <IconPlay key="v" size={12} />],
     ["goal", "Goal", <IconFlag key="g" size={13} />],
     ["how", "How it works", <IconBulb key="h" size={13} />],
     ["wire", "Wire", <IconWire key="w" size={13} />],
     ["steps", `Steps 0/${teach.steps.length}`, <IconList key="s" size={13} />],
     ["run", "Run it", <IconMonitor key="r" size={13} />],
+    ["quiz", "Quiz", <IconCheck key="q" size={13} />],
   ];
 
   return (
@@ -147,7 +153,11 @@ export function LessonView({ lesson }: { lesson: Lesson }) {
             </nav>
 
             <div className="relative flex flex-col gap-10 before:absolute before:bottom-4 before:left-4 before:top-8 before:w-px before:bg-[#e4e6e9]">
-              <Section id="goal" n="00" icon={<IconFlag size={14} />} title="Goal">
+              <Section id="watch" n="00" icon={<IconPlay size={13} />} title="Watch">
+                <LessonVideo video={videoFor(lesson.id)} title={lesson.title} />
+              </Section>
+
+              <Section id="goal" n="01" icon={<IconFlag size={14} />} title="Goal">
                 <div className="rounded-2xl border border-[#e4e6e9] bg-white p-5">
                   <p className="font-mono text-[10.5px] uppercase tracking-[0.18em] text-[#d9591a]">
                     {track?.name} · {chapter?.title} · lesson {lesson.number} of {trackSize}
@@ -171,21 +181,27 @@ export function LessonView({ lesson }: { lesson: Lesson }) {
                 </div>
               </Section>
 
-              <Section id="how" n="01" icon={<IconBulb size={14} />} title="How it is wired">
+              <Section id="how" n="02" icon={<IconBulb size={14} />} title="How it is wired">
                 <WiringView key={lesson.id} wires={teach.wires} />
               </Section>
 
-              <Section id="wire" n="02" icon={<IconWire size={14} />} title="Wiring">
+              <Section id="wire" n="03" icon={<IconWire size={14} />} title="Wiring">
                 <WiringTable wires={teach.wires} />
               </Section>
 
-              <Section id="steps" n="03" icon={<IconList size={14} />} title="Steps">
+              <Section id="steps" n="04" icon={<IconList size={14} />} title="Steps">
                 <Steps key={lesson.id} lessonId={lesson.id} steps={teach.steps} />
               </Section>
 
-              <Section id="run" n="04" icon={<IconMonitor size={14} />} title="Run it on the sim">
+              <Section id="run" n="05" icon={<IconMonitor size={14} />} title="Run it on the sim">
                 <CodeCard />
               </Section>
+
+              {quizFor(lesson.id).length > 0 && (
+                <Section id="quiz" n="06" icon={<IconCheck size={14} />} title="Quiz">
+                  <Quiz key={lesson.id} lessonId={lesson.id} questions={quizFor(lesson.id)} />
+                </Section>
+              )}
             </div>
           </div>
         </div>
