@@ -9,9 +9,15 @@ guide in Phase 7 of the build plan for server setup.
 
 ## Status
 
-Phase 1 of 7: project setup, design tokens, static app shell with fake lesson data.
-The 3D stage, PLC runtime, structured text interpreter, auth, payments and the
-remaining platform packs come in later phases.
+The motor start stop bench is live:
+
+- Ladder engine (`engine/`): parser and scan executor with series and parallel logic, latch, TON, TOF, CTU and RES, plus a per-scan trace. Covered by Vitest (`npm test`).
+- Rig (`rigs/motorStarter.ts`, `components/stage/`): physically based 3D motor starter with PLC, contactor, overload, MCB, X1 terminals, ducted wiring and a TEFC motor, driven live by the engine.
+- Annotation stage: numbered markers pinned to parts, leader lines to cards, part renders in `public/parts/` (regenerate in development from `/render/parts?id=...`).
+- Teaching panels (`components/teach/`): lab track, animated wiring view, wiring table, steps, code reader with tour, story and explore modes, and a live scan monitor.
+- `window.setpointLabs` automation API for recording and tests.
+
+Auth, payments, more rigs and platform packs come in later phases.
 
 ## Stack
 

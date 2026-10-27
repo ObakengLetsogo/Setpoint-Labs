@@ -2,9 +2,9 @@
 
 @theme {
   /* Setpoint Labs design tokens: light only, no dark theme */
-  --color-background: #faf8f3;
-  --color-surface: #fffdf9;
-  --color-border: #e6e2d9;
+  --color-background: #f4f5f6;
+  --color-surface: #ffffff;
+  --color-border: #e4e6e9;
   --color-ink: #1b2430;
   --color-muted-ink: #6b6f76;
   --color-primary: #2457a6;
@@ -12,10 +12,13 @@
   --color-energised: #2e9e5b;
   --color-fault: #d64545;
   --color-wire: #8a8f98;
+  --color-run: #1f9d6b;
+  --color-canvas: #f2f3f4;
 
   --font-display: var(--font-barlow-condensed), "Arial Narrow", sans-serif;
   --font-body: var(--font-inter), sans-serif;
   --font-mono: var(--font-jetbrains-mono), monospace;
+  --font-serif: var(--font-instrument-serif), "Times New Roman", serif;
 
   --shadow-card: 0 1px 2px rgba(27, 36, 48, 0.04), 0 8px 24px -8px rgba(27, 36, 48, 0.12);
 }
@@ -83,4 +86,134 @@ body {
 .no-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;
+}
+
+@keyframes flow {
+  to {
+    stroke-dashoffset: -16;
+  }
+}
+
+@keyframes draw-line {
+  from {
+    stroke-dashoffset: 400;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.ladder-flow {
+  stroke-dasharray: 3 13;
+  animation: flow 0.6s linear infinite;
+}
+
+.ladder-tag {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  fill: var(--color-ink);
+}
+
+.ladder-addr {
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  letter-spacing: 0.06em;
+}
+
+.ladder-box-title {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 700;
+  fill: var(--color-ink);
+}
+
+.callout-line {
+  stroke-dasharray: 400;
+  animation: draw-line 0.7s ease-out both;
+}
+
+.sheet-panel {
+  animation: sheet-in 0.26s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@media (min-width: 1024px) {
+  .sheet-panel {
+    animation: fade-up 0.22s ease-out;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ladder-flow,
+  .callout-line,
+  .sheet-panel,
+  .animate-fade-up {
+    animation: none;
+  }
+}
+
+.wiring-kicker {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.18em;
+  fill: #8a9099;
+}
+
+.wiring-term {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 600;
+}
+
+.wiring-device {
+  font-family: var(--font-body);
+  font-size: 11.5px;
+  font-weight: 600;
+  fill: #1b2430;
+}
+
+.wiring-pin {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  fill: #6b6f76;
+}
+
+@keyframes wire-draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.wire-draw {
+  stroke-dasharray: 1;
+  animation: wire-draw 0.9s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wire-draw {
+    animation: none;
+  }
+}
+
+@keyframes marker-pulse {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 0 rgba(31, 157, 107, 0));
+  }
+  50% {
+    filter: drop-shadow(0 0 6px rgba(31, 157, 107, 0.55));
+  }
+}
+
+.marker-live {
+  animation: marker-pulse 1.8s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marker-live {
+    animation: none;
+  }
 }

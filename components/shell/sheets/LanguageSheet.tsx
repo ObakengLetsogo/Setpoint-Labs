@@ -1,6 +1,8 @@
 "use client";
 
-const LANGUAGES: { code: string; name: string; available: boolean }[] = [
+import { useSim } from "@/store/sim";
+
+const LANGUAGES = [
   { code: "EN", name: "English", available: true },
   { code: "AF", name: "Afrikaans", available: false },
   { code: "ZU", name: "isiZulu", available: false },
@@ -9,32 +11,33 @@ const LANGUAGES: { code: string; name: string; available: boolean }[] = [
   { code: "ST", name: "Sesotho", available: false },
 ];
 
-export function LanguageSheetContent({
-  active,
-  onSelect,
-}: {
-  active: string;
-  onSelect: (code: string) => void;
-}) {
+export function LanguageSheetContent() {
+  const language = useSim((s) => s.language);
+  const setLanguage = useSim((s) => s.setLanguage);
   return (
-    <div className="grid grid-cols-3 gap-2.5">
-      {LANGUAGES.map((lang) => (
-        <button
-          key={lang.code}
-          type="button"
-          disabled={!lang.available}
-          onClick={() => onSelect(lang.code)}
-          className={`flex flex-col items-center gap-1.5 rounded-xl border p-3 text-center ${
-            active === lang.code ? "border-accent bg-accent/5" : "border-border"
-          } ${lang.available ? "" : "opacity-40"}`}
-        >
-          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-sm font-bold text-white">
-            {lang.code}
-          </span>
-          <span className="text-xs text-ink">{lang.name}</span>
-          {!lang.available && <span className="text-[10px] text-muted-ink">Soon</span>}
-        </button>
-      ))}
+    <div className="grid grid-cols-2 gap-2">
+      {LANGUAGES.map((l) => {
+        const on = language === l.code;
+        return (
+          <button
+            key={l.code}
+            type="button"
+            disabled={!l.available}
+            onClick={() => setLanguage(l.code)}
+            className={`flex items-center gap-2.5 rounded-xl border p-2.5 text-left transition ${
+              on ? "border-ink bg-ink/[0.03]" : "border-border hover:border-ink/25"
+            } ${l.available ? "" : "cursor-not-allowed opacity-50"}`}
+          >
+            <span className={`flex h-8 w-8 items-center justify-center rounded-lg font-mono text-[11px] font-semibold ${on ? "bg-ink text-white" : "bg-background text-ink"}`}>
+              {l.code}
+            </span>
+            <span>
+              <span className="block text-[13px] text-ink">{l.name}</span>
+              <span className="block font-mono text-[9px] uppercase tracking-[0.2em] text-muted-ink">{l.available ? "Available" : "Soon"}</span>
+            </span>
+          </button>
+        );
+      })}
     </div>
   );
 }

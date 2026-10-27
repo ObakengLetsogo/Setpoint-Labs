@@ -1,155 +1,153 @@
-import type { Lesson } from "./types";
+import type { IoPoint, Lesson, LessonIcon } from "./types";
+
+const IO: Record<string, IoPoint> = {
+  start: { address: "I0.0", tagName: "Start_PB", color: "#2e9e5b", connectsTo: "Start pushbutton", description: "Green, momentary, normally open" },
+  stop: { address: "I0.1", tagName: "Stop_PB", color: "#d64545", connectsTo: "Stop pushbutton", description: "Red, momentary, normally open" },
+  ol: { address: "I0.2", tagName: "Overload_OK", color: "#f26b1d", connectsTo: "Overload relay 95-96", description: "Normally closed, opens when the overload trips" },
+  run: { address: "Q0.0", tagName: "Motor_Run", color: "#2457a6", connectsTo: "Contactor coil A1-A2", description: "Closes the main contacts that power the motor" },
+  runLamp: { address: "Q0.1", tagName: "Run_Lamp", color: "#2e9e5b", connectsTo: "Green pilot lamp", description: "Lit while the motor is commanded on" },
+  faultLamp: { address: "Q0.2", tagName: "Fault_Lamp", color: "#d64545", connectsTo: "Red pilot lamp", description: "Lit while the overload is tripped" },
+  seal: { address: "M0.0", tagName: "Run_Seal", color: "#6b6f76", connectsTo: "Internal memory bit", description: "Remembers that the motor should keep running" },
+};
 
 const fullLessons: Lesson[] = [
   {
     id: "foundations-1",
     trackId: "foundations",
     number: 1,
-    title: "Ladder Symbols Walkthrough",
+    title: "Contacts and coils",
+    icon: "contacts",
     difficulty: "beginner",
-    completed: true,
+    completed: false,
     summary:
-      "Every ladder program is built from a handful of symbols. Learn to read a normally open contact, a normally closed contact, and a coil before writing a single rung.",
+      "Every ladder program is built from a few symbols. A contact asks a question about an input, a coil acts on the answer. Hold Start and the motor runs. Let go and it stops.",
     facts: [
-      "A rung is one row of logic between the two power rails.",
-      "Contacts test conditions. Coils act on the result.",
-      "Power 'flows' left to right only while the logic is true.",
+      { icon: "press", text: "Press and hold the green Start button in the scene." },
+      { icon: "watch", text: "Watch the rung light up green as power flows left to right." },
+      { icon: "bolt", text: "Release it. With no memory in the logic, the motor coasts to a stop." },
     ],
-    io: [
-      { address: "I0.0", tagName: "Start_PB", color: "#2e9e5b", connectsTo: "Start pushbutton", description: "Momentary NO pushbutton, wired normally open" },
-      { address: "I0.1", tagName: "Stop_PB", color: "#d64545", connectsTo: "Stop pushbutton", description: "Momentary NO pushbutton, wired normally open, read as NC in logic" },
-      { address: "Q0.0", tagName: "Motor_Run", color: "#2457a6", connectsTo: "Motor contactor coil", description: "Energises the contactor coil that closes the motor's power contacts" },
-    ],
+    io: [IO.start, IO.stop, IO.run],
     steps: [
-      { line: 1, text: "XIC(Start_PB) tests whether the start input is energised." },
-      { line: 2, text: "XIO(Stop_PB) tests whether the stop input is NOT energised." },
-      { line: 3, text: "When both are true, OTE(Motor_Run) energises the output coil." },
+      { line: 1, text: "XIC(Start_PB) is a normally open contact. It passes power while Start is pressed." },
+      { line: 1, text: "XIO(Stop_PB) is a normally closed contact. It passes power while Stop is NOT pressed." },
+      { line: 1, text: "OTE(Motor_Run) is the coil. It is on exactly while the rung is true, so the motor only runs while you hold Start." },
     ],
-    code: [
-      "RUNG 1: XIC(Start_PB) AND XIO(Stop_PB) OTE(Motor_Run)",
-      "// Start energises the coil; Stop de-energises it.",
-    ],
+    code: ["// Hold Start to run. Nothing remembers the press yet.", "RUNG 1: XIC(Start_PB) XIO(Stop_PB) OTE(Motor_Run)"],
     specs: [
-      { label: "Symbol count", value: "3 core" },
-      { label: "Languages used", value: "Ladder" },
+      { label: "Rungs", value: "1" },
+      { label: "Instructions", value: "XIC · XIO · OTE" },
       { label: "Scan time", value: "100 ms" },
-      { label: "Difficulty", value: "Beginner" },
-    ],
-    callouts: [
-      { id: "start", label: "Start pushbutton", color: "#2e9e5b", top: "62%", left: "18%" },
-      { id: "stop", label: "Stop pushbutton", color: "#d64545", top: "62%", left: "78%" },
-      { id: "coil", label: "Motor contactor", color: "#2457a6", top: "30%", left: "50%" },
+      { label: "Level", value: "Beginner" },
     ],
   },
   {
     id: "foundations-2",
     trackId: "foundations",
     number: 2,
-    title: "The Seal-In Circuit",
+    title: "The seal-in circuit",
+    icon: "seal",
     difficulty: "beginner",
-    completed: true,
+    completed: false,
     summary:
-      "A momentary start button can hold a motor running by sealing in through the output's own contact. This is the single most used pattern in industrial control.",
+      "A momentary button can keep a motor running if the logic remembers it. A branch around Start, driven by the output itself, holds the rung true after you let go. This one pattern is in almost every motor panel.",
     facts: [
-      "The coil's own contact, wired in parallel with Start, holds the rung true.",
-      "Stop is wired in series so it always breaks the seal.",
-      "This pattern is the basis of almost every motor control circuit you'll see on the floor.",
+      { icon: "press", text: "Tap Start once. The motor keeps running after you release it." },
+      { icon: "watch", text: "See the lower branch take over, carrying power through Run_Seal." },
+      { icon: "bolt", text: "Tap Stop. It is in series, so it always breaks the seal." },
     ],
-    io: [
-      { address: "I0.0", tagName: "Start_PB", color: "#2e9e5b", connectsTo: "Start pushbutton", description: "Momentary NO pushbutton" },
-      { address: "I0.1", tagName: "Stop_PB", color: "#d64545", connectsTo: "Stop pushbutton", description: "Momentary NO pushbutton, read as NC" },
-      { address: "M0.0", tagName: "Run_Seal", color: "#2457a6", connectsTo: "Internal marker", description: "Holds the run state between scans" },
-      { address: "Q0.0", tagName: "Motor_Run", color: "#2457a6", connectsTo: "Motor contactor coil", description: "Follows Run_Seal directly" },
-    ],
+    io: [IO.start, IO.stop, IO.seal, IO.run, IO.runLamp],
     steps: [
-      { line: 1, text: "XIC(Start_PB) OR XIC(Run_Seal), either starts the rung, or the seal keeps it true." },
-      { line: 2, text: "AND XIO(Stop_PB): Stop always wins and breaks the seal." },
-      { line: 3, text: "OTE(Run_Seal) feeds back into line 1 on the next scan." },
-      { line: 4, text: "OTE(Motor_Run) drives the real output." },
+      { line: 2, text: "XIC(Start_PB) OR XIC(Run_Seal) puts a branch around Start. Either path can power the rung." },
+      { line: 2, text: "XIO(Stop_PB) sits in series after the branch, so Stop always wins." },
+      { line: 2, text: "OTE(Run_Seal) writes the memory bit. On the next scan it holds the branch closed." },
+      { line: 3, text: "XIC(Run_Seal) drives the contactor and the green lamp together." },
     ],
     code: [
+      "// Tap Start once. The seal keeps the motor running.",
       "RUNG 1: XIC(Start_PB) OR XIC(Run_Seal) AND XIO(Stop_PB) OTE(Run_Seal)",
-      "RUNG 2: XIC(Run_Seal) OTE(Motor_Run)",
+      "RUNG 2: XIC(Run_Seal) OTE(Motor_Run) OTE(Run_Lamp)",
     ],
     specs: [
+      { label: "Rungs", value: "2" },
       { label: "Pattern", value: "Seal-in" },
-      { label: "Markers used", value: "1 (M0.0)" },
-      { label: "Scan time", value: "100 ms" },
-      { label: "Difficulty", value: "Beginner" },
-    ],
-    callouts: [
-      { id: "start", label: "Start pushbutton", color: "#2e9e5b", top: "62%", left: "18%" },
-      { id: "stop", label: "Stop pushbutton", color: "#d64545", top: "62%", left: "78%" },
-      { id: "seal", label: "Seal-in marker", color: "#2457a6", top: "46%", left: "50%" },
+      { label: "Memory bits", value: "1 · M0.0" },
+      { label: "Level", value: "Beginner" },
     ],
   },
   {
     id: "foundations-3",
     trackId: "foundations",
     number: 3,
-    title: "Motor Start/Stop with Overload",
+    title: "Overload protection",
+    icon: "overload",
     difficulty: "beginner",
     completed: false,
     summary:
-      "Add a thermal overload relay to the seal-in circuit so the motor trips off safely before it burns out, and learn why the overload is wired normally closed.",
+      "A breaker protects cables from short circuits, but a motor that works too hard heats up slowly. The thermal overload relay watches the current and trips before the windings burn. Its contact is normally closed, so a trip, or a broken wire, stops the motor.",
     facts: [
-      "The overload contact is wired normally closed: it opens on a trip.",
-      "A tripped overload must break the circuit even if Start is held down.",
-      "A fault output lets the HMI or a lamp show why the motor isn't running.",
+      { icon: "press", text: "Start the motor, then click the motor and jam its shaft." },
+      { icon: "watch", text: "Current climbs, the overload heats and trips after a few seconds." },
+      { icon: "shield", text: "The red lamp lights. Reset the overload before you can restart." },
     ],
-    io: [
-      { address: "I0.0", tagName: "Start_PB", color: "#2e9e5b", connectsTo: "Start pushbutton", description: "Momentary NO pushbutton" },
-      { address: "I0.1", tagName: "Stop_PB", color: "#d64545", connectsTo: "Stop pushbutton", description: "Momentary NO pushbutton, read as NC" },
-      { address: "I0.2", tagName: "Overload_OK", color: "#f26b1d", connectsTo: "Thermal overload relay", description: "Normally closed contact, opens on an overload trip" },
-      { address: "Q0.0", tagName: "Motor_Run", color: "#2457a6", connectsTo: "Motor contactor coil", description: "De-energises instantly on a trip" },
-      { address: "Q0.1", tagName: "Fault_Lamp", color: "#d64545", connectsTo: "Fault indicator lamp", description: "Lit whenever the overload has tripped" },
-    ],
+    io: [IO.start, IO.stop, IO.ol, IO.seal, IO.run, IO.runLamp, IO.faultLamp],
     steps: [
-      { line: 1, text: "The seal-in rung now also requires XIC(Overload_OK) to be true." },
-      { line: 2, text: "A tripped overload opens the contact and drops the seal immediately." },
-      { line: 3, text: "XIO(Overload_OK) drives the fault lamp whenever the relay has tripped." },
+      { line: 2, text: "XIC(Overload_OK) is in series with the seal. A tripped overload opens it and the seal drops at once." },
+      { line: 2, text: "Holding Start does nothing while the overload is tripped. The contact is still open." },
+      { line: 4, text: "XIO(Overload_OK) lights the fault lamp whenever the relay has tripped." },
     ],
     code: [
+      "// Jam the motor shaft to trip the overload.",
       "RUNG 1: (XIC(Start_PB) OR XIC(Run_Seal)) AND XIO(Stop_PB) AND XIC(Overload_OK) OTE(Run_Seal)",
-      "RUNG 2: XIC(Run_Seal) OTE(Motor_Run)",
+      "RUNG 2: XIC(Run_Seal) OTE(Motor_Run) OTE(Run_Lamp)",
       "RUNG 3: XIO(Overload_OK) OTE(Fault_Lamp)",
     ],
     specs: [
-      { label: "Pattern", value: "Seal-in + fail-safe" },
-      { label: "Fault handling", value: "Hard-wired trip" },
-      { label: "Scan time", value: "100 ms" },
-      { label: "Difficulty", value: "Beginner" },
-    ],
-    callouts: [
-      { id: "overload", label: "Overload relay", color: "#f26b1d", top: "40%", left: "32%" },
-      { id: "coil", label: "Motor contactor", color: "#2457a6", top: "30%", left: "50%" },
-      { id: "fault", label: "Fault lamp", color: "#d64545", top: "22%", left: "70%" },
+      { label: "Rungs", value: "3" },
+      { label: "Pattern", value: "Fail-safe trip" },
+      { label: "Trip class", value: "Class 10" },
+      { label: "Level", value: "Beginner" },
     ],
   },
 ];
 
-function placeholderLesson(number: number): Lesson {
-  return {
-    id: `foundations-${number}`,
+const upcoming: { title: string; icon: LessonIcon }[] = [
+  { title: "Interlocks", icon: "interlock" },
+  { title: "Forward and reverse", icon: "reverse" },
+  { title: "On-delay timers", icon: "timer" },
+  { title: "Off-delay timers", icon: "timer" },
+  { title: "Star-delta starter", icon: "stardelta" },
+  { title: "Counters", icon: "counter" },
+  { title: "Comparisons", icon: "compare" },
+  { title: "Edge detection", icon: "edge" },
+  { title: "Tank level control", icon: "tank" },
+  { title: "Conveyor control", icon: "conveyor" },
+  { title: "Latch and unlatch", icon: "latch" },
+  { title: "Pilot lamps and alarms", icon: "lamp" },
+  { title: "Safe stop design", icon: "safety" },
+  { title: "E-stop circuits", icon: "estop" },
+  { title: "Jog and run", icon: "jog" },
+  { title: "Sequencing basics", icon: "sequence" },
+  { title: "Fault finding", icon: "fault" },
+];
+
+export const lessons: Lesson[] = [
+  ...fullLessons,
+  ...upcoming.map(({ title, icon }, i): Lesson => ({
+    id: `foundations-${i + 4}`,
     trackId: "foundations",
-    number,
-    title: `Chapter ${number}`,
+    number: i + 4,
+    title,
+    icon,
     difficulty: "beginner",
     completed: false,
     locked: true,
-    summary: "This chapter's content is being written. Check back soon.",
+    summary: "This chapter is being written. The first three chapters are open now.",
     facts: [],
     io: [],
     steps: [],
     code: ["// Coming soon"],
     specs: [],
-    callouts: [],
-  };
-}
-
-export const lessons: Lesson[] = [
-  ...fullLessons,
-  ...Array.from({ length: 17 }, (_, i) => placeholderLesson(i + 4)),
+  })),
 ];
 
 export function getLesson(id: string): Lesson | undefined {
