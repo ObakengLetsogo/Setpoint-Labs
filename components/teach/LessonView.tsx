@@ -210,7 +210,7 @@ export function LessonView({ lesson }: { lesson: LessonMeta }) {
               </Section>
 
               <Section id="platforms" n="06" icon={<IconCode size={14} />} title="On real controllers">
-                <PlatformView key={lesson.id} initial={(lesson.id.startsWith("t-") ? lesson.id.slice(2) : "siemens") as PlatformId} />
+                <PlatformView key={lesson.id} initial={lesson.id.startsWith("t-") ? (lesson.id.slice(2) as PlatformId) : undefined} />
               </Section>
 
               {bundle.quiz.length > 0 && (

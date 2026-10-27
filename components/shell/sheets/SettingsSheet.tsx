@@ -2,6 +2,7 @@
 
 import { useSim, type Settings } from "@/store/sim";
 import { Toggle } from "@/components/ui/controls";
+import { PLATFORMS } from "@/engine/platforms";
 
 const TOGGLES: { key: keyof Settings; label: string; hint: string }[] = [
   { key: "calloutLabels", label: "Callout labels", hint: "Name and spec beside the selected part" },
@@ -15,8 +16,31 @@ export function SettingsSheetContent() {
   const settings = useSim((s) => s.settings);
   const setSetting = useSim((s) => s.setSetting);
   const resetSettings = useSim((s) => s.resetSettings);
+  const account = useSim((s) => s.account);
+  const setPlatform = async (platform: string) => {
+    const res = await fetch("/api/me/platform", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ platform }) });
+    if (res.ok) await useSim.getState().loadAccount();
+  };
   return (
     <div>
+      {account?.user && (
+        <label className="mb-2 flex items-center justify-between gap-4 border-b border-border pb-3">
+          <span>
+            <span className="block text-[13.5px] text-ink">Controller family</span>
+            <span className="block text-[11.5px] text-muted-ink">{account.platformLock ? "Set by your class" : "Shown first in every lesson's translation"}</span>
+          </span>
+          <select
+            value={account.platformLock ?? account.user.platform}
+            disabled={Boolean(account.platformLock)}
+            onChange={(e) => setPlatform(e.target.value)}
+            className="rounded-lg border border-border bg-white px-2.5 py-1.5 text-[13px] text-ink"
+          >
+            {PLATFORMS.map((p) => (
+              <option key={p.id} value={p.id}>{p.name}</option>
+            ))}
+          </select>
+        </label>
+      )}
       <ul className="divide-y divide-border">
         {TOGGLES.map((t) => (
           <li key={t.key} className="flex items-center justify-between gap-4 py-3">

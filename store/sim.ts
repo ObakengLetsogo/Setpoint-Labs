@@ -66,6 +66,8 @@ export interface Account {
   paid: boolean;
   until: string | null;
   inGrace: boolean;
+  /** A class or organisation lock on the controller family. */
+  platformLock: string | null;
 }
 
 /** The lesson's ladder program translated to structured text, the starting point for the ST view. */

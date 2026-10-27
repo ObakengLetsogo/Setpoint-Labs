@@ -3,10 +3,17 @@
 import { useMemo, useState } from "react";
 import { PLATFORMS, translateProgram, type PlatformId } from "@/engine/platforms";
 import { useRig, useSim } from "@/store/sim";
+import { IconLock } from "@/components/ui/icons";
 
 /** The lesson's ladder program as each controller family would write it. */
-export function PlatformView({ initial = "siemens" }: { initial?: PlatformId }) {
-  const [id, setId] = useState<PlatformId>(initial);
+export function PlatformView({ initial }: { initial?: PlatformId }) {
+  const account = useSim((s) => s.account);
+  const lock = account?.platformLock as PlatformId | null | undefined;
+  const mine = (lock ?? account?.user?.platform ?? "siemens") as PlatformId;
+  // Free accounts read the IEC standard plus one family of their choice; a plan opens them all.
+  const open = (p: PlatformId) => p === "iec" || p === mine || p === initial || Boolean(account?.paid);
+  const [picked, setId] = useState<PlatformId | null>(null);
+  const id: PlatformId = picked ?? (initial && open(initial) ? initial : mine);
   const rig = useRig();
   const program = useSim((s) => s.program);
   const platform = PLATFORMS.find((p) => p.id === id)!;
@@ -19,9 +26,12 @@ export function PlatformView({ initial = "siemens" }: { initial?: PlatformId }) 
           <button
             key={p.id}
             type="button"
+            disabled={!open(p.id)}
+            title={open(p.id) ? undefined : "Every controller family comes with a plan"}
             onClick={() => setId(p.id)}
-            className={`shrink-0 rounded-lg px-3 py-1.5 text-[12.5px] font-medium transition ${p.id === id ? "bg-ink text-white" : "text-[#3d434a] hover:bg-[#f3f4f5]"}`}
+            className={`inline-flex shrink-0 items-center gap-1 rounded-lg px-3 py-1.5 text-[12.5px] font-medium transition disabled:cursor-not-allowed disabled:text-[#a9afb6] ${p.id === id ? "bg-ink text-white" : "text-[#3d434a] hover:bg-[#f3f4f5]"}`}
           >
+            {!open(p.id) && <IconLock size={10} />}
             {p.name}
           </button>
         ))}

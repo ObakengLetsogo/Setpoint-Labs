@@ -1,6 +1,6 @@
 "use server";
 
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { invoices, memberships, organisations, users } from "@/db/schema";
@@ -45,9 +45,20 @@ export async function createInvoice(_: FormState, form: FormData): Promise<FormS
   if (!plan) return { error: "Unknown plan." };
   const contact = (await db.select().from(users).where(eq(users.email, p.data.adminEmail.toLowerCase())).limit(1))[0];
   if (!contact) return { error: "The organisation's admin needs an account first." };
-  const orgId = newId();
-  await db.insert(organisations).values({ id: orgId, name: p.data.organisation, kind: p.data.kind });
-  await db.insert(memberships).values({ userId: contact.id, organisationId: orgId, role: p.data.kind === "employer" ? "employer_admin" : "institution_admin" });
+  // A renewal or top up for an organisation this admin already runs goes to the same organisation.
+  const existing = (
+    await db
+      .select({ id: organisations.id })
+      .from(memberships)
+      .innerJoin(organisations, eq(organisations.id, memberships.organisationId))
+      .where(and(eq(memberships.userId, contact.id), eq(organisations.name, p.data.organisation), eq(organisations.kind, p.data.kind)))
+      .limit(1)
+  )[0];
+  const orgId = existing?.id ?? newId();
+  if (!existing) {
+    await db.insert(organisations).values({ id: orgId, name: p.data.organisation, kind: p.data.kind });
+    await db.insert(memberships).values({ userId: contact.id, organisationId: orgId, role: p.data.kind === "employer" ? "employer_admin" : "institution_admin" });
+  }
   // Promote a learner to run the organisation; never demote staff or another admin.
   if (contact.role === "learner") await db.update(users).set({ role: p.data.kind === "employer" ? "employer_admin" : "institution_admin" }).where(eq(users.id, contact.id));
   const seats = plan.perSeat ? Math.max(plan.minSeats, p.data.seats) : p.data.seats;

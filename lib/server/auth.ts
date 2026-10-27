@@ -127,7 +127,9 @@ export async function consumePasswordReset(token: string, password: string): Pro
   const row = rows[0];
   if (!row) return null;
   await db.update(passwordResets).set({ usedAt: new Date() }).where(eq(passwordResets.tokenHash, row.tokenHash));
-  await db.update(users).set({ passwordHash: await hashPassword(password) }).where(eq(users.id, row.userId));
+  // The link went to their inbox, so using it also confirms the address; invited learners start here.
+  const user = (await db.select({ verified: users.emailVerifiedAt }).from(users).where(eq(users.id, row.userId)).limit(1))[0];
+  await db.update(users).set({ passwordHash: await hashPassword(password), ...(user?.verified ? {} : { emailVerifiedAt: new Date() }) }).where(eq(users.id, row.userId));
   await db.delete(sessions).where(eq(sessions.userId, row.userId));
   return row.userId;
 }

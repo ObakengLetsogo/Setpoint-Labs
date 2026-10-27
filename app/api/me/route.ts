@@ -1,5 +1,6 @@
 import { accessFor } from "@/lib/server/access";
 import { currentUser } from "@/lib/server/auth";
+import { platformLockFor } from "@/lib/server/orgs";
 
 /** Who is signed in and whether they have paid access. Never cached. */
 export async function GET() {
@@ -11,6 +12,7 @@ export async function GET() {
       paid: access.paid,
       until: access.until,
       inGrace: access.inGrace,
+      platformLock: user ? await platformLockFor(user.id) : null,
     },
     { headers: { "Cache-Control": "private, no-store" } },
   );
