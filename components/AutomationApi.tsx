@@ -12,6 +12,8 @@ export interface SetpointLabsApi {
   step: () => void;
   setInput: (tag: string, value: boolean) => void;
   select: (part: PartId | null) => void;
+  focus: (part: PartId) => void;
+  resetView: () => void;
   explode: (on: boolean) => void;
   setReduceMotion: (on: boolean) => void;
   getState: () => {
@@ -45,6 +47,8 @@ export function AutomationApi() {
         else if (tag === "Overload_OK") (value ? s().resetOverload : s().tripOverload)();
       },
       select: (part) => s().select(part),
+      focus: (part) => s().focusPart(part),
+      resetView: () => s().resetView(),
       explode: (on) => on !== s().exploded && s().toggleExplode(),
       setReduceMotion: (on) => s().setSetting("reduceMotion", on),
       getState: () => {

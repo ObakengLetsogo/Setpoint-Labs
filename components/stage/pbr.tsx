@@ -82,6 +82,7 @@ const PRESETS: Record<MatKind, { metalness: number; roughness: number; clearcoat
 
 const GlowCtx = createContext(0);
 export const GlowScope = GlowCtx.Provider;
+export const GlowCtxValue = GlowCtx;
 
 export function Mat({
   kind,

@@ -1,11 +1,12 @@
 "use client";
 
-import { createContext, useContext, useEffect, useRef, type ReactNode } from "react";
+import { createContext, Suspense, useContext, useEffect, useMemo, useRef, type ReactNode } from "react";
 import * as THREE from "three";
 import { useFrame, type ThreeEvent } from "@react-three/fiber";
+import { useGLTF } from "@react-three/drei";
 import { useSim } from "@/store/sim";
 import { contactorClosed, partById, readInputs, type PartId } from "@/rigs/motorStarter";
-import { Cable, Decal, Dome, GlowScope, RBox, RCyl, Screw, ScrewRow, type V3 } from "./pbr";
+import { Cable, Decal, Dome, GLOW, GlowCtxValue, GlowScope, RBox, RCyl, Screw, ScrewRow, type V3 } from "./pbr";
 import { PlatePrint } from "./PlatePrint";
 
 const C = {
@@ -231,6 +232,57 @@ function SignalBoard() {
   );
 }
 
+function ContactorModel() {
+  const { scene } = useGLTF("/models/contactor.glb", false, true);
+  const glow = useContext(GlowCtxValue);
+  const model = useMemo(() => {
+    const root = scene.clone(true);
+    root.traverse((o) => {
+      const mesh = o as THREE.Mesh;
+      if (!mesh.isMesh) return;
+      const src = mesh.material as THREE.MeshStandardMaterial;
+      const m = src.clone();
+      m.side = THREE.FrontSide;
+      mesh.material = m;
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+    });
+    return root;
+  }, [scene]);
+  useEffect(() => {
+    model.traverse((o) => {
+      const mesh = o as THREE.Mesh;
+      if (!mesh.isMesh) return;
+      const m = mesh.material as THREE.MeshStandardMaterial;
+      m.emissive.set(glow > 0 ? GLOW : "#000000");
+      m.emissiveIntensity = glow * 0.45;
+    });
+  }, [model, glow]);
+  return <primitive object={model} />;
+}
+
+function ContactorProcedural() {
+  return (
+    <>
+      <RBox size={[1.0, 0.95, 1.72]} position={[0, 0.475, 0]} radius={0.06} color="#dfe2e5" />
+      <RBox size={[0.84, 0.3, 1.02]} position={[0, 1.08, 0]} radius={0.07} kind="plastic" color="#eceef0" />
+      {[-0.42, -0.22, 0, 0.22, 0.42].map((dx) => (
+        <Clamp key={`l${dx}`} position={[dx, 0.96, -0.68]} kind={Math.abs(dx) > 0.3 ? "zinc" : "brass"} />
+      ))}
+      <RBox size={[0.13, 0.02, 0.05]} position={[-0.42, 0.985, -0.82]} radius={0.006} kind="plastic" color={C.blue} />
+      <RBox size={[0.13, 0.02, 0.05]} position={[0.42, 0.985, -0.82]} radius={0.006} kind="plastic" color={C.blue} />
+      <RBox size={[0.34, 0.03, 0.2]} position={[0, 1.24, -0.24]} radius={0.02} kind="plastic" color="#2a2e33" />
+      <RBox size={[0.56, 0.16, 0.42]} position={[0, 1.31, 0.24]} radius={0.04} kind="plastic" color="#d4d8dc" />
+      <Screw position={[-0.14, 1.395, 0.29]} r={0.045} kind="brass" />
+      <Screw position={[0.14, 1.395, 0.29]} r={0.045} kind="brass" />
+      {[-0.22, 0, 0.22].map((dx) => (
+        <Screw key={`t${dx}`} position={[dx, 0.96, 0.66]} r={0.05} kind="brass" />
+      ))}
+    </>
+  );
+}
+
+/** Body is a baked Blender model (scripts/blender/contactor.py); the moving flag and print stay live. */
 function Contactor() {
   const closed = useSim((s) => s.running && contactorClosed(s.memory, s.physical));
   const flag = useRef<THREE.Group>(null);
@@ -240,31 +292,19 @@ function Contactor() {
   return (
     <Part id="contactor">
       <group position={[0.4, 0.12, -2.2]}>
-        <RBox size={[1.0, 0.95, 1.72]} position={[0, 0.475, 0]} radius={0.06} color="#dfe2e5" />
-        <RBox size={[0.84, 0.3, 1.02]} position={[0, 1.08, 0]} radius={0.07} kind="plastic" color="#eceef0" />
-        {[-0.22, 0, 0.22].map((dx, i) => (
-          <Clamp key={`l${dx}`} position={[dx, 0.96, -0.68]} label={["1L1", "3L2", "5L3"][i]} labelZ={0.16} />
+        <Suspense fallback={<ContactorProcedural />}>
+          <ContactorModel />
+        </Suspense>
+        {["A1", "1L1", "3L2", "5L3", "A2"].map((label, i) => (
+          <Decal key={label} text={label} position={[-0.42 + [0, 0.2, 0.42, 0.64, 0.84][i], 0.952, -0.52]} width={0.2} height={0.07} color="#4d535b" weight={700} />
         ))}
-        <Clamp position={[-0.42, 0.96, -0.68]} label="A1" labelZ={0.16} kind="zinc" />
-        <Clamp position={[0.42, 0.96, -0.68]} label="A2" labelZ={0.16} kind="zinc" />
-        <RBox size={[0.13, 0.02, 0.05]} position={[-0.42, 0.985, -0.82]} radius={0.006} kind="plastic" color={C.blue} />
-        <RBox size={[0.13, 0.02, 0.05]} position={[0.42, 0.985, -0.82]} radius={0.006} kind="plastic" color={C.blue} />
-        <RBox size={[0.34, 0.03, 0.2]} position={[0, 1.24, -0.24]} radius={0.02} kind="plastic" color="#2a2e33" />
         <group ref={flag}>
-          <RBox size={[0.24, 0.02, 0.08]} position={[0, 1.255, -0.24]} radius={0.01} kind="plastic" color={closed ? "#2fbf77" : "#e9ebee"} />
+          <RBox size={[0.24, 0.02, 0.08]} position={[0, 1.215, -0.24]} radius={0.01} kind="plastic" color={closed ? "#2fbf77" : "#e9ebee"} />
         </group>
-        <RBox size={[0.34, 0.012, 0.2]} position={[0, 1.268, -0.24]} radius={0.01} kind="lens" color="#dfe9f0" />
-        <group position={[0, 0, 0.24]}>
-          <RBox size={[0.56, 0.16, 0.42]} position={[0, 1.31, 0]} radius={0.04} kind="plastic" color="#d4d8dc" />
-          <Screw position={[-0.14, 1.395, 0.05]} r={0.045} kind="brass" />
-          <Screw position={[0.14, 1.395, 0.05]} r={0.045} kind="brass" />
-          <Decal text="13 NO 14" position={[0, 1.392, -0.12]} width={0.42} height={0.07} color="#4d535b" weight={700} />
-        </group>
-        <Decal text="K1" position={[-0.3, 1.232, 0.38]} width={0.18} height={0.11} />
-        <Decal text="AC-3 9 A · 24 V DC" position={[0.12, 1.232, 0.42]} width={0.5} height={0.05} color="#6b6f76" weight={600} />
-        {[-0.22, 0, 0.22].map((dx) => (
-          <Screw key={`t${dx}`} position={[dx, 0.96, 0.66]} r={0.05} kind="brass" />
-        ))}
+        <RBox size={[0.34, 0.012, 0.2]} position={[0, 1.232, -0.24]} radius={0.01} kind="lens" color="#dfe9f0" />
+        <Decal text="13 NO 14" position={[0, 1.392, 0.12]} width={0.42} height={0.07} color="#4d535b" weight={700} />
+        <Decal text="K1" position={[-0.3, 1.233, 0.38]} width={0.18} height={0.11} />
+        <Decal text="AC-3 9 A · 24 V DC" position={[0.12, 1.226, 0.4]} width={0.5} height={0.05} color="#6b6f76" weight={600} />
       </group>
     </Part>
   );
@@ -733,3 +773,5 @@ export function MotorStarterRig({ only = null }: { only?: RigPiece[] | null }) {
     </OnlyCtx.Provider>
   );
 }
+
+useGLTF.preload("/models/contactor.glb", false, true);
