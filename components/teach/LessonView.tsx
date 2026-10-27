@@ -10,6 +10,7 @@ import { IconBulb, IconCheck, IconCode, IconFlag, IconList, IconMonitor, IconPla
 import { videoFor } from "@/data/videos";
 import { LessonVideo } from "./LessonVideo";
 import { Quiz } from "./Quiz";
+import { Multimeter } from "./Multimeter";
 import { quizFor } from "@/data/quizzes";
 import { IoPinout } from "./IoPinout";
 import { WiringTable, WiringView } from "./WiringView";
@@ -187,6 +188,11 @@ export function LessonView({ lesson }: { lesson: Lesson }) {
 
               <Section id="wire" n="03" icon={<IconWire size={14} />} title="Wiring">
                 <WiringTable wires={teach.wires} />
+                {lesson.trackId === "wiring" && (
+                  <div className="mt-4">
+                    <Multimeter key={lesson.id} />
+                  </div>
+                )}
               </Section>
 
               <Section id="steps" n="04" icon={<IconList size={14} />} title="Steps">

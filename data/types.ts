@@ -67,6 +67,8 @@ export interface LessonContent {
   io: IoPoint[];
   steps: ExampleStep[];
   code: string[];
+  /** A hand written structured text version. The lesson then opens in structured text. */
+  st?: string[];
   specs: SpecItem[];
 }
 
@@ -91,5 +93,6 @@ export interface Lesson {
   io: IoPoint[];
   steps: ExampleStep[];
   code: string[];
+  st?: string[];
   specs: SpecItem[];
 }

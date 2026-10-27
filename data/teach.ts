@@ -1,3 +1,4 @@
+import { TEACH_ADVANCED } from "./teach-advanced";
 import { TEACH_FOUNDATIONS } from "./teach-foundations";
 import { TEACH_MACHINES } from "./teach-machines";
 import { TEACH_PROCESS } from "./teach-process";
@@ -178,4 +179,4 @@ const TEACH_FIRST: Record<string, LessonTeach> = {
   },
 };
 
-export const TEACH: Record<string, LessonTeach> = { ...TEACH_FIRST, ...TEACH_FOUNDATIONS, ...TEACH_MACHINES, ...TEACH_PROCESS, ...TEACH_SEQUENCES };
+export const TEACH: Record<string, LessonTeach> = { ...TEACH_FIRST, ...TEACH_FOUNDATIONS, ...TEACH_MACHINES, ...TEACH_PROCESS, ...TEACH_SEQUENCES, ...TEACH_ADVANCED };

@@ -106,7 +106,8 @@ function output(o: OutputNode, cond: string, name: (t: string) => string, operan
     case "CTD":
       return [`${o.tag}(CD := ${cond}, PV := ${o.preset});`];
     case "RES":
-      return when(`${name(`${o.tag}.ACC`)} := 0;`);
+      // Ladder RES clears the done bit as well as the count, straight away.
+      return when(`${name(`${o.tag}.ACC`)} := 0; ${name(`${o.tag}.DN`)} := FALSE;`);
     case "MOV":
       return when(`${name(o.tag)} := ${operand(o.src![0])};`);
     case "ADD":

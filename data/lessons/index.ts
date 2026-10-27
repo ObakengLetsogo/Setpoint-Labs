@@ -5,8 +5,10 @@ import { FOUNDATIONS_MORE } from "./foundations-more";
 import { MACHINES } from "./machines";
 import { PROCESS } from "./process";
 import { SEQUENCES } from "./sequences";
+import { WIRING } from "./wiring";
+import { ADVANCED } from "./advanced";
 
-const CONTENT: Record<string, LessonContent> = { ...FOUNDATIONS, ...FOUNDATIONS_MORE, ...MACHINES, ...PROCESS, ...SEQUENCES };
+const CONTENT: Record<string, LessonContent> = { ...FOUNDATIONS, ...FOUNDATIONS_MORE, ...MACHINES, ...PROCESS, ...SEQUENCES, ...WIRING, ...ADVANCED };
 
 const PLANNED: LessonContent = {
   difficulty: "beginner",

@@ -61,6 +61,7 @@ export function defaultST(lessonId: string) {
   if (isSandbox(lessonId)) return starterProgram(rigFor(sandboxRig(lessonId)));
   const lesson = lessons.find((l) => l.id === lessonId);
   if (!lesson || lesson.locked) return "";
+  if (lesson.st) return lesson.st.join("\n");
   try {
     return ladderToST(parseProgram(lesson.code.join("\n")), "Structured text, translated from the ladder program.");
   } catch {
@@ -272,6 +273,8 @@ const simStore: StateCreator<SimState> = (set, get) => {
       set({
         lessonId: id,
         rigOptions,
+        // Lessons written in structured text open in it; the next lesson goes back to ladder.
+        ...(lesson?.st ? { codeLang: "st" as const } : lessons.find((l) => l.id === get().lessonId)?.st ? { codeLang: "ladder" as const } : {}),
         sources: sources[id] === undefined ? { ...sources, [id]: source } : sources,
         ...compile(source),
         ...compileST(stSources[id] ?? defaultST(id)),

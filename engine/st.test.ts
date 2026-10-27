@@ -82,10 +82,11 @@ function rng(seed: number) {
 
 describe("every lesson behaves the same in ladder and in translated ST", () => {
   for (const lesson of lessons.filter((l) => !l.locked)) {
-    it(lesson.id, () => {
+    const ladder = parseProgram(lesson.code.join("\n"));
+    const versions: [string, string][] = [["translated", ladderToST(ladder)]];
+    if (lesson.st) versions.push(["hand written", lesson.st.join("\n")]);
+    for (const [label, text] of versions) it(`${lesson.id} ${label}`, () => {
       const rig = rigFor(lesson.rig);
-      const ladder = parseProgram(lesson.code.join("\n"));
-      const text = ladderToST(ladder);
       const prog = parseST(text);
       const holds = rig.controls.filter((c) => c.kind === "hold").map((c) => (c.kind === "hold" ? c.key : ""));
       const outputs = rig.tags.filter((t) => t.kind === "output").map((t) => t.tag);

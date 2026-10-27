@@ -217,8 +217,8 @@ export const CURRICULUM: Track[] = [
         title: "Systems",
         blurb: "Networks, screens and keeping plant running",
         lessons: [
-          L("a-comms", "Industrial networks", "sequence"),
-          L("a-hmi", "HMI and SCADA basics", "lamp"),
+          L("a-comms", "Industrial networks", "sequence", "vsd"),
+          L("a-hmi", "HMI and SCADA basics", "lamp", "tank"),
           L("a-fault-finding", "Fault finding", "fault"),
           L("a-documentation", "Documentation and handover", "safety"),
         ],
