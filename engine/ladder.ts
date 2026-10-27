@@ -5,7 +5,7 @@
 
 export type CompareOp = "GRT" | "LES" | "EQU" | "NEQ" | "GEQ" | "LEQ";
 export type ContactOp = "XIC" | "XIO" | "ONS" | CompareOp;
-export type OutputOp = "OTE" | "OTL" | "OTU" | "TON" | "TOF" | "CTU" | "CTD" | "RES" | "MOV" | "ADD" | "SUB";
+export type OutputOp = "OTE" | "OTL" | "OTU" | "TON" | "TOF" | "CTU" | "CTD" | "RES" | "MOV" | "ADD" | "SUB" | "MUL" | "DIV";
 
 export const COMPARE_OPS: CompareOp[] = ["GRT", "LES", "EQU", "NEQ", "GEQ", "LEQ"];
 export const isCompare = (op: string): op is CompareOp => (COMPARE_OPS as string[]).includes(op);
@@ -34,7 +34,7 @@ export interface OutputNode {
   /** The bit, timer or counter written, or the destination of MOV, ADD and SUB. */
   tag: string;
   preset?: number;
-  /** Source operands of MOV, ADD and SUB: tags or numbers. */
+  /** Source operands of MOV, ADD, SUB, MUL and DIV: tags or numbers. */
   src?: string[];
 }
 
@@ -60,11 +60,11 @@ export class LadderError extends Error {
 }
 
 const CONTACTS = new Set<string>(["XIC", "XIO", "ONS", ...COMPARE_OPS]);
-const OUTPUTS = new Set<string>(["OTE", "OTL", "OTU", "TON", "TOF", "CTU", "CTD", "RES", "MOV", "ADD", "SUB"]);
+const OUTPUTS = new Set<string>(["OTE", "OTL", "OTU", "TON", "TOF", "CTU", "CTD", "RES", "MOV", "ADD", "SUB", "MUL", "DIV"]);
 const TAG_RE = /^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z0-9_]+)?$/;
 const NUM_RE = /^-?\d+(\.\d+)?$/;
 const isOperand = (a: string | undefined): a is string => Boolean(a && (TAG_RE.test(a) || NUM_RE.test(a)));
-const SOURCES: Partial<Record<OutputOp, number>> = { MOV: 1, ADD: 2, SUB: 2 };
+const SOURCES: Partial<Record<OutputOp, number>> = { MOV: 1, ADD: 2, SUB: 2, MUL: 2, DIV: 2 };
 
 type Token =
   | { t: "instr"; op: string; args: string[]; col: number }

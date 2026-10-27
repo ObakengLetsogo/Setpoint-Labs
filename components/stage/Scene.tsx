@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { ContactShadows, Environment, Lightformer, OrbitControls } from "@react-three/drei";
@@ -40,6 +40,9 @@ const spherical = new THREE.Spherical();
 const offset = new THREE.Vector3();
 
 function CameraRig({ framing }: { framing: Framing }) {
+  const rig = useRig();
+  const homeTarget = useMemo(() => (rig.view?.target ? new THREE.Vector3(...rig.view.target) : HOME_TARGET.clone()), [rig]);
+  const scale = rig.view?.scale ?? 1;
   const controls = useRef<OrbitControlsImpl>(null);
   const size = useThree((s) => s.size);
   const get = useThree((s) => s.get);
@@ -60,18 +63,18 @@ function CameraRig({ framing }: { framing: Framing }) {
 
   useEffect(() => {
     const { camera } = get();
-    const d = homeDistance(size.width, size.height, framing);
-    camera.position.copy(HOME_TARGET).add(new THREE.Vector3().setFromSphericalCoords(d, HOME_PHI, HOME_THETA));
-    controls.current?.target.copy(HOME_TARGET);
+    const d = homeDistance(size.width, size.height, framing) * scale;
+    camera.position.copy(homeTarget).add(new THREE.Vector3().setFromSphericalCoords(d, HOME_PHI, HOME_THETA));
+    controls.current?.target.copy(homeTarget);
     controls.current?.update();
     lastInteract.current = performance.now();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const lastHome = useRef(homeDistance(size.width, size.height, framing));
+  const lastHome = useRef(homeDistance(size.width, size.height, framing) * scale);
   useEffect(() => {
     if (!controls.current) return;
-    const home = homeDistance(size.width, size.height, framing);
+    const home = homeDistance(size.width, size.height, framing) * scale;
     const c = current();
     goal.current = { ...c, dist: c.dist * (home / lastHome.current) };
     lastHome.current = home;
@@ -82,13 +85,21 @@ function CameraRig({ framing }: { framing: Framing }) {
     const cmd = useSim.getState().cameraCommand;
     if (!cmd || !controls.current) return;
     const c = current();
-    const home = homeDistance(size.width, size.height, framing);
+    const home = homeDistance(size.width, size.height, framing) * scale;
     lastInteract.current = performance.now();
     if (cmd.type === "zoom") goal.current = { ...c, dist: THREE.MathUtils.clamp(c.dist / cmd.factor, home * 0.35, home * 1.8) };
     if (cmd.type === "focus") goal.current = { target: new THREE.Vector3(...cmd.target), theta: c.theta, phi: Math.min(c.phi, 1.0), dist: home * 0.42 };
-    if (cmd.type === "reset") goal.current = { target: HOME_TARGET.clone(), theta: HOME_THETA, phi: HOME_PHI, dist: home };
+    if (cmd.type === "reset") goal.current = { target: homeTarget.clone(), theta: HOME_THETA, phi: HOME_PHI, dist: home };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [version]);
+
+  const lastRig = useRef(rig.id);
+  useEffect(() => {
+    if (lastRig.current === rig.id || !controls.current) return;
+    lastRig.current = rig.id;
+    goal.current = { target: homeTarget.clone(), theta: HOME_THETA, phi: HOME_PHI, dist: homeDistance(size.width, size.height, framing) * scale };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rig.id]);
 
   useEffect(() => {
     if (rotationSteps === prevSteps.current || !controls.current) return;

@@ -152,6 +152,15 @@ export function scan(program: Program, input: Memory, dtMs: number): ScanResult 
         case "SUB":
           if (power) mem[t] = operand(mem, out.src![0]) - operand(mem, out.src![1]);
           break;
+        case "MUL":
+          if (power) mem[t] = operand(mem, out.src![0]) * operand(mem, out.src![1]);
+          break;
+        case "DIV": {
+          // Integer division like most PLC INT maths; dividing by zero leaves the destination unchanged.
+          const d = operand(mem, out.src![1]);
+          if (power && d !== 0) mem[t] = Math.trunc(operand(mem, out.src![0]) / d);
+          break;
+        }
         case "RES":
           if (power) {
             mem[`${t}.ACC`] = 0;

@@ -130,8 +130,9 @@ function fmtMs(ms: number) {
 function Output({ o, x, y, live, mem }: { o: OutputNode; x: number; y: number; live: boolean; mem: Memory }) {
   const color = live ? LIVE : INK;
   const addr = useRig().tags.find((t) => t.tag === o.tag)?.address;
-  if (o.op === "MOV" || o.op === "ADD" || o.op === "SUB") {
-    const expr = o.op === "MOV" ? o.src![0] : `${o.src![0]} ${o.op === "ADD" ? "+" : "−"} ${o.src![1]}`;
+  if (o.op === "MOV" || o.op === "ADD" || o.op === "SUB" || o.op === "MUL" || o.op === "DIV") {
+    const sign = { ADD: "+", SUB: "−", MUL: "×", DIV: "÷" }[o.op as "ADD"];
+    const expr = o.op === "MOV" ? o.src![0] : `${o.src![0]} ${sign} ${o.src![1]}`;
     return (
       <g>
         <Seg x1={x} y1={y} x2={x + 10} y2={y} live={live} />

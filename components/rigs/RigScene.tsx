@@ -5,6 +5,7 @@ import type { RigId } from "@/data/curriculum";
 import { MotorStarterRig, type RigPiece } from "@/components/stage/MotorStarterRig";
 import { ReversingRig, StarDeltaRig } from "./StarterRigs";
 import { BottlingRig, ConveyorRig, SortingRig } from "./ConveyorRigs";
+import { MixerRig, PumpsRig, TankRig } from "./ProcessRigs";
 
 export type RigSceneProps = { only?: RigPiece[] | string[] };
 
@@ -16,6 +17,9 @@ export const RIG_SCENES: Partial<Record<RigId, ComponentType<RigSceneProps>>> = 
   conveyor: ConveyorRig as ComponentType<RigSceneProps>,
   sorting: SortingRig as ComponentType<RigSceneProps>,
   bottling: BottlingRig as ComponentType<RigSceneProps>,
+  tank: TankRig as ComponentType<RigSceneProps>,
+  pumps: PumpsRig as ComponentType<RigSceneProps>,
+  mixer: MixerRig as ComponentType<RigSceneProps>,
 };
 
 export function RigScene({ id, only }: { id: RigId; only?: string[] }) {

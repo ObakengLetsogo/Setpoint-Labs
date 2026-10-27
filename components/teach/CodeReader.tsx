@@ -30,10 +30,12 @@ const INSTR: Record<string, string> = {
   MOV: "move. Copies a value into a tag while the rung is true.",
   ADD: "add. Writes the sum of two values into a tag while the rung is true.",
   SUB: "subtract. Writes the difference of two values into a tag while the rung is true.",
+  MUL: "multiply. Writes the product of two values into a tag while the rung is true.",
+  DIV: "divide. Writes the whole number result of a division into a tag while the rung is true.",
 };
 
 const CMP_WORD: Record<string, string> = { GRT: "is above", LES: "is below", EQU: "equals", NEQ: "is not", GEQ: "is at least", LEQ: "is at most" };
-const OPS = "XIC|XIO|ONS|GRT|LES|EQU|NEQ|GEQ|LEQ|OTE|OTL|OTU|TON|TOF|CTU|CTD|RES|MOV|ADD|SUB";
+const OPS = "XIC|XIO|ONS|GRT|LES|EQU|NEQ|GEQ|LEQ|OTE|OTL|OTU|TON|TOF|CTU|CTD|RES|MOV|ADD|SUB|MUL|DIV";
 
 function describe(node: LogicNode, top = true): string {
   if (node.kind === "contact") {
@@ -69,6 +71,10 @@ export function rungInEnglish(r: Rung) {
         return `${o.tag} becomes ${o.src![0]} plus ${o.src![1]}`;
       case "SUB":
         return `${o.tag} becomes ${o.src![0]} minus ${o.src![1]}`;
+      case "MUL":
+        return `${o.tag} becomes ${o.src![0]} times ${o.src![1]}`;
+      case "DIV":
+        return `${o.tag} becomes ${o.src![0]} divided by ${o.src![1]}`;
       default:
         return `${o.tag} is on`;
     }

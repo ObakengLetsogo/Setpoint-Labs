@@ -102,6 +102,8 @@ export interface RigDef {
   /** Big hero words, the second one in orange. */
   headline: [string, string];
   tagline: string;
+  /** Camera home: where it looks and how far back, relative to the motor starter bench. */
+  view?: { target?: Vec3; scale?: number };
   tags: RigTag[];
   parts: RigPart[];
   annotations: Annotation[];

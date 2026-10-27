@@ -204,3 +204,12 @@ describe("one shot, compare and math", () => {
     expect(() => parseProgram("RUNG 1: XIC(A) MOV(5) ")).toThrow(/destination tag/);
   });
 });
+
+describe("multiply and divide", () => {
+  it("scales a raw analog value to percent with integer maths", () => {
+    const src = "RUNG 1: MUL(Raw, 100, Tmp)\nRUNG 2: DIV(Tmp, 27648, Pct)\nRUNG 3: DIV(Pct, 0, Bad)";
+    const h = run(src, [{ set: { Raw: 13824 } }, { set: { Raw: 27648 } }, { set: { Raw: 100 } }]);
+    expect(h.map((m) => m.Pct)).toEqual([50, 100, 0]);
+    expect(h[0].Bad).toBeUndefined();
+  });
+});
