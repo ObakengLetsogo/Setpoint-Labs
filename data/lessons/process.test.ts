@@ -63,3 +63,17 @@ describe("process lessons", () => {
     expect(Number(b.phys().batches)).toBe(1);
   });
 });
+
+describe("alarms lesson keeps lead and lag working", () => {
+  it("runs the lag pump on a lag call while pump 1 is healthy", () => {
+    const b = bench("p-alarms");
+    tap(b, "startPressed");
+    b.run(100, { inflow: 1 });
+    let both = false;
+    for (let i = 0; i < 300; i++) {
+      const m = b.run(100);
+      if (m.P1_Run && m.P2_Run) both = true;
+    }
+    expect(both).toBe(true);
+  });
+});

@@ -1,6 +1,7 @@
 import { TEACH_FOUNDATIONS } from "./teach-foundations";
 import { TEACH_MACHINES } from "./teach-machines";
 import { TEACH_PROCESS } from "./teach-process";
+import { TEACH_SEQUENCES } from "./teach-sequences";
 export interface TourScene {
   kicker: string;
   title: string;
@@ -177,4 +178,4 @@ const TEACH_FIRST: Record<string, LessonTeach> = {
   },
 };
 
-export const TEACH: Record<string, LessonTeach> = { ...TEACH_FIRST, ...TEACH_FOUNDATIONS, ...TEACH_MACHINES, ...TEACH_PROCESS };
+export const TEACH: Record<string, LessonTeach> = { ...TEACH_FIRST, ...TEACH_FOUNDATIONS, ...TEACH_MACHINES, ...TEACH_PROCESS, ...TEACH_SEQUENCES };

@@ -188,7 +188,7 @@ export const PROCESS: Record<string, LessonContent> = {
       AUTO,
       ...CALLS,
       "RUNG 6: (XIC(Lead_Call) OR XIC(Lag_Call)) AND XIC(P1_OK) OTE(P1_Run)",
-      "RUNG 7: (XIC(Lag_Call) OR XIC(Lead_Call) XIO(P1_OK)) AND XIC(P2_OK) OTE(P2_Run)",
+      "RUNG 7: (XIC(Lag_Call) OR (XIC(Lead_Call) XIO(P1_OK))) AND XIC(P2_OK) OTE(P2_Run)",
       "RUNG 8: XIC(LS_HighHigh) OR XIO(P1_OK) OR XIO(P2_OK) OTL(Alarm)",
       "RUNG 9: XIC(Alarm) XIC(Ack_PB) OTL(Alarm_Ack)",
       "RUNG 10: XIO(LS_HighHigh) XIC(P1_OK) XIC(P2_OK) XIC(Alarm_Ack) OTU(Alarm) OTU(Alarm_Ack)",
