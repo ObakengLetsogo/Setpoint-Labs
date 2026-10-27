@@ -60,6 +60,7 @@ export const IconZoomOut = make(<><circle cx="11" cy="11" r="6.5" /><path d="m20
 export const IconArrowRight = make(<path d="M5 12h14M13 6l6 6-6 6" />);
 export const IconArrowLeft = make(<path d="M19 12H5M11 6l-6 6 6 6" />);
 export const IconPause = make(<><rect x="6.5" y="5" width="3.5" height="14" rx="1" fill="currentColor" stroke="none" /><rect x="14" y="5" width="3.5" height="14" rx="1" fill="currentColor" stroke="none" /></>);
+export const IconUser = make(<><circle cx="12" cy="8" r="4" /><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6" /></>);
 export const IconCode = make(<path d="m8 7-5 5 5 5M16 7l5 5-5 5" />);
 export const IconWire = make(<><path d="M4 18c4 0 4-12 8-12s4 12 8 12" /><circle cx="4" cy="18" r="1.6" /><circle cx="20" cy="18" r="1.6" /></>);
 export const IconFlag = make(<><path d="M5 21V4" /><path d="M5 4h11l-2 4 2 4H5" /></>);

@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { CURRICULUM, type Track } from "@/data/curriculum";
-import { lessons } from "@/data/lessons";
+import { catalog as lessons } from "@/data/catalog";
 import type { LessonIcon } from "@/data/types";
 import { useSim } from "@/store/sim";
-import { IconCheck, IconChevronDown } from "@/components/ui/icons";
+import { IconCheck, IconChevronDown, IconLock } from "@/components/ui/icons";
 
 export const LESSON_RENDER: Record<LessonIcon, string> = {
   contacts: "pushbuttons",
@@ -70,6 +70,8 @@ interface Node {
   icon: LessonIcon;
   status: Status;
   open: boolean;
+  /** Needs a plan the learner does not have. */
+  members: boolean;
 }
 
 function LessonNode({ n, active, onOpen }: { n: Node; active: boolean; onOpen: (id: string) => void }) {
@@ -106,6 +108,11 @@ function LessonNode({ n, active, onOpen }: { n: Node; active: boolean; onOpen: (
         <span className="absolute -bottom-1.5 -right-1.5">
           <StatusDot status={n.status} />
         </span>
+        {n.members && (
+          <span className="absolute -left-1.5 -top-1.5 flex h-[18px] w-[18px] items-center justify-center rounded-full bg-white text-[#8a9097] ring-1 ring-[#e4e6e9]" aria-label="members">
+            <IconLock size={10} />
+          </span>
+        )}
       </span>
       <span className={`font-mono text-[10.5px] font-bold ${n.status === "planned" ? "text-muted-ink" : "text-[#d9591a]"}`}>{n.chip}</span>
       <span className={`text-center text-[11px] leading-[1.25] ${n.status === "planned" ? "text-muted-ink" : "font-medium text-ink"}`}>{n.title}</span>
@@ -177,6 +184,7 @@ function TrackSection({ track, nodes, activeId, open, onToggle, onOpen }: { trac
 export function LabTrack({ onOpen }: { onOpen: (id: string) => void }) {
   const completed = useSim((s) => s.completed);
   const ran = useSim((s) => s.ranLessons);
+  const paid = useSim((s) => s.account?.paid ?? false);
   const lessonId = useSim((s) => s.lessonId);
   const activeTrack = lessons.find((l) => l.id === lessonId)?.trackId;
   const [openTracks, setOpenTracks] = useState<Record<string, boolean>>({});
@@ -200,6 +208,7 @@ export function LabTrack({ onOpen }: { onOpen: (id: string) => void }) {
       title: l.title,
       icon: l.icon,
       open: !l.locked,
+      members: !l.locked && !l.free && !paid,
       status: l.locked ? "planned" : completed[l.id] ? "done" : ran[l.id] ? "runs" : "built",
     };
   };

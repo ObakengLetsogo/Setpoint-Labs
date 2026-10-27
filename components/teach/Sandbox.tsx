@@ -1,11 +1,11 @@
 "use client";
 
 import type { RigId } from "@/data/curriculum";
-import { lessons } from "@/data/lessons";
+import { catalog as lessons } from "@/data/catalog";
 import { isSandbox, sandboxId, sandboxRig } from "@/data/sandbox";
 import { RIGS } from "@/rigs";
 import type { RigDef } from "@/rigs/types";
-import { defaultST, useRig, useSim } from "@/store/sim";
+import { bundleOf, defaultST, useRig, useSim } from "@/store/sim";
 import { CodeCard } from "@/components/code/CodeCard";
 import { Multimeter } from "./Multimeter";
 import { PlatformView } from "./PlatformView";
@@ -69,8 +69,9 @@ export function SandboxView() {
   if (!isSandbox(lessonId)) return null;
   const start = lessonsOn(rig.id);
 
-  const load = (id: string) => {
-    const lesson = lessons.find((l) => l.id === id);
+  const load = async (id: string) => {
+    await useSim.getState().loadContent(id);
+    const lesson = bundleOf(id);
     if (lesson) useSim.getState().setSource(codeLang === "st" ? defaultST(id) : lesson.code.join("\n"));
   };
 

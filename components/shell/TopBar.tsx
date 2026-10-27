@@ -1,9 +1,10 @@
 "use client";
 
+import Link from "next/link";
 import { LogoMark } from "@/components/Logo";
-import { IconBook, IconCode, IconKeyboard, IconLanguage, IconSliders } from "@/components/ui/icons";
+import { IconBook, IconCode, IconUser, IconKeyboard, IconLanguage, IconSliders } from "@/components/ui/icons";
 import { CURRICULUM } from "@/data/curriculum";
-import { lessons } from "@/data/lessons";
+import { catalog as lessons } from "@/data/catalog";
 import { useRig, useSim } from "@/store/sim";
 
 export function TopBar({ onOpen }: { onOpen: (sheet: "reference" | "settings" | "components" | "language") => void }) {
@@ -11,6 +12,7 @@ export function TopBar({ onOpen }: { onOpen: (sheet: "reference" | "settings" | 
   const running = useSim((s) => s.running);
   const lesson = lessons.find((l) => l.id === lessonId);
   const rig = useRig();
+  const account = useSim((s) => s.account);
   return (
     <header className="flex flex-wrap items-center justify-between gap-3">
       <div className="flex items-center gap-3">
@@ -39,6 +41,9 @@ export function TopBar({ onOpen }: { onOpen: (sheet: "reference" | "settings" | 
           <a href="#sandbox" className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[#3d434a] hover:text-ink">
             <IconCode size={14} /> <span className="hidden sm:inline">Sandbox</span>
           </a>
+          <Link href={account?.user ? "/account" : "/login"} className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[#3d434a] hover:text-ink">
+            <IconUser size={14} /> <span className="hidden max-w-[110px] truncate sm:inline">{account?.user ? account.user.name.split(" ")[0] : "Sign in"}</span>
+          </Link>
           <button type="button" onClick={() => onOpen("reference")} className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[#3d434a] hover:text-ink">
             <IconKeyboard size={14} /> <span className="hidden sm:inline">Controls</span>
           </button>

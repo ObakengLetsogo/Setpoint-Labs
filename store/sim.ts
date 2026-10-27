@@ -9,7 +9,8 @@ import { ladderToST } from "@/engine/translate";
 import { rigFor } from "@/rigs";
 import type { Control, FaultState, PhysicalState, RigDef, RigOptions, Vec3 } from "@/rigs/types";
 import type { RigId } from "@/data/curriculum";
-import { lessons } from "@/data/lessons";
+import { catalog, metaOf } from "@/data/catalog";
+import { revive, type LessonBundle, type WireBundle } from "@/data/bundle";
 import { isSandbox, sandboxRig, starterProgram } from "@/data/sandbox";
 
 export interface LogLine {
@@ -54,13 +55,24 @@ function compile(source: string): { program: Program | null; error: LadderError 
   }
 }
 
-const initialSources = Object.fromEntries(lessons.map((l) => [l.id, l.code.join("\n")]));
+/** Lesson content the server has sent, by lesson id. Content is never bundled with the app. */
+const bundleCache = new Map<string, LessonBundle>();
+export const bundleOf = (id: string) => bundleCache.get(id);
+
+export type ContentStatus = "loading" | "signin" | "upgrade" | "error";
+
+export interface Account {
+  user: { name: string; email: string; verified: boolean; role: string; platform: string } | null;
+  paid: boolean;
+  until: string | null;
+  inGrace: boolean;
+}
 
 /** The lesson's ladder program translated to structured text, the starting point for the ST view. */
 export function defaultST(lessonId: string) {
   if (isSandbox(lessonId)) return starterProgram(rigFor(sandboxRig(lessonId)));
-  const lesson = lessons.find((l) => l.id === lessonId);
-  if (!lesson || lesson.locked) return "";
+  const lesson = bundleCache.get(lessonId);
+  if (!lesson) return "";
   if (lesson.st) return lesson.st.join("\n");
   try {
     return ladderToST(parseProgram(lesson.code.join("\n")), "Structured text, translated from the ladder program.");
@@ -79,11 +91,19 @@ function compileST(source: string): { stProgram: StProgram | null; stError: StEr
 }
 
 export type CodeLang = "ladder" | "st";
-const first = lessons[0];
-const rigOf = (lessonId: string) => rigFor(sandboxRig(lessonId) ?? lessons.find((l) => l.id === lessonId)?.rig);
+const first = catalog[0];
+const rigOf = (lessonId: string) => rigFor(sandboxRig(lessonId) ?? metaOf(lessonId)?.rig);
 
 interface SimState {
   lessonId: string;
+  /** Why the current lesson's content is not shown yet, if it is not. */
+  contentStatus: Record<string, ContentStatus>;
+  /** Bumped when lesson content arrives, so views re-read bundleOf(). */
+  contentVersion: number;
+  loadContent: (id: string) => Promise<void>;
+  /** The signed in user and their access, or null until /api/me has answered. */
+  account: Account | null;
+  loadAccount: () => Promise<void>;
   sources: Record<string, string>;
   program: Program | null;
   error: LadderError | null;
@@ -199,7 +219,7 @@ const simStore: StateCreator<SimState> = (set, get) => {
     changes.forEach((c) => pushLog(`scan ${scanCount + 1} · ${c}`, "change"));
 
     const { lessonId, completed } = get();
-    const check = lessons.find((l) => l.id === lessonId)?.checkpoint;
+    const check = bundleCache.get(lessonId)?.checkpoint;
     if (check && !completed[lessonId]) {
       const step = checkpointStep[lessonId] ?? 0;
       if (check.steps[step]?.(result.memory, inputs, { ...faults })) {
@@ -228,11 +248,24 @@ const simStore: StateCreator<SimState> = (set, get) => {
 
   return {
     lessonId: first.id,
-    sources: initialSources,
-    ...compile(initialSources[first.id]),
+    contentStatus: {},
+    contentVersion: 0,
+    account: null,
+    loadAccount: async () => {
+      try {
+        const res = await fetch("/api/me", { credentials: "same-origin", cache: "no-store" });
+        if (res.ok) set({ account: (await res.json()) as Account });
+      } catch {
+        // Offline: keep whatever we knew.
+      }
+    },
+    sources: {},
+    program: null,
+    error: null,
     codeLang: "ladder",
     stSources: {},
-    ...compileST(defaultST(first.id)),
+    stProgram: null,
+    stError: null,
     stLines: {},
 
     running: false,
@@ -248,36 +281,61 @@ const simStore: StateCreator<SimState> = (set, get) => {
 
     selected: null,
     highlightRung: null,
-    rigOptions: first.rigOptions ?? {},
+    rigOptions: {},
     hovered: null,
     exploded: false,
     rotationSteps: 0,
     cameraCommand: null,
     cameraVersion: 0,
     pressing: false,
-    completed: Object.fromEntries(lessons.map((l) => [l.id, l.completed])),
+    completed: {},
     ranLessons: {},
     quizScores: {},
     setQuizScore: (lessonId, score) => set({ quizScores: { ...get().quizScores, [lessonId]: Math.max(score, get().quizScores[lessonId] ?? 0) } }),
     settings: DEFAULT_SETTINGS,
     language: "EN",
 
+    loadContent: async (id) => {
+      if (bundleCache.has(id) || isSandbox(id) || get().contentStatus[id] === "loading") return;
+      set({ contentStatus: { ...get().contentStatus, [id]: "loading" } });
+      let status: ContentStatus | null = "error";
+      try {
+        const res = await fetch(`/api/lessons/${encodeURIComponent(id)}`, { credentials: "same-origin" });
+        if (res.ok) {
+          bundleCache.set(id, revive((await res.json()) as WireBundle));
+          status = null;
+        } else if (res.status === 401) status = "signin";
+        else if (res.status === 402) status = "upgrade";
+      } catch {
+        status = "error";
+      }
+      const next = { ...get().contentStatus };
+      if (status) next[id] = status;
+      else delete next[id];
+      set({ contentStatus: next, contentVersion: get().contentVersion + 1 });
+      // Apply the program if the learner is still on this lesson.
+      if (!status && get().lessonId === id) get().setLesson(id);
+    },
+
     setLesson: (id) => {
       const { sources, running, stSources } = get();
       if (running) get().setRunning(false);
-      const lesson = lessons.find((l) => l.id === id);
+      const lesson = bundleCache.get(id);
+      if (!lesson && !isSandbox(id)) void get().loadContent(id);
       const rigOptions = (lesson?.rigOptions ?? {}) as RigOptions;
       const nextRig = rigOf(id);
       const rigChanged = nextRig.id !== get().rigId;
-      const source = sources[id] ?? (isSandbox(id) ? starterProgram(nextRig) : "");
+      const source = sources[id] ?? (isSandbox(id) ? starterProgram(nextRig) : lesson ? lesson.code.join("\n") : "");
       set({
         lessonId: id,
         rigOptions,
         // Lessons written in structured text open in it; the next lesson goes back to ladder.
-        ...(lesson?.st ? { codeLang: "st" as const } : lessons.find((l) => l.id === get().lessonId)?.st ? { codeLang: "ladder" as const } : {}),
-        sources: sources[id] === undefined ? { ...sources, [id]: source } : sources,
+        ...(lesson?.st ? { codeLang: "st" as const } : bundleCache.get(get().lessonId)?.st && get().lessonId !== id ? { codeLang: "ladder" as const } : {}),
+        // Keep a loading lesson's slot empty, so its program is filled in when it arrives.
+        sources: sources[id] === undefined && (lesson || isSandbox(id)) ? { ...sources, [id]: source } : sources,
         ...compile(source),
         ...compileST(stSources[id] ?? defaultST(id)),
+        ...(lesson || isSandbox(id) || sources[id] !== undefined ? {} : { program: null, error: null, stProgram: null, stError: null }),
         stLines: {},
         memory: {},
         scanCount: 0,
@@ -309,7 +367,7 @@ const simStore: StateCreator<SimState> = (set, get) => {
 
     resetSource: () => {
       const { lessonId, codeLang } = get();
-      const lesson = lessons.find((l) => l.id === lessonId);
+      const lesson = bundleCache.get(lessonId);
       if (codeLang === "st") get().setSource(defaultST(lessonId));
       else if (isSandbox(lessonId)) get().setSource(starterProgram(rigFor(get().rigId)));
       else if (lesson) get().setSource(lesson.code.join("\n"));
@@ -452,7 +510,7 @@ export const useSim = create<SimState>()(
       return {
         ...current,
         ...p,
-        lessonId: p.lessonId && (lessons.some((l) => l.id === p.lessonId) || sandboxRig(p.lessonId)) ? p.lessonId : current.lessonId,
+        lessonId: p.lessonId && (catalog.some((l) => l.id === p.lessonId) || sandboxRig(p.lessonId)) ? p.lessonId : current.lessonId,
         sources: { ...current.sources, ...p.sources },
         stSources: { ...current.stSources, ...p.stSources },
         completed: { ...current.completed, ...p.completed },

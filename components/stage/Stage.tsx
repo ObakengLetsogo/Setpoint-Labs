@@ -9,7 +9,7 @@ import { markerScreen } from "./annotationBus";
 import { PartPopover } from "./PartPopover";
 import { Sheet } from "@/components/shell/Sheet";
 import { IconCrosshair, IconRotateLeft, IconRotateRight, IconZoomIn, IconZoomOut } from "@/components/ui/icons";
-import { lessons } from "@/data/lessons";
+import { catalog as lessons } from "@/data/catalog";
 
 const Scene = dynamic(() => import("./Scene"), {
   ssr: false,

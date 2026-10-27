@@ -2,8 +2,7 @@
 
 import { useMemo, useState, type ReactNode } from "react";
 import { parseProgram, type LogicNode, type Program, type Rung } from "@/engine/ladder";
-import { TEACH } from "@/data/teach";
-import { useRig, useSim } from "@/store/sim";
+import { bundleOf, useRig, useSim } from "@/store/sim";
 import { IconArrowLeft, IconArrowRight } from "@/components/ui/icons";
 
 type Mode = "tour" | "story" | "explore";
@@ -140,7 +139,8 @@ export function CodeReader({ onBack }: { onBack: () => void }) {
   const rig = useRig();
   const lessonId = useSim((s) => s.lessonId);
   const source = useSim((s) => s.sources[s.lessonId] ?? "");
-  const teach = TEACH[lessonId];
+  useSim((s) => s.contentVersion);
+  const teach = bundleOf(lessonId)?.teach;
   const [mode, setMode] = useState<Mode>("tour");
   const [tab, setTab] = useState<Tab>("guide");
   const [scene, setScene] = useState(0);

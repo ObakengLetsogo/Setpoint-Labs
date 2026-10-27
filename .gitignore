@@ -44,3 +44,4 @@ next-env.d.ts
 /videos
 /.video-cache
 !.env.example
+/.next-build/

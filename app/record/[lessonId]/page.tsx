@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
-import { lessons } from "@/data/lessons";
+import { catalog as lessons } from "@/data/catalog";
 import { RecordStage } from "@/components/record/RecordStage";
 
 export function generateStaticParams() {

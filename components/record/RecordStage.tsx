@@ -6,7 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { AutomationApi } from "@/components/AutomationApi";
 import { LogoMark, Wordmark } from "@/components/Logo";
 import { LadderDiagram } from "@/components/ladder/LadderDiagram";
-import { lessons } from "@/data/lessons";
+import { catalog as lessons } from "@/data/catalog";
 
 import { useRecord } from "@/store/record";
 import { useInputs, useRig, useSim } from "@/store/sim";

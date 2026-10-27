@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import type { Lesson } from "@/data/types";
+import type { LessonMeta } from "@/data/catalog";
 import { placeOf } from "@/data/curriculum";
-import { TEACH } from "@/data/teach";
-import { useRig, useSim } from "@/store/sim";
+import { bundleOf, useRig, useSim } from "@/store/sim";
+import { LessonGate } from "./LessonGate";
 import { CodeCard } from "@/components/code/CodeCard";
 import { IconBulb, IconCheck, IconCode, IconFlag, IconList, IconMonitor, IconPlay, IconWire } from "@/components/ui/icons";
 import { videoFor } from "@/data/videos";
@@ -13,7 +13,6 @@ import { Quiz } from "./Quiz";
 import { Multimeter } from "./Multimeter";
 import { PlatformView } from "./PlatformView";
 import type { PlatformId } from "@/engine/platforms";
-import { quizFor } from "@/data/quizzes";
 import { IoPinout } from "./IoPinout";
 import { WiringTable, WiringView } from "./WiringView";
 import { CodeReader } from "./CodeReader";
@@ -65,10 +64,13 @@ function Steps({ lessonId, steps }: { lessonId: string; steps: string[] }) {
   );
 }
 
-export function LessonView({ lesson }: { lesson: Lesson }) {
+export function LessonView({ lesson }: { lesson: LessonMeta }) {
   const rig = useRig();
   const [mode, setMode] = useState<"lab" | "code">("lab");
-  const teach = TEACH[lesson.id];
+  useSim((s) => s.contentVersion);
+  const contentStatus = useSim((s) => s.contentStatus[lesson.id]);
+  const bundle = bundleOf(lesson.id);
+  const teach = bundle?.teach;
   const place = placeOf(lesson.id);
   const track = place?.track;
   const chapter = place?.chapter;
@@ -76,7 +78,9 @@ export function LessonView({ lesson }: { lesson: Lesson }) {
   const completed = useSim((s) => s.completed[lesson.id]);
   const ran = useSim((s) => s.ranLessons[lesson.id]);
 
-  if (!teach || lesson.locked) {
+  if (!lesson.locked && !bundle) return <LessonGate lesson={lesson} status={contentStatus} />;
+
+  if (!teach || !bundle || lesson.locked) {
     return (
       <section id="lesson" className="rounded-2xl border border-dashed border-[#d5d9de] bg-white px-6 py-10 text-center">
         <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-muted-ink">{lesson.chip} · planned</p>
@@ -167,7 +171,7 @@ export function LessonView({ lesson }: { lesson: Lesson }) {
                     {track?.name} · {chapter?.title} · lesson {lesson.number} of {trackSize}
                   </p>
                   <p className="mt-2 text-[15px] leading-[1.6] text-ink">{teach.goal}</p>
-                  <p className="mt-2 text-[13.5px] leading-[1.6] text-[#4b5058]">{lesson.summary}</p>
+                  <p className="mt-2 text-[13.5px] leading-[1.6] text-[#4b5058]">{bundle.summary}</p>
                   <p className="mt-4 font-mono text-[10px] uppercase tracking-[0.2em] text-muted-ink">On the rig</p>
                   <div className="mt-1.5 flex flex-wrap gap-1.5">
                     {rig.wiring.wires.filter((w) => teach.wires.includes(w.n)).map((w) => (
@@ -210,9 +214,9 @@ export function LessonView({ lesson }: { lesson: Lesson }) {
                 <PlatformView key={lesson.id} initial={(lesson.id.startsWith("t-") ? lesson.id.slice(2) : "siemens") as PlatformId} />
               </Section>
 
-              {quizFor(lesson.id).length > 0 && (
+              {bundle.quiz.length > 0 && (
                 <Section id="quiz" n="07" icon={<IconCheck size={14} />} title="Quiz">
-                  <Quiz key={lesson.id} lessonId={lesson.id} questions={quizFor(lesson.id)} />
+                  <Quiz key={lesson.id} lessonId={lesson.id} questions={bundle.quiz} />
                 </Section>
               )}
             </div>

@@ -14,7 +14,7 @@ import { ComponentsSheetContent } from "@/components/shell/sheets/ComponentsShee
 import { ReferenceSheetContent } from "@/components/shell/sheets/ReferenceSheet";
 import { SettingsSheetContent } from "@/components/shell/sheets/SettingsSheet";
 import { LanguageSheetContent } from "@/components/shell/sheets/LanguageSheet";
-import { lessons } from "@/data/lessons";
+import { catalog as lessons } from "@/data/catalog";
 import { useSim } from "@/store/sim";
 
 type SheetId = "components" | "reference" | "settings" | "language";
@@ -81,6 +81,7 @@ export default function Home() {
   useShortcuts();
   useEffect(() => {
     void useSim.persist.rehydrate();
+    void useSim.getState().loadAccount();
   }, []);
 
   if (loading) return <LoadingScreen onDone={() => setLoading(false)} />;
