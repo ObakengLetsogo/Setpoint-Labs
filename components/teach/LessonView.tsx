@@ -11,6 +11,8 @@ import { videoFor } from "@/data/videos";
 import { LessonVideo } from "./LessonVideo";
 import { Quiz } from "./Quiz";
 import { Multimeter } from "./Multimeter";
+import { PlatformView } from "./PlatformView";
+import type { PlatformId } from "@/engine/platforms";
 import { quizFor } from "@/data/quizzes";
 import { IoPinout } from "./IoPinout";
 import { WiringTable, WiringView } from "./WiringView";
@@ -94,6 +96,7 @@ export function LessonView({ lesson }: { lesson: Lesson }) {
     ["wire", "Wire", <IconWire key="w" size={13} />],
     ["steps", `Steps 0/${teach.steps.length}`, <IconList key="s" size={13} />],
     ["run", "Run it", <IconMonitor key="r" size={13} />],
+    ["platforms", "Controllers", <IconCode key="p" size={13} />],
     ["quiz", "Quiz", <IconCheck key="q" size={13} />],
   ];
 
@@ -203,8 +206,12 @@ export function LessonView({ lesson }: { lesson: Lesson }) {
                 <CodeCard />
               </Section>
 
+              <Section id="platforms" n="06" icon={<IconCode size={14} />} title="On real controllers">
+                <PlatformView key={lesson.id} initial={(lesson.id.startsWith("t-") ? lesson.id.slice(2) : "siemens") as PlatformId} />
+              </Section>
+
               {quizFor(lesson.id).length > 0 && (
-                <Section id="quiz" n="06" icon={<IconCheck size={14} />} title="Quiz">
+                <Section id="quiz" n="07" icon={<IconCheck size={14} />} title="Quiz">
                   <Quiz key={lesson.id} lessonId={lesson.id} questions={quizFor(lesson.id)} />
                 </Section>
               )}

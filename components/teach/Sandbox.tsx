@@ -8,6 +8,7 @@ import type { RigDef } from "@/rigs/types";
 import { defaultST, useRig, useSim } from "@/store/sim";
 import { CodeCard } from "@/components/code/CodeCard";
 import { Multimeter } from "./Multimeter";
+import { PlatformView } from "./PlatformView";
 import { IconArrowRight, IconBolt, IconCode, IconHand } from "@/components/ui/icons";
 
 const rigs = Object.values(RIGS) as RigDef[];
@@ -151,6 +152,7 @@ export function SandboxView() {
       </div>
       <CodeCard />
       <Multimeter key={rig.id} />
+      <PlatformView />
     </section>
   );
 }

@@ -7,8 +7,9 @@ import { PROCESS } from "./process";
 import { SEQUENCES } from "./sequences";
 import { WIRING } from "./wiring";
 import { ADVANCED } from "./advanced";
+import { PLATFORM_LESSONS } from "./platforms";
 
-const CONTENT: Record<string, LessonContent> = { ...FOUNDATIONS, ...FOUNDATIONS_MORE, ...MACHINES, ...PROCESS, ...SEQUENCES, ...WIRING, ...ADVANCED };
+const CONTENT: Record<string, LessonContent> = { ...FOUNDATIONS, ...FOUNDATIONS_MORE, ...MACHINES, ...PROCESS, ...SEQUENCES, ...WIRING, ...ADVANCED, ...PLATFORM_LESSONS };
 
 const PLANNED: LessonContent = {
   difficulty: "beginner",
