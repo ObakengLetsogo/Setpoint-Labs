@@ -178,7 +178,14 @@ export async function markInvoicePaid(invoiceId: string, actorId: string) {
   const inv = (await db.select().from(invoices).where(eq(invoices.id, invoiceId)).limit(1))[0];
   if (!inv || inv.status !== "open") return null;
   await db.update(invoices).set({ status: "paid", paidAt: new Date(), markedPaidBy: actorId }).where(eq(invoices.id, invoiceId));
-  const g = await grant({ userId: null, organisationId: inv.organisationId, planId: inv.planId, seats: inv.seats, source: "invoice", actorId });
+  const owner = (
+    await db
+      .select({ userId: memberships.userId })
+      .from(memberships)
+      .where(and(eq(memberships.organisationId, inv.organisationId), or(eq(memberships.role, "employer_admin"), eq(memberships.role, "institution_admin"))))
+      .limit(1)
+  )[0];
+  const g = await grant({ userId: owner?.userId ?? null, organisationId: inv.organisationId, planId: inv.planId, seats: inv.seats, source: "invoice", actorId });
   await audit(actorId, "invoice.paid", invoiceId);
   return g;
 }
