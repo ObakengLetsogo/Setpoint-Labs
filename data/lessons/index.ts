@@ -2,8 +2,9 @@ import { LESSON_ORDER } from "../curriculum";
 import type { Lesson, LessonContent } from "../types";
 import { FOUNDATIONS } from "./foundations";
 import { FOUNDATIONS_MORE } from "./foundations-more";
+import { MACHINES } from "./machines";
 
-const CONTENT: Record<string, LessonContent> = { ...FOUNDATIONS, ...FOUNDATIONS_MORE };
+const CONTENT: Record<string, LessonContent> = { ...FOUNDATIONS, ...FOUNDATIONS_MORE, ...MACHINES };
 
 const PLANNED: LessonContent = {
   difficulty: "beginner",

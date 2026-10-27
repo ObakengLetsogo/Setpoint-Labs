@@ -88,7 +88,7 @@ function CardBody({ a }: { a: Annotation }) {
         {a.labs.map((l) => (
           <LabChip key={l} code={l} />
         ))}
-        <span className="font-mono text-[10.5px] text-muted-ink">+{a.more} labs</span>
+        {a.more > 0 && <span className="font-mono text-[10.5px] text-muted-ink">+{a.more} labs</span>}
         {live.text && (
           <span className={`ml-auto rounded-full px-2 py-[3px] font-mono text-[10px] font-semibold ${LIVE_CHIP[live.ring ?? "idle"]}`}>{live.text}</span>
         )}

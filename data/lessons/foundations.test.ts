@@ -1,37 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { parseProgram } from "@/engine/ladder";
-import { scan, type Memory } from "@/engine/scan";
-import { INITIAL_PHYSICAL, NO_FAULTS, readInputs, stepPhysics, type Faults, type Physical, type RigOptions } from "@/rigs/motorStarter";
 import { lessons } from "./index";
-
-/** Runs a lesson program against the simulated bench, like the store does, and checks its checkpoint. */
-function bench(id: string) {
-  const lesson = lessons.find((l) => l.id === id)!;
-  const program = parseProgram(lesson.code.join("\n"));
-  const options: RigOptions = lesson.rigOptions ?? {};
-  let physical: Physical = { ...INITIAL_PHYSICAL };
-  let faults: Faults = { ...NO_FAULTS };
-  let memory: Memory = {};
-  let step = 0;
-  const steps = lesson.checkpoint?.steps ?? [];
-  const run = (ms: number, patch: Partial<Physical> = {}, fault: Partial<Faults> = {}) => {
-    physical = { ...physical, ...patch };
-    faults = { ...faults, ...fault };
-    for (let t = 0; t < ms; t += 100) {
-      const inputs = readInputs(physical, faults, options);
-      memory = scan(program, { ...memory, ...inputs }, 100).memory;
-      physical = stepPhysics(physical, faults, memory, 100);
-      if (steps[step]?.(memory, inputs, { ...faults })) step++;
-    }
-    return memory;
-  };
-  return { run, done: () => steps.length > 0 && step >= steps.length, mem: () => memory, phys: () => physical };
-}
-
-const tap = (b: ReturnType<typeof bench>, key: "startPressed" | "stopPressed" | "auxPressed") => {
-  b.run(300, { [key]: true });
-  b.run(300, { [key]: false });
-};
+import { bench, tap } from "./testBench";
 
 describe("foundations lessons pass their own checkpoints", () => {
   it("every open lesson parses and has a checkpoint", () => {

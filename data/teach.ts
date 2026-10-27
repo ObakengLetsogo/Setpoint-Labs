@@ -1,4 +1,5 @@
 import { TEACH_FOUNDATIONS } from "./teach-foundations";
+import { TEACH_MACHINES } from "./teach-machines";
 export interface TourScene {
   kicker: string;
   title: string;
@@ -175,4 +176,4 @@ const TEACH_FIRST: Record<string, LessonTeach> = {
   },
 };
 
-export const TEACH: Record<string, LessonTeach> = { ...TEACH_FIRST, ...TEACH_FOUNDATIONS };
+export const TEACH: Record<string, LessonTeach> = { ...TEACH_FIRST, ...TEACH_FOUNDATIONS, ...TEACH_MACHINES };
