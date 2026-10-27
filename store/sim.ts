@@ -4,6 +4,8 @@ import { create, type StateCreator } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { LadderError, collectTags, parseProgram, type Program } from "@/engine/ladder";
 import { scan, type Memory, type RungTrace } from "@/engine/scan";
+import { StError, parseST, runST, stTags, type StLineTrace, type StProgram } from "@/engine/st";
+import { ladderToST } from "@/engine/translate";
 import { rigFor } from "@/rigs";
 import type { Control, FaultState, PhysicalState, RigDef, RigOptions, Vec3 } from "@/rigs/types";
 import type { RigId } from "@/data/curriculum";
@@ -52,6 +54,28 @@ function compile(source: string): { program: Program | null; error: LadderError 
 }
 
 const initialSources = Object.fromEntries(lessons.map((l) => [l.id, l.code.join("\n")]));
+
+/** The lesson's ladder program translated to structured text, the starting point for the ST view. */
+export function defaultST(lessonId: string) {
+  const lesson = lessons.find((l) => l.id === lessonId);
+  if (!lesson || lesson.locked) return "";
+  try {
+    return ladderToST(parseProgram(lesson.code.join("\n")), "Structured text, translated from the ladder program.");
+  } catch {
+    return "";
+  }
+}
+
+function compileST(source: string): { stProgram: StProgram | null; stError: StError | null } {
+  try {
+    return { stProgram: parseST(source), stError: null };
+  } catch (e) {
+    if (e instanceof StError) return { stProgram: null, stError: e };
+    throw e;
+  }
+}
+
+export type CodeLang = "ladder" | "st";
 const first = lessons[0];
 const rigOf = (lessonId: string) => rigFor(lessons.find((l) => l.id === lessonId)?.rig);
 
@@ -60,6 +84,13 @@ interface SimState {
   sources: Record<string, string>;
   program: Program | null;
   error: LadderError | null;
+  /** Which language runs on the PLC: ladder or structured text. */
+  codeLang: CodeLang;
+  stSources: Record<string, string>;
+  stProgram: StProgram | null;
+  stError: StError | null;
+  /** Which ST lines ran on the last scan, and with what result. */
+  stLines: Record<number, StLineTrace>;
 
   running: boolean;
   scanMs: number;
@@ -91,6 +122,7 @@ interface SimState {
 
   setLesson: (id: string) => void;
   setSource: (text: string) => void;
+  setCodeLang: (lang: CodeLang) => void;
   resetSource: () => void;
   toggleRun: () => void;
   setRunning: (running: boolean) => void;
@@ -130,15 +162,25 @@ const simStore: StateCreator<SimState> = (set, get) => {
   const inputsNow = () => rig().readInputs(get().physical, get().faults, get().rigOptions);
 
   const executeScan = (dtMs: number) => {
-    const { program, memory, faults, scanCount } = get();
-    if (!program) return;
+    const { program, memory, faults, scanCount, codeLang, stProgram } = get();
+    if (codeLang === "ladder" ? !program : !stProgram) return;
     const inputs = inputsNow();
     const watched = rig().tags.filter((t) => !t.analog).map((t) => t.tag);
     const tagAddress = (tag: string) => rig().tags.find((t) => t.tag === tag)?.address;
-    const result = scan(program, { ...memory, ...inputs }, dtMs);
+    let result: { memory: Memory; trace: RungTrace[] };
+    let codeTags: string[];
+    if (codeLang === "st") {
+      const r = runST(stProgram!, { ...memory, ...inputs }, dtMs);
+      result = { memory: r.memory, trace: [] };
+      codeTags = stTags(stProgram!);
+      set({ stLines: r.lines });
+    } else {
+      result = scan(program!, { ...memory, ...inputs }, dtMs);
+      codeTags = collectTags(program!);
+    }
 
     const changes: string[] = [];
-    for (const tag of new Set([...watched, ...collectTags(program)])) {
+    for (const tag of new Set([...watched, ...codeTags])) {
       if (typeof result.memory[tag] === "number" && !tag.includes(".")) continue;
       const before = Boolean(memory[tag]);
       const after = Boolean(result.memory[tag]);
@@ -165,7 +207,12 @@ const simStore: StateCreator<SimState> = (set, get) => {
   };
 
   const evaluateIdle = () => {
-    const { program, memory } = get();
+    const { program, memory, codeLang, stProgram } = get();
+    if (codeLang === "st") {
+      if (!stProgram) return set({ stLines: {} });
+      set({ stLines: runST(stProgram, { ...memory, ...inputsNow() }, 0).lines });
+      return;
+    }
     if (!program) return set({ trace: [] });
     const inputs = inputsNow();
     // Preview power flow without writing outputs, so a stopped PLC still shows which contacts would pass.
@@ -177,6 +224,10 @@ const simStore: StateCreator<SimState> = (set, get) => {
     lessonId: first.id,
     sources: initialSources,
     ...compile(initialSources[first.id]),
+    codeLang: "ladder",
+    stSources: {},
+    ...compileST(defaultST(first.id)),
+    stLines: {},
 
     running: false,
     scanMs: 100,
@@ -204,7 +255,7 @@ const simStore: StateCreator<SimState> = (set, get) => {
     language: "EN",
 
     setLesson: (id) => {
-      const { sources, running } = get();
+      const { sources, running, stSources } = get();
       if (running) get().setRunning(false);
       const lesson = lessons.find((l) => l.id === id);
       const rigOptions = (lesson?.rigOptions ?? {}) as RigOptions;
@@ -214,6 +265,8 @@ const simStore: StateCreator<SimState> = (set, get) => {
         lessonId: id,
         rigOptions,
         ...compile(sources[id] ?? ""),
+        ...compileST(stSources[id] ?? defaultST(id)),
+        stLines: {},
         memory: {},
         scanCount: 0,
         selected: null,
@@ -223,31 +276,49 @@ const simStore: StateCreator<SimState> = (set, get) => {
     },
 
     setSource: (text) => {
-      const { lessonId, sources } = get();
-      set({ sources: { ...sources, [lessonId]: text }, ...compile(text) });
-      if (get().error && get().running) {
+      const { lessonId, sources, stSources, codeLang } = get();
+      if (codeLang === "st") set({ stSources: { ...stSources, [lessonId]: text }, ...compileST(text) });
+      else set({ sources: { ...sources, [lessonId]: text }, ...compile(text) });
+      const err = codeLang === "st" ? get().stError : get().error;
+      if (err && get().running) {
         get().setRunning(false);
-        pushLog(get().error!.message, "error");
+        pushLog(err.message, "error");
       }
       if (!get().running) evaluateIdle();
     },
 
+    setCodeLang: (lang) => {
+      if (lang === get().codeLang) return;
+      if (get().running) get().setRunning(false);
+      set({ codeLang: lang, memory: {}, scanCount: 0, trace: [], stLines: {} });
+      pushLog(`language · ${lang === "st" ? "structured text" : "ladder"} loaded`);
+      evaluateIdle();
+    },
+
     resetSource: () => {
-      const lesson = lessons.find((l) => l.id === get().lessonId);
-      if (lesson) get().setSource(lesson.code.join("\n"));
+      const { lessonId, codeLang } = get();
+      const lesson = lessons.find((l) => l.id === lessonId);
+      if (!lesson) return;
+      get().setSource(codeLang === "st" ? defaultST(lessonId) : lesson.code.join("\n"));
     },
 
     toggleRun: () => get().setRunning(!get().running),
 
     setRunning: (running) => {
-      const { error, program } = get();
+      const { error, program, codeLang, stProgram, stError } = get();
       if (running) {
-        if (!program) {
-          if (error) pushLog(error.message, "error");
+        const ok = codeLang === "st" ? stProgram : program;
+        const err = codeLang === "st" ? stError : error;
+        if (!ok) {
+          if (err) pushLog(err.message, "error");
           return;
         }
         set({ running: true, memory: {}, scanCount: 0, runStartedAt: Date.now(), log: [], ranLessons: { ...get().ranLessons, [get().lessonId]: true } });
-        pushLog(`PLC to RUN · ${program.rungs.length} rung${program.rungs.length === 1 ? "" : "s"} loaded`);
+        pushLog(
+          codeLang === "st"
+            ? `PLC to RUN · structured text, ${stProgram!.lines.length} statements`
+            : `PLC to RUN · ${program!.rungs.length} rung${program!.rungs.length === 1 ? "" : "s"} loaded`,
+        );
       } else {
         const outputsOff = Object.fromEntries(rig().tags.filter((t) => t.kind === "output").map((t) => [t.tag, false]));
         set({ running: false, memory: { ...get().memory, ...outputsOff } });
@@ -257,8 +328,8 @@ const simStore: StateCreator<SimState> = (set, get) => {
     },
 
     stepScan: () => {
-      const { program, running, runStartedAt } = get();
-      if (!program) return;
+      const { program, running, runStartedAt, codeLang, stProgram } = get();
+      if (codeLang === "st" ? !stProgram : !program) return;
       if (running) get().setRunning(false);
       if (!runStartedAt) set({ runStartedAt: Date.now() });
       executeScan(get().scanMs);
@@ -355,6 +426,8 @@ export const useSim = create<SimState>()(
     partialize: (s) => ({
       lessonId: s.lessonId,
       sources: s.sources,
+      stSources: s.stSources,
+      codeLang: s.codeLang,
       completed: s.completed,
       ranLessons: s.ranLessons,
       settings: s.settings,
@@ -367,6 +440,7 @@ export const useSim = create<SimState>()(
         ...p,
         lessonId: lessons.some((l) => l.id === p.lessonId) ? p.lessonId! : current.lessonId,
         sources: { ...current.sources, ...p.sources },
+        stSources: { ...current.stSources, ...p.stSources },
         completed: { ...current.completed, ...p.completed },
         settings: { ...current.settings, ...p.settings },
       };

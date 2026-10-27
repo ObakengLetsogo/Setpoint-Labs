@@ -23,6 +23,7 @@ export interface SetpointLabsApi {
   setPhysical: (patch: Record<string, number | boolean>) => void;
   highlightRung: (n: number | null) => void;
   showLabel: (label: RecordLabel | null) => void;
+  setCodeLang: (lang: "ladder" | "st") => void;
   explode: (on: boolean) => void;
   setReduceMotion: (on: boolean) => void;
   getState: () => {
@@ -71,6 +72,7 @@ export function AutomationApi() {
       setPhysical: (patch) => s().setPhysical(patch),
       highlightRung: (n) => s().setHighlightRung(n),
       showLabel: (label) => useRecord.getState().showLabel(label),
+      setCodeLang: (lang) => s().setCodeLang(lang),
       explode: (on) => on !== s().exploded && s().toggleExplode(),
       setReduceMotion: (on) => s().setSetting("reduceMotion", on),
       getState: () => {

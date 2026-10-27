@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, type ReactNode } from "react";
-import { useSim } from "@/store/sim";
+import { defaultST, useSim } from "@/store/sim";
 import { LadderDiagram } from "@/components/ladder/LadderDiagram";
 import { ScanMonitor } from "@/components/monitor/ScanMonitor";
 import { IconButton, Segmented } from "@/components/ui/controls";
@@ -32,23 +32,64 @@ function highlight(line: string): ReactNode[] {
   return out;
 }
 
+const ST_KEYWORDS = /^(IF|THEN|ELSIF|ELSE|END_IF|CASE|OF|END_CASE|VAR|END_VAR|AND|OR|XOR|NOT|MOD|TRUE|FALSE)$/i;
+const ST_FBS = /^(TON|TOF|CTU|CTD|R_TRIG|F_TRIG)$/;
+
+function highlightST(line: string): ReactNode[] {
+  const out: ReactNode[] = [];
+  const commentAt = line.indexOf("//");
+  const code = commentAt >= 0 ? line.slice(0, commentAt) : line;
+  const re = /(T#\d+(?:\.\d+)?(?:ms|s|m))|(\d+(?:\.\d+)?)|([A-Za-z_][A-Za-z0-9_.]*)|(:=)/gi;
+  let last = 0;
+  let m: RegExpExecArray | null;
+  let k = 0;
+  while ((m = re.exec(code))) {
+    if (m.index > last) out.push(code.slice(last, m.index));
+    const [tok] = m;
+    if (m[1] || m[2]) out.push(<span key={k++} className="text-energised">{tok}</span>);
+    else if (m[4]) out.push(<span key={k++} className="text-muted-ink">{tok}</span>);
+    else if (ST_KEYWORDS.test(tok)) out.push(<span key={k++} className="font-semibold text-primary">{tok}</span>);
+    else if (ST_FBS.test(tok)) out.push(<span key={k++} className="font-semibold text-accent">{tok}</span>);
+    else out.push(<span key={k++} className="text-ink">{tok}</span>);
+    last = m.index + tok.length;
+  }
+  if (last < code.length) out.push(code.slice(last));
+  if (commentAt >= 0) out.push(<span key={k++} className="italic text-[#9a9a92]">{line.slice(commentAt)}</span>);
+  return out;
+}
+
 function Editor() {
-  const source = useSim((s) => s.sources[s.lessonId] ?? "");
+  const lang = useSim((s) => s.codeLang);
+  const source = useSim((s) => (s.codeLang === "st" ? (s.stSources[s.lessonId] ?? defaultST(s.lessonId)) : (s.sources[s.lessonId] ?? "")));
   const setSource = useSim((s) => s.setSource);
   const trace = useSim((s) => s.trace);
+  const stLines = useSim((s) => s.stLines);
   const program = useSim((s) => s.program);
   const memory = useSim((s) => s.memory);
-  const error = useSim((s) => s.error);
+  const error = useSim((s) => (s.codeLang === "st" ? s.stError : s.error));
   const lines = source.split("\n");
-  const powered = useMemo(() => new Map(trace.map((t) => [t.line, t.power])), [trace]);
+  const powered = useMemo(() => {
+    if (lang === "st") return new Map(Object.entries(stLines).map(([n, t]) => [Number(n), t.ran && t.value !== false && t.value !== 0]));
+    return new Map(trace.map((t) => [t.line, t.power]));
+  }, [trace, stLines, lang]);
   const chips = useMemo(() => {
     const map = new Map<number, string>();
+    if (lang === "st") {
+      lines.forEach((l, i) => {
+        const assign = /^\s*([A-Za-z_][A-Za-z0-9_.]*)\s*:=/.exec(l);
+        if (assign && stLines[i + 1]?.ran) {
+          const v = stLines[i + 1].value;
+          map.set(i + 1, `${assign[1]} = ${typeof v === "boolean" ? (v ? 1 : 0) : v}`);
+        }
+      });
+      return map;
+    }
     program?.rungs.forEach((r) => {
       const o = r.outputs[0];
       if (o) map.set(r.line, `${o.tag} = ${memory[o.tag] ? 1 : 0}`);
     });
     return map;
-  }, [program, memory]);
+  }, [program, memory, lang, stLines, lines]);
   const longest = Math.max(...lines.map((l) => l.length), 20);
 
   return (
@@ -67,7 +108,7 @@ function Editor() {
               >
                 <span className={`absolute left-0 top-0 h-full w-[3px] ${isErr ? "bg-fault" : on ? "bg-energised" : ""}`} />
                 <span className={`w-10 shrink-0 select-none pr-3 text-right ${on ? "text-energised" : "text-[#b4b0a6]"}`}>{n}</span>
-                <span className="whitespace-pre pl-1">{highlight(line)}</span>
+                <span className="whitespace-pre pl-1">{lang === "st" ? highlightST(line) : highlight(line)}</span>
                 {chips.has(n) && (
                   <span
                     className={`ml-3 self-center whitespace-nowrap rounded px-1.5 py-px font-mono text-[10px] leading-4 ${
@@ -88,7 +129,7 @@ function Editor() {
           autoCapitalize="off"
           autoCorrect="off"
           wrap="off"
-          aria-label="Ladder program"
+          aria-label={lang === "st" ? "Structured text program" : "Ladder program"}
           className="absolute inset-0 resize-none overflow-hidden bg-transparent py-2.5 pl-[44px] font-mono text-[12.5px] text-transparent caret-ink outline-none selection:bg-accent/20"
           style={{ lineHeight: `${LH}px` }}
         />
@@ -99,6 +140,10 @@ function Editor() {
 
 export function CodeCard() {
   const [view, setView] = useState<"ladder" | "text">("ladder");
+  const lang = useSim((s) => s.codeLang);
+  const setCodeLang = useSim((s) => s.setCodeLang);
+  const stProgram = useSim((s) => s.stProgram);
+  const stError = useSim((s) => s.stError);
   const [copied, setCopied] = useState(false);
   const running = useSim((s) => s.running);
   const toggleRun = useSim((s) => s.toggleRun);
@@ -108,7 +153,8 @@ export function CodeCard() {
   const trace = useSim((s) => s.trace);
   const memory = useSim((s) => s.memory);
   const error = useSim((s) => s.error);
-  const source = useSim((s) => s.sources[s.lessonId] ?? "");
+  const source = useSim((s) => (s.codeLang === "st" ? (s.stSources[s.lessonId] ?? defaultST(s.lessonId)) : (s.sources[s.lessonId] ?? "")));
+  const shownError = lang === "st" ? stError : error;
 
   async function copy() {
     try {
@@ -139,29 +185,46 @@ export function CodeCard() {
           </IconButton>
         </div>
       </header>
-      <div className="flex items-center justify-between border-b border-[#eceef0] px-3.5 pb-2.5">
-        <Segmented
-          size="sm"
-          value={view}
-          onChange={setView}
-          options={[
-            { value: "ladder", label: "Ladder" },
-            { value: "text", label: "Text" },
-          ]}
-        />
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#eceef0] px-3.5 pb-2.5">
+        <div className="flex flex-wrap items-center gap-2">
+          <Segmented
+            size="sm"
+            value={lang}
+            onChange={setCodeLang}
+            options={[
+              { value: "ladder", label: "Ladder" },
+              { value: "st", label: "Structured text" },
+            ]}
+          />
+          {lang === "ladder" && (
+            <Segmented
+              size="sm"
+              value={view}
+              onChange={setView}
+              options={[
+                { value: "ladder", label: "Diagram" },
+                { value: "text", label: "Text" },
+              ]}
+            />
+          )}
+        </div>
         <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-ink">
-          {program ? `${program.rungs.length} rung${program.rungs.length === 1 ? "" : "s"}` : "Error"} · {view === "text" ? "editable" : "live"}
+          {lang === "st"
+            ? stProgram
+              ? `${stProgram.lines.length} statements · editable`
+              : "Error"
+            : `${program ? `${program.rungs.length} rung${program.rungs.length === 1 ? "" : "s"}` : "Error"} · ${view === "text" ? "editable" : "live"}`}
         </span>
       </div>
 
-      {error && (
+      {shownError && (
         <div className="flex items-start gap-2 border-b border-fault/20 bg-fault/[0.06] px-3.5 py-2 text-[12px] text-fault">
           <span className="mt-[3px] h-1.5 w-1.5 shrink-0 rounded-full bg-fault" />
-          <span>{error.message}</span>
+          <span>{shownError.message}</span>
         </div>
       )}
 
-      {view === "text" ? (
+      {lang === "st" || view === "text" ? (
         <Editor />
       ) : program ? (
         <div className="max-h-[420px] overflow-y-auto px-2.5 py-2.5">

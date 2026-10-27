@@ -160,7 +160,7 @@ export const TEACH_MACHINES: Record<string, LessonTeach> = {
     tour: [
       { kicker: "Scene 1 of 3 · Fill", title: "Time it while it waits", lines: [4, 5], lead: "Fill_T times while a bottle is under the nozzle and not yet filled.", body: "The valve is open for exactly as long as the timer is counting.", handsTo: ["Fill_T", "Fill_Valve"] },
       { kicker: "Scene 2 of 3 · Release", title: "Gate down until it clears", lines: [6, 8], lead: "Filled latches at the preset and drops the gate.", body: "It stays latched until the bottle has left the eye, then the gate rises to catch the next one.", handsTo: ["Filled", "Stopper_Down"] },
-      { kicker: "Scene 3 of 3 · Count", title: "Six to a case", lines: [9, 11], lead: "ONS on the exit eye counts each bottle once.", body: "At six, Case.DN lights the beacon. Stop resets the counter for the next case.", handsTo: ["Case", "Case_Full"] },
+      { kicker: "Scene 3 of 3 · Count", title: "Six to a case", lines: [9, 11], lead: "ONS on the exit eye counts each bottle once.", body: "At six, Cases.DN lights the beacon. Stop resets the counter for the next case.", handsTo: ["Cases", "Case_Full"] },
     ],
     story: [
       { t: "arrive", text: "A bottle stops against the gate. PE_Filler turns on." },

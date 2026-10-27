@@ -87,7 +87,7 @@ describe("conveyor lessons", () => {
     tap(b, "startPressed");
     b.run(60000);
     expect(Number(b.phys().spilled)).toBe(0);
-    expect(b.mem()["Case.DN"]).toBe(true);
+    expect(b.mem()["Cases.DN"]).toBe(true);
     expect(b.done()).toBe(true);
   });
 });

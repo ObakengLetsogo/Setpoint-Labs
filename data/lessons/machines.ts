@@ -241,7 +241,7 @@ export const MACHINES: Record<string, LessonContent> = {
 
   "m-bottling": {
     difficulty: "intermediate",
-    checkpoint: { steps: [(m) => Boolean(m.Fill_Valve), (m) => Boolean(m["Case.DN"])], message: "filled six bottles and lit the case full beacon" },
+    checkpoint: { steps: [(m) => Boolean(m.Fill_Valve), (m) => Boolean(m["Cases.DN"])], message: "filled six bottles and lit the case full beacon" },
     summary:
       "A gate holds each bottle under the nozzle. The filler opens for a set time, then the gate drops to let the full bottle go and rises for the next. A counter on the exit eye counts bottles into cases of six.",
     facts: [
@@ -268,9 +268,9 @@ export const MACHINES: Record<string, LessonContent> = {
       "RUNG 5: XIC(Fill_T.DN) OTL(Filled)",
       "RUNG 6: XIC(Filled) OTE(Stopper_Down)",
       "RUNG 7: XIC(Filled) XIO(PE_Filler) OTU(Filled)",
-      "RUNG 8: XIC(PE_Exit) ONS(Exit_OS) CTU(Case, 6)",
-      "RUNG 9: XIC(Case.DN) OTE(Case_Full)",
-      "RUNG 10: XIO(Stop_PB) RES(Case)",
+      "RUNG 8: XIC(PE_Exit) ONS(Exit_OS) CTU(Cases, 6)",
+      "RUNG 9: XIC(Cases.DN) OTE(Case_Full)",
+      "RUNG 10: XIO(Stop_PB) RES(Cases)",
     ],
     specs: [
       { label: "Rungs", value: "10" },
