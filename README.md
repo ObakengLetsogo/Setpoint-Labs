@@ -1,65 +1,54 @@
 # Setpoint Labs
 
-Learn PLC logic by running it. A browser based PLC and industrial automation training
-platform: short lessons, ladder diagram and structured text that executes line by line,
-and an animated 3D industrial rig that reacts in real time.
+Learn PLC logic by running it. A browser based PLC and industrial automation training platform:
+short lessons, ladder diagram and structured text that execute scan by scan, and animated 3D
+machines that react in real time. Built for TVET students, apprentices, artisans and maintenance
+teams in South Africa and wider Africa.
 
-Self hosted on a Hostinger VPS (Nginx, PM2, Let's Encrypt), not Vercel. See the deploy
-guide in Phase 7 of the build plan for server setup.
+Self hosted on a Hostinger VPS with Nginx, PM2, MySQL and Let's Encrypt. See [deploy/README.md](deploy/README.md).
 
-## Status
+## What is in it
 
-The motor start stop bench is live:
+- **Course:** 49 lessons in six tracks: Foundations, Machines, Process Control, Wiring and Commissioning, Advanced, and Platform tours. Every lesson has a checkpoint, a guided code tour, a wiring view, a 10 question quiz and a video slot. Each track ends in a practical assessment marked by hidden tests, and a pass earns a PDF certificate with a public verify page.
+- **Simulator:** ladder and IEC structured text interpreters (`engine/`), a ladder to ST translator, and a translator into Siemens STL, Allen Bradley rung text, Schneider IL, Mitsubishi, Omron and Delta notation, with each family's addressing (`engine/platforms.ts`).
+- **Machines:** 12 data driven rigs with physics and faults (`rigs/`, `components/rigs/`): motor starter, star-delta, reversing, conveyor, sorting, bottling, traffic junction, lift, batch mixer, tank, duplex pumps and a VSD fan. A sandbox opens any of them for free play, with a live multimeter.
+- **Accounts and payments:** session auth with argon2 and email verification, transactional email over SMTP, and Stitch payments behind a `PaymentProvider` interface. Webhooks are signed, idempotent and audited. Access comes from entitlements with a 3 day grace, and paid lesson content is only served by `/api/lessons/<id>` after an access check.
+- **Organisations:** employer and institution seats, classes with a controller lock, CSV import and export, assignments and grading, invoices marked paid by an admin, and an admin page for payments, grants, enquiries, certificates and video uploads.
 
-- Ladder engine (`engine/`): parser and scan executor with series and parallel logic, latch, TON, TOF, CTU and RES, plus a per-scan trace. Covered by Vitest (`npm test`).
-- Rig (`rigs/motorStarter.ts`, `components/stage/`): physically based 3D motor starter with PLC, contactor, overload, MCB, X1 terminals, ducted wiring and a TEFC motor, driven live by the engine.
-- Annotation stage: numbered markers pinned to parts, leader lines to cards, part renders in `public/parts/` (regenerate in development from `/render/parts?id=...`).
-- Teaching panels (`components/teach/`): lab track, animated wiring view, wiring table, steps, code reader with tour, story and explore modes, and a live scan monitor.
-- `window.setpointLabs` automation API for recording and tests.
-- Contactor body baked in headless Blender (`scripts/blender/`, `BLENDER_PY=<python with bpy> scripts/blender/build.sh contactor`), compressed with meshopt and WebP.
-- Progress, settings and edited code persist in the browser; a service worker keeps the bench usable offline.
-- Lesson videos: `npm run video -- <lessonId>` renders narrated, captioned MP4s from `scripts/video/lessons/`. See `scripts/video/README.md`.
-- End to end tests for lessons 1 to 3: `npm run test:e2e` (Playwright).
-
-Auth, payments, more rigs and platform packs come in later phases.
-
-## Stack
-
-- Next.js (App Router) + TypeScript, Tailwind CSS v4 (tokens defined in `app/globals.css`)
-- Barlow Condensed / Inter / JetBrains Mono via `next/font`
-- React Three Fiber + drei for the 3D rigs (Phase 2)
-- CodeMirror 6 for the code and ladder editors (Phase 2/3)
-- MySQL 8.4+ with Prisma or Drizzle, Auth.js/Lucia style auth, Stitch payments (Phase 5)
-
-## Getting started
+## Develop
 
 ```bash
 npm install
+cp .env.example .env.local          # defaults work with a local MySQL and the payment simulator
+npm run db:migrate && ADMIN_EMAIL=you@example.com ADMIN_PASSWORD=change-me-now npm run db:seed
 npm run dev
 ```
 
-Open http://localhost:3000.
+In development, payments go to a simulator at `/dev/pay/<id>`, which sends signed webhooks through
+the real handler. Sent email appears at `/dev/mail`.
 
-## Project layout
+| Command | What it does |
+| --- | --- |
+| `npm test` | Unit tests: engines, rigs, lessons, quizzes, translators, assessments |
+| `TEST_DATABASE_URL=mysql://... npm test` | Adds the MySQL integration tests for billing and access |
+| `npm run lint` | ESLint, including a rule that keeps lesson content out of client code |
+| `npm run db:generate` | Creates a migration after changing `db/schema.ts` |
+| `npx tsx scripts/content/written.mts` | Refreshes the list of written lessons after adding one |
+| `npm run test:e2e` | Playwright tests |
+
+## Layout
 
 ```
-app/                    Next.js App Router routes (shell, metadata)
-components/
-  shell/                Header, progress card, bottom tab bar, sheets
-  stage/                3D stage placeholder (Phase 2 swaps in React Three Fiber)
-  lessons/              Lesson carousel, tabbed lesson panel
-  code/                 Try it yourself code card
-  schematic/            Schematic / ladder diagram card
-  monitor/              Scan monitor panel
-data/                   Typed fake track/lesson data
-lib/                    Shared config (domain, etc.)
-public/brand/           Logo, favicons, PWA icons, OG image
+app/              pages, server actions and API routes
+components/       stage, rigs, lesson panels, site and dashboard UI
+config/plans.ts   every price, in cents, VAT inclusive
+data/             curriculum, lesson content, teaching panels, quizzes, assessments
+db/               Drizzle schema and migrations
+deploy/           server guide, Nginx, PM2, deploy and backup scripts
+engine/           ladder, structured text and platform translators
+lib/server/       auth, access, billing, payments, email, certificates, videos, dashboards
+rigs/             machine definitions and physics
+store/sim.ts      the simulator state in the browser
 ```
 
-## Design tokens
-
-Colour, font and shadow tokens live in `app/globals.css` under `@theme`, generating
-Tailwind utilities such as `bg-background`, `text-accent`, `font-display`. Light theme
-only, no dark mode.
-
-Setpoint Labs is for education only, not for use on live plant.
+Setpoint Labs is for education only. It is not for use on live plant.
