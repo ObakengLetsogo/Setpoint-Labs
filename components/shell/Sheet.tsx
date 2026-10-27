@@ -8,12 +8,15 @@ export function Sheet({
   subtitle,
   open,
   onClose,
+  clear,
   children,
 }: {
   title: string;
   subtitle?: string;
   open: boolean;
   onClose: () => void;
+  /** Keep the page behind visible, e.g. a part the camera just zoomed to. */
+  clear?: boolean;
   children: React.ReactNode;
 }) {
   useEffect(() => {
@@ -26,7 +29,7 @@ export function Sheet({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/25 backdrop-blur-[2px] lg:items-start lg:justify-end lg:bg-ink/10" onClick={onClose}>
+    <div className={`fixed inset-0 z-50 flex items-end justify-center lg:items-start lg:justify-end ${clear ? "bg-transparent" : "bg-ink/25 backdrop-blur-[2px] lg:bg-ink/10"}`} onClick={onClose}>
       <div
         role="dialog"
         aria-label={title}
@@ -43,7 +46,7 @@ export function Sheet({
             <IconX size={16} />
           </button>
         </div>
-        <div className="max-h-[62vh] overflow-y-auto">{children}</div>
+        <div className={`${clear ? "max-h-[46vh]" : "max-h-[62vh]"} overflow-y-auto`}>{children}</div>
       </div>
     </div>
   );

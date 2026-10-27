@@ -182,7 +182,7 @@ export function LadderDiagram({
         return (
           <div
             key={`${rung.number}-${i}`}
-            className={`relative rounded-lg border transition-colors ${
+            className={`relative rounded-lg border pt-4 transition-colors ${
               highlighted ? "border-accent/50 bg-accent/[0.04]" : power ? "border-energised/25 bg-energised/[0.035]" : "border-transparent"
             }`}
           >

@@ -5,9 +5,11 @@ import { FIELD_DEVICES, PLC_TERMINALS, WIRES } from "@/data/teach";
 import { readInputs } from "@/rigs/motorStarter";
 import { useSim } from "@/store/sim";
 import { IconChevronLeft, IconChevronRight, IconPause, IconPlay } from "@/components/ui/icons";
+import { DeviceGlyph } from "./DeviceGlyph";
 import { TERMINAL_FILL, TerminalChip, toneFor, usedTerminals } from "./Terminal";
 
-const W = 660;
+const W = 694;
+const CARD_W = 230;
 const PLC_X = 182;
 const DEV_X = 448;
 const ROW = 25;
@@ -119,11 +121,12 @@ export function WiringView({ wires }: { wires: number[] }) {
           </text>
           {devices.map((d) => (
             <g key={d.id}>
-              <rect x={DEV_X} y={dy[d.id]} width={196} height={CARD_H} rx={8} fill="#ffffff" stroke="#e1e4e8" />
+              <rect x={DEV_X} y={dy[d.id]} width={CARD_W} height={CARD_H} rx={8} fill="#ffffff" stroke="#e1e4e8" />
               <rect x={DEV_X} y={dy[d.id]} width={4} height={CARD_H} rx={2} fill={d.tone} />
               <text x={DEV_X + 46} y={dy[d.id] + 26} className="wiring-device">
                 {d.name}
               </text>
+              <DeviceGlyph id={d.id} x={DEV_X + CARD_W - 22} y={dy[d.id] + CARD_H / 2} live={liveOf(WIRES.find((w) => w.device === d.id && w.signal)?.signal)} />
               {d.terminals.map((term, j) => (
                 <g key={term}>
                   <circle cx={DEV_X + 14} cy={dy[d.id] + 15 + j * 16} r={4.5} fill="#ffffff" stroke="#8d949c" strokeWidth={1.4} />

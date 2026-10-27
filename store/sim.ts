@@ -1,6 +1,7 @@
 "use client";
 
-import { create } from "zustand";
+import { create, type StateCreator } from "zustand";
+import { createJSONStorage, persist } from "zustand/middleware";
 import { LadderError, collectTags, parseProgram, type Program } from "@/engine/ladder";
 import { scan, type Memory, type RungTrace } from "@/engine/scan";
 import {
@@ -90,6 +91,8 @@ interface SimState {
   log: LogLine[];
 
   selected: PartId | null;
+  /** Rung number (1 based) called out in the ladder view, used by lesson videos. */
+  highlightRung: number | null;
   hovered: PartId | null;
   exploded: boolean;
   rotationSteps: number;
@@ -120,6 +123,7 @@ interface SimState {
   rotate: (dir: 1 | -1) => void;
   zoomBy: (factor: number) => void;
   focusPart: (id: PartId) => void;
+  setHighlightRung: (n: number | null) => void;
   resetView: () => void;
   setSetting: (key: keyof Settings, value: boolean) => void;
   resetSettings: () => void;
@@ -129,7 +133,7 @@ interface SimState {
 
 let logId = 0;
 
-export const useSim = create<SimState>((set, get) => {
+const simStore: StateCreator<SimState> = (set, get) => {
   const pushLog = (text: string, kind: LogLine["kind"] = "info") => {
     const { log, runStartedAt } = get();
     const line: LogLine = { id: logId++, t: runStartedAt ? Date.now() - runStartedAt : 0, text, kind };
@@ -187,6 +191,7 @@ export const useSim = create<SimState>((set, get) => {
     log: [],
 
     selected: null,
+    highlightRung: null,
     hovered: null,
     exploded: false,
     rotationSteps: 0,
@@ -308,6 +313,8 @@ export const useSim = create<SimState>((set, get) => {
       });
     },
 
+    setHighlightRung: (n) => set({ highlightRung: n }),
+
     resetView: () =>
       set({ cameraCommand: { type: "reset" }, cameraVersion: get().cameraVersion + 1, rotationSteps: 0, exploded: false }),
 
@@ -319,5 +326,34 @@ export const useSim = create<SimState>((set, get) => {
     setLanguage: (code) => set({ language: code }),
     clearLog: () => set({ log: [] }),
   };
-});
+};
 
+export const useSim = create<SimState>()(
+  persist(simStore, {
+    name: "setpoint-labs",
+    version: 1,
+    storage: createJSONStorage(() => localStorage),
+    // Rehydrated from the page on mount so server and first client render match; /record never rehydrates.
+    skipHydration: true,
+    partialize: (s) => ({
+      lessonId: s.lessonId,
+      sources: s.sources,
+      completed: s.completed,
+      ranLessons: s.ranLessons,
+      settings: s.settings,
+      language: s.language,
+    }),
+    merge: (saved, current) => {
+      const p = (saved ?? {}) as Partial<SimState>;
+      return {
+        ...current,
+        ...p,
+        lessonId: lessons.some((l) => l.id === p.lessonId) ? p.lessonId! : current.lessonId,
+        sources: { ...current.sources, ...p.sources },
+        completed: { ...current.completed, ...p.completed },
+        settings: { ...current.settings, ...p.settings },
+      };
+    },
+    onRehydrateStorage: () => (state) => state?.setLesson(state.lessonId),
+  }),
+);

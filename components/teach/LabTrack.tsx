@@ -132,7 +132,7 @@ function Group({
                 }`}
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={`/parts/${n.icon}.png`} alt="" width={44} height={44} className={`h-11 w-11 object-contain ${n.status === "planned" ? "opacity-45 grayscale" : ""}`} />
+                <img src={`/parts/labs/${n.id}.png`} alt="" width={44} height={44} className={`h-11 w-11 object-contain ${n.status === "planned" ? "opacity-45 grayscale" : ""}`} />
                 <span className="absolute -bottom-1.5 -right-1.5">
                   <StatusDot status={n.status} />
                 </span>

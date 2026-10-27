@@ -307,6 +307,7 @@ export function MeetTheRig() {
   const [sheet, setSheet] = useState<Annotation | null>(null);
   const focusPart = useSim((s) => s.focusPart);
   const hover = useSim((s) => s.hover);
+  const resetView = useSim((s) => s.resetView);
   const left = ANNOTATIONS.filter((a) => a.side === "left");
   const right = ANNOTATIONS.filter((a) => a.side === "right");
   const setRef = (n: number) => (el: HTMLDivElement | null) => {
@@ -314,11 +315,13 @@ export function MeetTheRig() {
   };
 
   const onTap = (a: Annotation) => {
+    // Phones zoom to the part and open its card in a sheet; desktop cards are already on screen.
+    focusPart(a.part);
     if (window.innerWidth < 1024) {
       hover(a.part);
       setSheet(a);
-    } else {
-      focusPart(a.part);
+      const top = (canvas.current?.getBoundingClientRect().top ?? 0) + window.scrollY - 8;
+      window.scrollTo({ top, behavior: "smooth" });
     }
   };
 
@@ -333,7 +336,7 @@ export function MeetTheRig() {
 
       <div ref={body} className="relative bg-[linear-gradient(#ebecee_1px,transparent_1px),linear-gradient(90deg,#ebecee_1px,transparent_1px)] bg-[size:24px_24px]">
         <div className="relative lg:grid lg:min-h-[620px] lg:grid-cols-[250px_minmax(0,1fr)_250px] lg:gap-6 lg:px-6 lg:py-6">
-          <div ref={canvas} className="relative h-[400px] sm:h-[460px] lg:absolute lg:inset-0 lg:h-auto">
+          <div ref={canvas} className="relative h-[440px] sm:h-[480px] lg:absolute lg:inset-0 lg:h-auto">
             <Scene />
           </div>
 
@@ -378,6 +381,7 @@ export function MeetTheRig() {
 
       <Sheet
         title="On the rig"
+        clear
         subtitle={sheet ? `Marker ${sheet.n} of ${ANNOTATIONS.length}` : ""}
         open={!!sheet}
         onClose={() => {
@@ -391,12 +395,13 @@ export function MeetTheRig() {
             <button
               type="button"
               onClick={() => {
-                focusPart(sheet.part);
+                resetView();
                 setSheet(null);
+                hover(null);
               }}
               className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-ink py-2.5 text-[13px] font-semibold text-white"
             >
-              <IconCrosshair size={14} /> Zoom to it
+              <IconCrosshair size={14} /> Back to the whole rig
             </button>
           </div>
         )}

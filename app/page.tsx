@@ -77,6 +77,9 @@ export default function Home() {
   const lessonId = useSim((s) => s.lessonId);
   const lesson = lessons.find((l) => l.id === lessonId) ?? lessons[0];
   useShortcuts();
+  useEffect(() => {
+    void useSim.persist.rehydrate();
+  }, []);
 
   if (loading) return <LoadingScreen onDone={() => setLoading(false)} />;
 
