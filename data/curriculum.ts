@@ -17,7 +17,8 @@ export type RigId =
   | "vsd"
   | "pickplace"
   | "hmi"
-  | "pid";
+  | "pid"
+  | "instruments";
 
 export interface LessonRef {
   id: string;
@@ -292,6 +293,17 @@ export const CURRICULUM: Track[] = [
           L("p-analog", "Analog scaling", "compare", "tank"),
           L("p-duplex", "Duplex pumps, lead and lag", "tank", "pumps"),
           L("p-alarms", "Process alarms", "lamp", "pumps"),
+        ],
+      },
+      {
+        id: "instrumentation",
+        stage: 3,
+        title: "Instrumentation",
+        blurb: "Transmitters, calibration and HART",
+        lessons: [
+          L("p-inst-tx", "Transmitters: level, pressure, flow and temperature", "compare", "instruments"),
+          L("p-inst-cal", "Calibration and loop testing", "fault", "instruments"),
+          L("p-inst-hart", "Smart instruments and HART", "lamp", "instruments"),
         ],
       },
       {

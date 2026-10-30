@@ -110,4 +110,79 @@ export const TEACH_PROFESSIONAL: Record<string, LessonTeach> = {
     ],
     words: [...LOOP, { term: "Cascade", meaning: "One loop's output is another loop's setpoint." }, { term: "Master / slave", meaning: "The outer, slow loop and the inner, fast loop of a cascade." }, { term: "Disturbance", meaning: "Anything that upsets the process, such as a supply pressure change." }],
   },
+
+  "p-inst-tx": {
+    goal: "Read four kinds of transmitter, scale their signals and tell a real zero from a broken loop.",
+    learn: ["4-20 mA", "two wire transmitters", "raw counts", "scaling", "NAMUR NE43 fault limits"],
+    wires: [1, 2, 3, 4, 5, 6],
+    steps: [
+      "Switch the PLC to RUN. Read Press_dBar, Level_Pct, Flow_Pct and Temp_C in the code card.",
+      "Move each slider and watch the transmitter display, the raw count and the scaled value.",
+      "Raise TT1 to 100 °C.",
+      "Open FT1's loop. FT_Raw goes to -6912: 0 mA. The fault lamp lights.",
+      "Break TT1's RTD wire. The transmitter drives to 21.5 mA and TT_Fault lights.",
+    ],
+    between: ["Isolate before you break into a loop on live plant.", ...BETWEEN.slice(0, 2)],
+    tour: [
+      { kicker: "Scene 1 of 3 · The signal", title: "Why 4 to 20", lines: [2, 2], lead: "4 mA is the bottom of the range, 20 mA the top.", body: "A two wire transmitter powers itself from the loop, so it needs a little current even at zero. That is why the bottom is 4, not 0.", handsTo: ["PT_Raw"] },
+      { kicker: "Scene 2 of 3 · Scaling", title: "Counts to units", lines: [2, 5], lead: "Multiply by the span, divide by 27648.", body: "Siemens cards give 0 to 27648. Allen Bradley cards can scale in the card itself. Either way, check the range on the transmitter's data plate.", handsTo: ["Press_dBar", "Temp_C"] },
+      { kicker: "Scene 3 of 3 · Faults", title: "Below 3.6, above 21", lines: [6, 8], lead: "Outside these limits the value cannot be trusted.", body: "NAMUR NE43 sets these limits. A transmitter that detects its own fault drives its current outside them on purpose.", precise: "A temperature transmitter with a broken RTD usually goes upscale, so a heater controlled from it switches off: the safe way.", handsTo: ["FT_Fault", "TT_Fault"] },
+    ],
+    story: [
+      { t: "4 mA", text: "Bottom of range: raw 0." },
+      { t: "20 mA", text: "Top of range: raw 27648." },
+      { t: "0 mA", text: "Dead loop: raw -6912, fault." },
+      { t: "21.5 mA", text: "Burnout upscale: fault." },
+    ],
+    words: [{ term: "4-20 mA", meaning: "The standard analogue current signal: 4 mA at 0 %, 20 mA at 100 %." }, { term: "Two wire", meaning: "A transmitter powered by its own signal loop." }, { term: "Raw counts", meaning: "The number the input card gives, 0 to 27648 on Siemens." }, { term: "Burnout", meaning: "Driving the signal outside range on a sensor fault, up or down." }, { term: "PT100", meaning: "A platinum resistance sensor: 100 ohms at 0 °C." }],
+  },
+
+  "p-inst-cal": {
+    goal: "Loop test and calibrate a transmitter with a calibrator, at five points, and record it.",
+    learn: ["loop calibrators", "sourcing and measuring", "five point checks", "as found and as left", "zero and span"],
+    wires: [1, 2, 6],
+    steps: [
+      "Switch the PLC to RUN. Switch the calibrator to source.",
+      "Inject 4 mA. Press_dBar should read 0. Write it down.",
+      "Inject 8, 12, 16 and 20 mA. Expect 25, 50, 75 and 100.",
+      "Switch back to measure. Set the zero shift fault on PT1 and compare its reading with the applied pressure.",
+      "Trim the zero on the HART communicator, then check again: that is as found, then as left.",
+    ],
+    between: ["Tell the control room before you inject into a live loop.", ...BETWEEN.slice(0, 2)],
+    tour: [
+      { kicker: "Scene 1 of 2 · The path", title: "Field to screen", lines: [2, 2], lead: "Injecting at the field end tests every wire, terminal and the scaling in one go.", body: "If 12 mA in gives 50 % on the screen, the loop is right. If not, measure at each terminal until it changes.", handsTo: ["PT_Raw", "Press_dBar"] },
+      { kicker: "Scene 2 of 2 · Limits", title: "Prove the alarms too", lines: [3, 3], lead: "Inject 3 mA and 22 mA: the fault lamp must light.", body: "A loop test that never checks the fault detection is only half done.", precise: "A zero error shifts every point by the same amount. A span error grows towards the top of the range.", handsTo: ["Fault_Lamp"] },
+    ],
+    story: [
+      { t: "as found", text: "Record the five readings before touching anything." },
+      { t: "adjust", text: "Trim zero, then span." },
+      { t: "as left", text: "Record the five readings again and sign the sheet." },
+    ],
+    words: [{ term: "Source", meaning: "The calibrator supplies a known current in place of the transmitter." }, { term: "Measure", meaning: "The calibrator reads the loop current, in series with the loop." }, { term: "Zero", meaning: "The reading at the bottom of the range." }, { term: "Span", meaning: "The difference between the top and bottom of the range." }, { term: "As found / as left", meaning: "Readings recorded before and after adjustment." }],
+  },
+
+  "p-inst-hart": {
+    goal: "Use HART to re-range and diagnose a smart transmitter, and make the program follow it.",
+    learn: ["HART", "re-ranging", "device status", "trim", "scaling from the device"],
+    wires: [1, 2, 6],
+    steps: [
+      "Switch the PLC to RUN. Set 4 bar on PT1: Press_dBar reads 40.",
+      "On the HART communicator, change PT1's range to 0-16 bar. The mA drops to 8, but Press_dBar still reads 40.",
+      "Change line 2 to use 100 instead of PT_URV and run again. Now it reads 25: wrong.",
+      "Put PT_URV back. Fail PT1's sensor.",
+      "PT_Diag lights from the HART status, and PT_Low from the 3.6 mA current.",
+    ],
+    between: BETWEEN.slice(0, 2),
+    tour: [
+      { kicker: "Scene 1 of 3 · Two signals", title: "Analogue and digital", lines: [2, 2], lead: "The 4-20 mA carries the value; HART rides on top of it.", body: "HART is a small digital signal on the same pair of wires. Old cards ignore it; HART cards and handhelds read it.", handsTo: ["PT_URV"] },
+      { kicker: "Scene 2 of 3 · Status", title: "The device knows", lines: [3, 3], lead: "The transmitter reports its own sensor fault.", body: "Diagnostics tell you a transmitter is failing before the reading goes wrong.", handsTo: ["PT_Status", "PT_Diag"] },
+      { kicker: "Scene 3 of 3 · Belt and braces", title: "Two ways to catch it", lines: [4, 5], lead: "The current check still works if HART is lost.", body: "Use both: the diagnosis for detail, the current limits as a backup.", precise: "Re-ranging changes what each mA means. Every system reading that loop must be updated, or follow the device as this program does.", handsTo: ["Fault_Lamp"] },
+    ],
+    story: [
+      { t: "4 bar", text: "Range 0-10: 10.4 mA, Press_dBar 40." },
+      { t: "re-range", text: "Range 0-16: 8 mA, still 40." },
+      { t: "sensor fails", text: "3.6 mA and status 1: fault lamp." },
+    ],
+    words: [{ term: "HART", meaning: "Highway Addressable Remote Transducer: digital data on a 4-20 mA loop." }, { term: "URV / LRV", meaning: "Upper and lower range values of a transmitter." }, { term: "Re-range", meaning: "Changing what 4 and 20 mA stand for." }, { term: "Device status", meaning: "The transmitter's own report of its health." }],
+  },
 };
