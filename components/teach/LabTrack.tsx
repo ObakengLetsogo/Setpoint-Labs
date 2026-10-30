@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CURRICULUM, type Track } from "@/data/curriculum";
+import { CURRICULUM, STAGES, type Track } from "@/data/curriculum";
+import { LEVEL_NAMES, LEVELS } from "@/config/plans";
 import { catalog as lessons } from "@/data/catalog";
 import type { LessonIcon } from "@/data/types";
 import { useSim } from "@/store/sim";
@@ -164,7 +165,7 @@ function TrackSection({ track, nodes, activeId, open, onToggle, onOpen }: { trac
           {track.chapters.map((ch, i) => (
             <div key={ch.id} className="min-w-0">
               <p className="font-mono text-[10.5px] font-semibold uppercase tracking-[0.18em] text-muted-ink">
-                Chapter {i + 1} · <span className="text-ink">{ch.title}</span>
+                {track.id === "platforms" ? `Chapter ${i + 1}` : `Stage ${ch.stage}`} · <span className="text-ink">{ch.title}</span>
               </p>
               <p className="mt-0.5 text-[12px] text-[#6b6f76]">{ch.blurb}</p>
               <div className="no-scrollbar mt-2 flex gap-2 overflow-x-auto pb-1 pt-1.5">
@@ -184,7 +185,7 @@ function TrackSection({ track, nodes, activeId, open, onToggle, onOpen }: { trac
 export function LabTrack({ onOpen }: { onOpen: (id: string) => void }) {
   const completed = useSim((s) => s.completed);
   const ran = useSim((s) => s.ranLessons);
-  const paid = useSim((s) => s.account?.paid ?? false);
+  const levels = useSim((s) => s.account?.levels ?? []);
   const lessonId = useSim((s) => s.lessonId);
   const activeTrack = lessons.find((l) => l.id === lessonId)?.trackId;
   const [openTracks, setOpenTracks] = useState<Record<string, boolean>>({});
@@ -208,7 +209,7 @@ export function LabTrack({ onOpen }: { onOpen: (id: string) => void }) {
       title: l.title,
       icon: l.icon,
       open: !l.locked,
-      members: !l.locked && !l.free && !paid,
+      members: !l.locked && !l.free && !levels.includes(CURRICULUM.find((t) => t.id === l.trackId)?.level ?? "F"),
       status: l.locked ? "planned" : completed[l.id] ? "done" : ran[l.id] ? "runs" : "built",
     };
   };
@@ -219,17 +220,34 @@ export function LabTrack({ onOpen }: { onOpen: (id: string) => void }) {
         <h2 className="font-display text-[22px] font-bold uppercase tracking-[0.08em] text-ink">All labs</h2>
         <StatusLegend />
       </div>
-      {CURRICULUM.map((t) => (
-        <TrackSection
-          key={t.id}
-          track={t}
-          nodes={t.chapters.flatMap((c) => c.lessons.map((r) => node(r.id)))}
-          activeId={lessonId}
-          open={isOpen(t.id)}
-          onToggle={() => setOpenTracks((o) => ({ ...o, [t.id]: !isOpen(t.id) }))}
-          onOpen={onOpen}
-        />
-      ))}
+      {LEVELS.map((lv, li) => {
+        const stages = STAGES.filter((st) => st.level === lv);
+        return (
+          <div key={lv} className="flex flex-col gap-3">
+            <div className="mt-2 flex flex-wrap items-baseline justify-between gap-2 border-b border-[#e4e6e9] pb-2">
+              <h3 className="font-display text-[17px] font-bold uppercase tracking-[0.08em] text-ink">Level {li + 1}: {LEVEL_NAMES[lv]}</h3>
+              <p className="font-mono text-[11px] text-muted-ink">Stages {stages.map((st) => st.n).join(", ")}{levels.includes(lv) ? " · open" : ""}</p>
+            </div>
+            {CURRICULUM.filter((t) => t.level === lv).map((t) => (
+              <TrackSection
+                key={t.id}
+                track={t}
+                nodes={t.chapters.flatMap((c) => c.lessons.map((r) => node(r.id)))}
+                activeId={lessonId}
+                open={isOpen(t.id)}
+                onToggle={() => setOpenTracks((o) => ({ ...o, [t.id]: !isOpen(t.id) }))}
+                onOpen={onOpen}
+              />
+            ))}
+            {stages.filter((st) => st.planned).map((st) => (
+              <div key={st.n} className="rounded-2xl border border-dashed border-[#d9dce0] bg-white/60 px-5 py-4">
+                <p className="font-display text-[16px] font-bold uppercase tracking-[0.06em] text-[#6b6f76]">Stage {st.n}: {st.name}</p>
+                <p className="mt-1 text-[12.5px] text-muted-ink">Coming soon. Its lessons are planned in the curriculum.</p>
+              </div>
+            ))}
+          </div>
+        );
+      })}
     </section>
   );
 }

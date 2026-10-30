@@ -64,7 +64,7 @@ export async function sendMail(to: string, subject: string, title: string, parag
 
 export const mails = {
   welcome: (to: string, name: string) =>
-    sendMail(to, "Welcome to Setpoint Labs", `Welcome, ${name}`, ["Your account is ready. The first two Foundations chapters are free, and every machine is waiting on the bench."], { label: "Open the labs", url: SITE_URL }),
+    sendMail(to, "Welcome to Setpoint Labs", `Welcome, ${name}`, ["Your account is ready. The first two Foundation chapters are free, and every machine is waiting on the bench."], { label: "Open the labs", url: SITE_URL }),
   verify: (to: string, token: string) =>
     sendMail(to, "Confirm your email", "Confirm your email", ["Tap the button to confirm this address. The link works for 48 hours."], { label: "Confirm email", url: `${SITE_URL}/verify-email?token=${token}` }),
   reset: (to: string, token: string) =>

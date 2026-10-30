@@ -25,6 +25,8 @@ export interface LessonRef {
 
 export interface Chapter {
   id: string;
+  /** The stage of the ladder this chapter teaches, 1 to 7. */
+  stage: StageNumber;
   title: string;
   blurb: string;
   lessons: LessonRef[];
@@ -42,6 +44,27 @@ export interface Track {
   chapters: Chapter[];
 }
 
+export type StageNumber = 1 | 2 | 3 | 4 | 5 | 6 | 7;
+
+export interface Stage {
+  n: StageNumber;
+  name: string;
+  level: Level;
+  /** Still to build: shown on the ladder so learners see what is coming. */
+  planned?: boolean;
+}
+
+/** The seven stages of the ladder, as set in the Curriculum and Lecture Guide. */
+export const STAGES: Stage[] = [
+  { n: 1, name: "Fundamentals and SCADA", level: "F" },
+  { n: 2, name: "Installation and Commissioning", level: "F" },
+  { n: 3, name: "Machines, Process Control and PID", level: "P" },
+  { n: 4, name: "Motor Management and Drives", level: "P" },
+  { n: 7, name: "Safety Systems", level: "P", planned: true },
+  { n: 5, name: "Advanced Programming", level: "E" },
+  { n: 6, name: "Plant Systems, DCS and Upgrades", level: "E", planned: true },
+];
+
 const L = (id: string, title: string, icon: LessonIcon, rig: RigId = "motor-starter"): LessonRef => ({ id, title, icon, rig });
 
 /**
@@ -52,13 +75,14 @@ export const CURRICULUM: Track[] = [
   {
     id: "foundations",
     level: "F",
-    code: "F",
-    name: "Foundations",
-    blurb: "Ladder logic from the first contact to safe stop design, all on the motor starter bench.",
+    code: "F1",
+    name: "Fundamentals",
+    blurb: "How a PLC scans, ladder logic, motor control, timers, counters and safety basics.",
     ring: "#1f9d6b",
     chapters: [
       {
         id: "reading-ladder",
+        stage: 1,
         title: "Reading ladder",
         blurb: "Symbols, rungs and the scan cycle",
         lessons: [
@@ -69,6 +93,7 @@ export const CURRICULUM: Track[] = [
       },
       {
         id: "motor-control",
+        stage: 1,
         title: "Motor control",
         blurb: "Seal-in, latching, jog and protection",
         lessons: [
@@ -80,6 +105,7 @@ export const CURRICULUM: Track[] = [
       },
       {
         id: "timers",
+        stage: 1,
         title: "Timers",
         blurb: "On-delay, off-delay and flashing alarms",
         lessons: [
@@ -90,6 +116,7 @@ export const CURRICULUM: Track[] = [
       },
       {
         id: "counting",
+        stage: 1,
         title: "Counting and comparing",
         blurb: "Counters, comparisons, math and edges",
         lessons: [
@@ -100,6 +127,7 @@ export const CURRICULUM: Track[] = [
       },
       {
         id: "safety",
+        stage: 1,
         title: "Safety",
         blurb: "E-stops and fail-safe wiring",
         lessons: [L("f-estop", "E-stop circuits", "estop"), L("f-safe-stop", "Safe stop design", "safety")],
@@ -107,15 +135,48 @@ export const CURRICULUM: Track[] = [
     ],
   },
   {
+    id: "wiring",
+    level: "F",
+    code: "F2",
+    name: "Installation and Commissioning",
+    blurb: "Drawings, power and control circuits, terminals, meters, loop checks and sign off.",
+    ring: "#8a5cc2",
+    chapters: [
+      {
+        id: "drawings",
+        stage: 2,
+        title: "Drawings and panels",
+        blurb: "Schematics, power and control, terminals",
+        lessons: [
+          L("w-schematics", "Reading a schematic", "contacts"),
+          L("w-power-control", "Power and control circuits", "overload"),
+          L("w-terminals", "Terminal numbering", "fault"),
+        ],
+      },
+      {
+        id: "testing",
+        stage: 2,
+        title: "Testing and commissioning",
+        blurb: "Meters, loop checks and sign-off",
+        lessons: [
+          L("w-multimeter", "Testing with a multimeter", "fault"),
+          L("w-loop-check", "I/O loop checks", "sequence"),
+          L("w-commissioning", "Commissioning checklist", "safety"),
+        ],
+      },
+    ],
+  },
+  {
     id: "machines",
     level: "P",
-    code: "M",
-    name: "Machines",
-    blurb: "Real machines: starters, conveyors, sorting, traffic lights, lifts and batching.",
+    code: "P3",
+    name: "Machines and Sequences",
+    blurb: "Star-delta, reversing, conveyors, sorting, bottling and step sequences.",
     ring: "#f26b1d",
     chapters: [
       {
         id: "starters",
+        stage: 3,
         title: "Motor starters",
         blurb: "Star-delta, interlocks and reversing",
         lessons: [
@@ -126,6 +187,7 @@ export const CURRICULUM: Track[] = [
       },
       {
         id: "handling",
+        stage: 3,
         title: "Conveyors and sorting",
         blurb: "Moving, sorting and counting product",
         lessons: [
@@ -136,6 +198,7 @@ export const CURRICULUM: Track[] = [
       },
       {
         id: "sequences",
+        stage: 3,
         title: "Sequences",
         blurb: "Step by step machines and state",
         lessons: [
@@ -149,13 +212,14 @@ export const CURRICULUM: Track[] = [
   {
     id: "process",
     level: "P",
-    code: "P",
-    name: "Process Control",
-    blurb: "Level, pumps, analog signals, alarms and variable speed drives.",
+    code: "P4",
+    name: "Process Control and Drives",
+    blurb: "Levels, pumps, analogue scaling and alarms, then variable speed drives and their faults.",
     ring: "#2457a6",
     chapters: [
       {
         id: "level",
+        stage: 3,
         title: "Level and pumps",
         blurb: "Tanks, transmitters and duty pumps",
         lessons: [
@@ -167,6 +231,7 @@ export const CURRICULUM: Track[] = [
       },
       {
         id: "drives",
+        stage: 4,
         title: "Motor protection and VSD",
         blurb: "Drives, ramps and speed references",
         lessons: [
@@ -177,72 +242,16 @@ export const CURRICULUM: Track[] = [
     ],
   },
   {
-    id: "wiring",
-    level: "F",
-    code: "W",
-    name: "Wiring and Commissioning",
-    blurb: "Read the drawings, wire the panel, prove every loop before power on.",
-    ring: "#8a5cc2",
-    chapters: [
-      {
-        id: "drawings",
-        title: "Drawings and panels",
-        blurb: "Schematics, power and control, terminals",
-        lessons: [
-          L("w-schematics", "Reading a schematic", "contacts"),
-          L("w-power-control", "Power and control circuits", "overload"),
-          L("w-terminals", "Terminal numbering", "fault"),
-        ],
-      },
-      {
-        id: "testing",
-        title: "Testing and commissioning",
-        blurb: "Meters, loop checks and sign-off",
-        lessons: [
-          L("w-multimeter", "Testing with a multimeter", "fault"),
-          L("w-loop-check", "I/O loop checks", "sequence"),
-          L("w-commissioning", "Commissioning checklist", "safety"),
-        ],
-      },
-    ],
-  },
-  {
-    id: "advanced",
-    level: "E",
-    code: "A",
-    name: "Advanced",
-    blurb: "Structured text, function blocks, networks, HMI and fault finding.",
-    ring: "#c2410c",
-    chapters: [
-      {
-        id: "programming",
-        title: "Programming",
-        blurb: "Beyond ladder",
-        lessons: [L("a-structured-text", "Structured text", "sequence"), L("a-function-blocks", "Function blocks", "sequence")],
-      },
-      {
-        id: "systems",
-        title: "Systems",
-        blurb: "Networks, screens and keeping plant running",
-        lessons: [
-          L("a-comms", "Industrial networks", "sequence", "vsd"),
-          L("a-hmi", "HMI and SCADA basics", "lamp", "tank"),
-          L("a-fault-finding", "Fault finding", "fault"),
-          L("a-documentation", "Documentation and handover", "safety"),
-        ],
-      },
-    ],
-  },
-  {
     id: "platforms",
     level: "P",
-    code: "T",
-    name: "Platform tours",
-    blurb: "The same logic on every major controller family.",
+    code: "PT",
+    name: "Controller Platforms",
+    blurb: "The same programs on Siemens, Allen Bradley, Schneider, Mitsubishi, Omron and Delta.",
     ring: "#0f766e",
     chapters: [
       {
         id: "tours",
+        stage: 4,
         title: "Controller families",
         blurb: "Hardware, addressing and program structure",
         lessons: [
@@ -257,6 +266,35 @@ export const CURRICULUM: Track[] = [
       },
     ],
   },
+  {
+    id: "advanced",
+    level: "E",
+    code: "E5",
+    name: "Advanced Programming",
+    blurb: "Structured text, function blocks, networks, HMI, fault finding and handover.",
+    ring: "#c2410c",
+    chapters: [
+      {
+        id: "programming",
+        stage: 5,
+        title: "Programming",
+        blurb: "Beyond ladder",
+        lessons: [L("a-structured-text", "Structured text", "sequence"), L("a-function-blocks", "Function blocks", "sequence")],
+      },
+      {
+        id: "systems",
+        stage: 5,
+        title: "Systems",
+        blurb: "Networks, screens and keeping plant running",
+        lessons: [
+          L("a-comms", "Industrial networks", "sequence", "vsd"),
+          L("a-hmi", "HMI and SCADA basics", "lamp", "tank"),
+          L("a-fault-finding", "Fault finding", "fault"),
+          L("a-documentation", "Documentation and handover", "safety"),
+        ],
+      },
+    ],
+  },
 ];
 
 export interface LessonPlace {
@@ -265,7 +303,7 @@ export interface LessonPlace {
   chapter: Chapter;
   /** 1 based position within the track. */
   number: number;
-  /** Track code plus number, e.g. F4. */
+  /** Track code plus number, e.g. F1.4. */
   code: string;
 }
 
@@ -274,7 +312,7 @@ export const LESSON_ORDER: LessonPlace[] = CURRICULUM.flatMap((track) => {
   return track.chapters.flatMap((chapter) =>
     chapter.lessons.map((ref) => {
       n += 1;
-      return { ref, track, chapter, number: n, code: `${track.code}${n}` };
+      return { ref, track, chapter, number: n, code: `${track.code}.${n}` };
     }),
   );
 });

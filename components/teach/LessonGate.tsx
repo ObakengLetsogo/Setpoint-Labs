@@ -34,7 +34,7 @@ export function LessonGate({ lesson, status }: { lesson: LessonMeta; status: Con
       <p className="mt-4 font-mono text-[11px] uppercase tracking-[0.2em] text-muted-ink">{lesson.chip} · {status === "error" ? "offline" : "members"}</p>
       <p className="mt-2 text-[20px] font-semibold text-ink">{lesson.title}</p>
       <p className="mx-auto mt-2 max-w-[440px] text-[14px] leading-[1.6] text-[#4b5058]">
-        {status === "signin" && "Sign in to open this lab. The first two Foundations chapters are free for everyone."}
+        {status === "signin" && "Sign in to open this lab. The first two Foundation chapters are free for everyone."}
         {status === "upgrade" && `This lab is part of ${levelName}. Buy that level, all three levels, or the monthly plan to open it.`}
         {status === "error" && "We could not load this lab. Check your connection and try again."}
       </p>
