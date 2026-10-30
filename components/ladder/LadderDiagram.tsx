@@ -130,15 +130,15 @@ function fmtMs(ms: number) {
 function Output({ o, x, y, live, mem }: { o: OutputNode; x: number; y: number; live: boolean; mem: Memory }) {
   const color = live ? LIVE : INK;
   const addr = useRig().tags.find((t) => t.tag === o.tag)?.address;
-  if (o.op === "MOV" || o.op === "ADD" || o.op === "SUB" || o.op === "MUL" || o.op === "DIV") {
+  if (o.op === "MOV" || o.op === "ADD" || o.op === "SUB" || o.op === "MUL" || o.op === "DIV" || o.op === "PID") {
     const sign = { ADD: "+", SUB: "−", MUL: "×", DIV: "÷" }[o.op as "ADD"];
-    const expr = o.op === "MOV" ? o.src![0] : `${o.src![0]} ${sign} ${o.src![1]}`;
+    const expr = o.op === "MOV" ? o.src![0] : o.op === "PID" ? `${o.src![0]} → ${o.src![2]}` : `${o.src![0]} ${sign} ${o.src![1]}`;
     return (
       <g>
         <Seg x1={x} y1={y} x2={x + 10} y2={y} live={live} />
         <rect x={x + 10} y={y - 21} width={OUT_W - 22} height={42} rx={4} fill="#fffdf9" stroke={color} strokeWidth={1.6} />
         <text x={x + 16} y={y - 8} className="ladder-box-title">
-          {o.op}
+          {o.op === "PID" ? `PID ${o.tag}` : o.op}
         </text>
         <text x={x + 16} y={y + 4} className="ladder-addr" fill={INK}>
           {expr}

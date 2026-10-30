@@ -1,11 +1,11 @@
 // Structured text (IEC 61131-3 style) for the same memory model as the ladder engine.
 // Supported: VAR blocks for function block instances, :=, IF / ELSIF / ELSE, CASE,
 // NOT AND OR XOR, = <> < > <= >=, + - * / MOD, TRUE / FALSE, numbers and T#..ms/s literals,
-// and the function blocks TON, TOF, CTU, CTD, R_TRIG and F_TRIG.
+// and the function blocks TON, TOF, CTU, CTD, R_TRIG, F_TRIG and PID.
 // Timers and counters store their state under the same names as ladder (.ACC, .DN, .PRE),
 // so .Q and .ET / .CV are read as aliases and lessons can be marked the same way in either language.
 
-import type { Memory } from "./scan";
+import { pidStep, type Memory } from "./scan";
 
 export class StError extends Error {
   constructor(
@@ -23,8 +23,8 @@ const KEYWORDS = new Set([
   "AND", "OR", "XOR", "NOT", "MOD", "TRUE", "FALSE",
 ]);
 
-export type FbType = "TON" | "TOF" | "CTU" | "CTD" | "R_TRIG" | "F_TRIG";
-const FB_TYPES = new Set<string>(["TON", "TOF", "CTU", "CTD", "R_TRIG", "F_TRIG"]);
+export type FbType = "TON" | "TOF" | "CTU" | "CTD" | "R_TRIG" | "F_TRIG" | "PID";
+const FB_TYPES = new Set<string>(["TON", "TOF", "CTU", "CTD", "R_TRIG", "F_TRIG", "PID"]);
 
 function tokenize(src: string): Tok[] {
   const out: Tok[] = [];
@@ -341,6 +341,7 @@ function resolveName(name: string, fbs: Record<string, FbType>) {
   const base = name.slice(0, dot);
   const member = name.slice(dot + 1).toUpperCase();
   const type = fbs[base];
+  if (type === "PID") return `${base}.${name.slice(dot + 1)}`;
   if (type === "R_TRIG" || type === "F_TRIG") return `${base}.Q`;
   if (member === "Q") return `${base}.DN`;
   if (member === "ET" || member === "CV") return `${base}.ACC`;
@@ -449,6 +450,11 @@ export function runST(prog: StProgram, input: Memory, dtMs: number): StResult {
         mem[`${t}.CU`] = clk;
         mem[`${t}.PRE`] = pre;
         mem[`${t}.DN`] = up ? num(mem[`${t}.ACC`] ?? 0) >= pre : num(mem[`${t}.ACC`] ?? 0) <= 0;
+        break;
+      }
+      case "PID": {
+        // PID(AUTO, PV, SP, CV): CV is the output's present value, followed in manual; the result is .OUT.
+        pidStep(mem, t, num(arg("PV", 0)), num(arg("SP", 0)), num(arg("CV", 0)), bool(arg("AUTO", true)), dtMs);
         break;
       }
       case "R_TRIG":

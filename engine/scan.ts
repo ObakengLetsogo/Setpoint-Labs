@@ -67,6 +67,45 @@ function evaluate(node: LogicNode, powerIn: boolean, mem: Memory, nodes: Record<
   return out;
 }
 
+export const PID_DEFAULTS = { KP: 1, TI: 10, TD: 0 };
+const clampPct = (v: number) => Math.max(0, Math.min(100, v));
+
+/**
+ * A positional PID in percent, the way a PLC's PID block works on a periodic task:
+ * CV = KP x (e + 1/TI integral of e + TD x rate of change of PV), with TI and TD in seconds.
+ * Derivative acts on PV so a setpoint step gives no kick, and the integral is clamped to 0..100 so
+ * it cannot wind up. Loop.REV makes it reverse acting (output rises as PV rises, as for cooling or
+ * an outlet). With the rung false the loop is in manual: CV is left to the program and the integral
+ * follows it, so going back to auto does not bump the output.
+ */
+export function pidStep(mem: Memory, loop: string, pv: number, sp: number, cvNow: number, auto: boolean, dtMs: number): number | null {
+  const k = (m: string, d: number) => (mem[`${loop}.${m}`] === undefined ? d : num(mem, `${loop}.${m}`));
+  const kp = k("KP", PID_DEFAULTS.KP);
+  const ti = k("TI", PID_DEFAULTS.TI);
+  const td = k("TD", PID_DEFAULTS.TD);
+  const dt = Math.max(dtMs, 1) / 1000;
+  const sign = bool(mem, `${loop}.REV`) ? -1 : 1;
+  const e = sign * (sp - pv);
+  const lastPv = mem[`${loop}.PVL`] === undefined ? pv : num(mem, `${loop}.PVL`);
+  mem[`${loop}.KP`] = kp;
+  mem[`${loop}.TI`] = ti;
+  mem[`${loop}.TD`] = td;
+  mem[`${loop}.E`] = Math.round(e * 100) / 100;
+  mem[`${loop}.PVL`] = pv;
+  mem[`${loop}.AUTO`] = auto;
+  if (!auto) {
+    mem[`${loop}.I`] = clampPct(cvNow - kp * e);
+    return null;
+  }
+  let i = num(mem, `${loop}.I`);
+  if (ti > 0) i = clampPct(i + (kp * e * dt) / ti);
+  const d = -sign * kp * td * ((pv - lastPv) / dt);
+  mem[`${loop}.I`] = i;
+  const cv = Math.round(clampPct(kp * e + i + d) * 100) / 100;
+  mem[`${loop}.OUT`] = cv;
+  return cv;
+}
+
 /**
  * One PLC scan: rungs execute top to bottom and each rung writes memory
  * immediately, so later rungs see values written earlier in the same scan.
@@ -159,6 +198,12 @@ export function scan(program: Program, input: Memory, dtMs: number): ScanResult 
           // Integer division like most PLC INT maths; dividing by zero leaves the destination unchanged.
           const d = operand(mem, out.src![1]);
           if (power && d !== 0) mem[t] = Math.trunc(operand(mem, out.src![0]) / d);
+          break;
+        }
+        case "PID": {
+          const [pv, sp, cv] = out.src!;
+          const v = pidStep(mem, t, operand(mem, pv), operand(mem, sp), num(mem, cv), power, dtMs);
+          if (v !== null) mem[cv] = v;
           break;
         }
         case "RES":

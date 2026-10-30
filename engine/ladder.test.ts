@@ -213,3 +213,25 @@ describe("multiply and divide", () => {
     expect(h[0].Bad).toBeUndefined();
   });
 });
+
+describe("PID", () => {
+  it("parses and rejects a malformed PID", async () => {
+    const { parseProgram } = await import("./ladder");
+    expect(parseProgram("RUNG 1: XIC(Auto) PID(LIC1, Level_PV, Level_SP, Valve_CV)").rungs[0].outputs[0]).toMatchObject({ op: "PID", tag: "LIC1", src: ["Level_PV", "Level_SP", "Valve_CV"] });
+    expect(() => parseProgram("RUNG 1: PID(LIC1, Level_PV)")).toThrow(/PID takes/);
+  });
+  it("drives a simple tank to setpoint with no offset, and holds the output in manual", async () => {
+    const { parseProgram } = await import("./ladder");
+    const { scan } = await import("./scan");
+    const prog = parseProgram("RUNG 1: XIC(Auto) PID(LIC1, PV, 60, CV)");
+    let mem: Record<string, number | boolean> = { Auto: true, PV: 20, "LIC1.KP": 2, "LIC1.TI": 8 };
+    for (let i = 0; i < 6000; i++) {
+      mem = scan(prog, mem, 100).memory;
+      mem.PV = Number(mem.PV) + ((Number(mem.CV) - 40) / 100) * 0.5; // inflow from CV, fixed outflow
+    }
+    expect(Math.abs(Number(mem.PV) - 60)).toBeLessThan(0.5);
+    const held = Number(mem.CV);
+    mem = scan(prog, { ...mem, Auto: false }, 100).memory;
+    expect(mem.CV).toBe(held);
+  });
+});

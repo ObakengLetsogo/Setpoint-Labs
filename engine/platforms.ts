@@ -322,6 +322,8 @@ function fxOutput(o: OutputNode, ctx: Ctx): string[] {
       return [`MUL ${src[0]} ${src[1]} ${t}`];
     case "DIV":
       return [`DIV ${src[0]} ${src[1]} ${t}`];
+    case "PID":
+      return [`PID ${src[1]} ${src[0]} ${t} ${src[2]}`];
   }
 }
 
@@ -355,6 +357,7 @@ function omronLines(program: Program, ctx: Ctx): string[] {
           SUB: `-(410) ${src[0]} ${src[1]} ${t}`,
           MUL: `*(420) ${src[0]} ${src[1]} ${t}`,
           DIV: `/(430) ${src[0]} ${src[1]} ${t}`,
+          PID: `PIDAT(191) ${src[0]} ${t} ${src[2]}`,
         }[o.op],
       );
     }
@@ -445,8 +448,11 @@ function siemensLines(program: Program, ctx: Ctx): string[] {
         case "MOV":
           words.push(`L ${src[0]}`, `T ${t}`);
           break;
+        case "PID":
+          words.push(`CALL "PID_Compact", ${t}`, `  Setpoint := ${src[1]}`, `  Input := ${src[0]}`, `  Output => ${src[2]}`);
+          break;
         default:
-          words.push(`L ${src[0]}`, `L ${src[1]}`, `${{ ADD: "+", SUB: "-", MUL: "*", DIV: "/" }[o.op]}I`, `T ${t}`);
+          words.push(`L ${src[0]}`, `L ${src[1]}`, `${{ ADD: "+", SUB: "-", MUL: "*", DIV: "/" }[o.op as "ADD"]}I`, `T ${t}`);
       }
     }
     if (bits.length) lines.push(...(r.logic ? logic : ["SET"]), ...bits);
@@ -505,6 +511,7 @@ function schneiderLines(program: Program, ctx: Ctx): string[] {
         SUB: [`[${t} := ${src[0]} - ${src[1]}]`],
         MUL: [`[${t} := ${src[0]} * ${src[1]}]`],
         DIV: [`[${t} := ${src[0]} / ${src[1]}]`],
+        PID: [`(* ${t}: PID block, PV ${src[0]}, SP ${src[1]}, output ${src[2]} *)`],
       }[o.op];
       lines.push(...out);
     }
@@ -533,6 +540,8 @@ function rockwellLines(program: Program, ctx: Ctx): string[] {
         return `${o.op}(${o.tag},${o.preset ?? 0},0)`;
       case "MOV":
         return `MOV(${o.src![0]},${o.tag})`;
+      case "PID":
+        return `PIDE(${o.tag})`;
       case "ADD":
       case "SUB":
       case "MUL":

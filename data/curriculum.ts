@@ -16,7 +16,8 @@ export type RigId =
   | "pumps"
   | "vsd"
   | "pickplace"
-  | "hmi";
+  | "hmi"
+  | "pid";
 
 export interface LessonRef {
   id: string;
@@ -291,6 +292,18 @@ export const CURRICULUM: Track[] = [
           L("p-analog", "Analog scaling", "compare", "tank"),
           L("p-duplex", "Duplex pumps, lead and lag", "tank", "pumps"),
           L("p-alarms", "Process alarms", "lamp", "pumps"),
+        ],
+      },
+      {
+        id: "pid",
+        stage: 3,
+        title: "PID control",
+        blurb: "Closed loops, tuning and cascade",
+        lessons: [
+          L("p-pid-what", "What PID control is", "tank", "pid"),
+          L("p-pid-block", "Configuring a PID block", "compare", "pid"),
+          L("p-pid-tune", "Tuning loops", "timer", "pid"),
+          L("p-pid-cascade", "Flow and cascade control", "tank", "pid"),
         ],
       },
       {

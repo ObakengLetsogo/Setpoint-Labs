@@ -74,6 +74,8 @@ export function rungInEnglish(r: Rung) {
         return `${o.tag} becomes ${o.src![0]} times ${o.src![1]}`;
       case "DIV":
         return `${o.tag} becomes ${o.src![0]} divided by ${o.src![1]}`;
+      case "PID":
+        return `loop ${o.tag} moves ${o.src![2]} to bring ${o.src![0]} to ${o.src![1]}`;
       default:
         return `${o.tag} is on`;
     }

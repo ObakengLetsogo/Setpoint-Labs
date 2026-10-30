@@ -5,7 +5,7 @@
 
 export type CompareOp = "GRT" | "LES" | "EQU" | "NEQ" | "GEQ" | "LEQ";
 export type ContactOp = "XIC" | "XIO" | "ONS" | CompareOp;
-export type OutputOp = "OTE" | "OTL" | "OTU" | "TON" | "TOF" | "CTU" | "CTD" | "RES" | "MOV" | "ADD" | "SUB" | "MUL" | "DIV";
+export type OutputOp = "OTE" | "OTL" | "OTU" | "TON" | "TOF" | "CTU" | "CTD" | "RES" | "MOV" | "ADD" | "SUB" | "MUL" | "DIV" | "PID";
 
 export const COMPARE_OPS: CompareOp[] = ["GRT", "LES", "EQU", "NEQ", "GEQ", "LEQ"];
 export const isCompare = (op: string): op is CompareOp => (COMPARE_OPS as string[]).includes(op);
@@ -60,7 +60,7 @@ export class LadderError extends Error {
 }
 
 const CONTACTS = new Set<string>(["XIC", "XIO", "ONS", ...COMPARE_OPS]);
-const OUTPUTS = new Set<string>(["OTE", "OTL", "OTU", "TON", "TOF", "CTU", "CTD", "RES", "MOV", "ADD", "SUB", "MUL", "DIV"]);
+const OUTPUTS = new Set<string>(["OTE", "OTL", "OTU", "TON", "TOF", "CTU", "CTD", "RES", "MOV", "ADD", "SUB", "MUL", "DIV", "PID"]);
 const TAG_RE = /^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z0-9_]+)?$/;
 const NUM_RE = /^-?\d+(\.\d+)?$/;
 const isOperand = (a: string | undefined): a is string => Boolean(a && (TAG_RE.test(a) || NUM_RE.test(a)));
@@ -101,7 +101,7 @@ function tokenize(src: string, line: number): Token[] {
       continue;
     }
     if (!CONTACTS.has(upper) && !OUTPUTS.has(upper)) {
-      throw new LadderError(line, `Unknown instruction "${w}". Try XIC, XIO, ONS, GRT, EQU, OTE, OTL, OTU, TON, TOF, CTU, RES or MOV.`);
+      throw new LadderError(line, `Unknown instruction "${w}". Try XIC, XIO, ONS, GRT, EQU, OTE, OTL, OTU, TON, TOF, CTU, RES, MOV or PID.`);
     }
     const rest = src.slice(i + w.length);
     const call = /^\s*\(([^()]*)\)/.exec(rest);
@@ -185,6 +185,14 @@ export function parseRung(text: string, line: number, number: number): Rung {
   const outputs: OutputNode[] = outputTokens.map((tok) => {
     if (tok.t !== "instr" || !OUTPUTS.has(tok.op)) {
       throw new LadderError(line, "Outputs go at the end of the rung. Move contacts before the first output.");
+    }
+    if (tok.op === "PID") {
+      // PID(Loop, PV, SP, CV): the loop tag holds the tuning in Loop.KP, Loop.TI and Loop.TD.
+      const [loop, pv, sp, cv] = tok.args;
+      if (tok.args.length !== 4 || !TAG_RE.test(loop ?? "") || !isOperand(pv) || !isOperand(sp) || !TAG_RE.test(cv ?? "")) {
+        throw new LadderError(line, "PID takes a loop tag, the measured value, the setpoint and the output tag, for example PID(LIC1, Level_PV, Level_SP, Valve_CV).");
+      }
+      return { id: nextId("o"), op: "PID" as OutputOp, tag: loop, src: [pv, sp, cv] };
     }
     const sources = SOURCES[tok.op as OutputOp];
     if (sources) {

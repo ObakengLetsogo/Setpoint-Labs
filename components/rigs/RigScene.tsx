@@ -10,6 +10,7 @@ import { LiftRig, TrafficRig } from "./SequenceRigs";
 import { VsdRig } from "./VsdRig";
 import { PneumaticRig } from "./PneumaticRig";
 import { HmiRig } from "./HmiRig";
+import { PidRig } from "./PidRig";
 
 export type RigSceneProps = { only?: RigPiece[] | string[] };
 
@@ -29,6 +30,7 @@ export const RIG_SCENES: Partial<Record<RigId, ComponentType<RigSceneProps>>> = 
   vsd: VsdRig as ComponentType<RigSceneProps>,
   pickplace: PneumaticRig as ComponentType<RigSceneProps>,
   hmi: HmiRig as ComponentType<RigSceneProps>,
+  pid: PidRig as ComponentType<RigSceneProps>,
 };
 
 export function RigScene({ id, only }: { id: RigId; only?: string[] }) {

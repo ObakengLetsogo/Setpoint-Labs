@@ -3,9 +3,10 @@ import { QUIZ_MACHINES } from "./machines";
 import { QUIZ_ADVANCED } from "./advanced";
 import { QUIZ_PLATFORMS } from "./platforms";
 import { QUIZ_FOUNDATION_NEW } from "./foundation-new";
+import { QUIZ_PROFESSIONAL } from "./professional";
 import type { QuizQuestion } from "./types";
 
-export const QUIZZES: Record<string, QuizQuestion[]> = { ...QUIZ_FOUNDATIONS, ...QUIZ_MACHINES, ...QUIZ_ADVANCED, ...QUIZ_PLATFORMS, ...QUIZ_FOUNDATION_NEW };
+export const QUIZZES: Record<string, QuizQuestion[]> = { ...QUIZ_FOUNDATIONS, ...QUIZ_MACHINES, ...QUIZ_ADVANCED, ...QUIZ_PLATFORMS, ...QUIZ_FOUNDATION_NEW, ...QUIZ_PROFESSIONAL };
 
 /** A small fixed hash, so each question always shows its options in the same mixed order. */
 function seed(text: string) {

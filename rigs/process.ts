@@ -8,40 +8,40 @@ import type { Annotation, Control, FieldDevice, LiveReadout, PlcTerminal, RigDef
 
 export const RAW_FULL = 27648;
 
-const terminals = (inputs: number, outputs: number): PlcTerminal[] => [
+export const terminals = (inputs: number, outputs: number): PlcTerminal[] => [
   { id: "24V", label: "L+ 24V", kind: "power" },
   { id: "0V", label: "M 0V", kind: "ground" },
   ...Array.from({ length: inputs }, (_, i): PlcTerminal => ({ id: `I0.${i}`, label: `I0.${i}`, kind: "input" })),
   ...Array.from({ length: outputs }, (_, i): PlcTerminal => ({ id: `Q0.${i}`, label: `Q0.${i}`, kind: "output" })),
 ];
 
-const ann = (n: number, part: string, title: string, text: string, labs: string[], side: "left" | "right", icon: string): Annotation => ({ n, part, title, text, labs, more: 0, side, icon });
+export const ann = (n: number, part: string, title: string, text: string, labs: string[], side: "left" | "right", icon: string): Annotation => ({ n, part, title, text, labs, more: 0, side, icon });
 const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
 const none: LiveReadout = { text: null, ring: null };
 
-const autoControls: Control[] = [
+export const autoControls: Control[] = [
   { kind: "hold", part: "start", label: "Hold to press", key: "startPressed", tone: "#2e9e5b" },
   { kind: "hold", part: "stop", label: "Hold to press", key: "stopPressed", tone: "#d64545" },
 ];
 
-const stationParts = (x = -4.4): RigPart[] => [
+export const stationParts = (x = -4.4): RigPart[] => [
   { id: "start", name: "Auto start", kicker: "INPUT · I0.0", spec: "22 MM · GREEN · 1 NO", description: "Puts the process into automatic.", anchor: [x, 1.4, 3.2], explode: 1.4 },
   { id: "stop", name: "Stop", kicker: "INPUT · I0.1 · NC", spec: "22 MM · RED · 1 NC", description: "Normally closed: 1 at rest, 0 when pressed.", anchor: [x + 0.7, 1.4, 3.2], explode: 1.4 },
   { id: "plc", name: "Controller", kicker: "CPU · DI / DQ / AI", spec: "24 V DC · SCAN 100 MS", description: "Reads the level switches and transmitter and drives the valves and pumps.", anchor: [-3.8, 1.6, -2.6], explode: 2.2 },
 ];
 
-const stationWires = (): WireDef[] => [
+export const stationWires = (): WireDef[] => [
   { n: 1, plc: "24V", device: "start", terminal: "13", color: "#c9372c", title: "+24 V to the station and switches", caption: "Supply for every input.", role: "supply" },
   { n: 2, plc: "I0.0", device: "start", terminal: "14", color: "#22a061", title: "Auto start to I0.0", caption: "Pressing it puts 24 V on I0.0.", role: "auto start", signal: "Start_PB" },
   { n: 3, plc: "I0.1", device: "stop", terminal: "12", color: "#d23c3c", title: "Stop NC to I0.1", caption: "Normally closed, 1 at rest.", role: "stop healthy", signal: "Stop_PB" },
 ];
 
-const stationDevices: FieldDevice[] = [
+export const stationDevices: FieldDevice[] = [
   { id: "start", name: "Auto start S1", terminals: ["13", "14"], tone: "#22a061" },
   { id: "stop", name: "Stop S2, NC", terminals: ["11", "12"], tone: "#d23c3c" },
 ];
 
-const stationTags: RigTag[] = [
+export const stationTags: RigTag[] = [
   { tag: "Start_PB", address: "I0.0", kind: "input", color: "#2e9e5b", connectsTo: "Auto start pushbutton, NO" },
   { tag: "Stop_PB", address: "I0.1", kind: "input", color: "#d64545", connectsTo: "Stop pushbutton, NC" },
 ];

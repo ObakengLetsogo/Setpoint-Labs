@@ -30,7 +30,7 @@ export function ladderToST(program: Program, header?: string): string {
   };
   for (const r of program.rungs) {
     walkOns(r.logic);
-    for (const o of r.outputs) if (o.op === "TON" || o.op === "TOF" || o.op === "CTU" || o.op === "CTD") fbs[o.tag] = o.op;
+    for (const o of r.outputs) if (o.op === "TON" || o.op === "TOF" || o.op === "CTU" || o.op === "CTD" || o.op === "PID") fbs[o.tag] = o.op;
   }
 
   const name = (t: string) => memberName(t, fbs);
@@ -118,5 +118,7 @@ function output(o: OutputNode, cond: string, name: (t: string) => string, operan
       return when(`${name(o.tag)} := ${operand(o.src![0])} * ${operand(o.src![1])};`);
     case "DIV":
       return when(`${name(o.tag)} := ${operand(o.src![0])} / ${operand(o.src![1])};`);
+    case "PID":
+      return [`${o.tag}(AUTO := ${cond}, PV := ${operand(o.src![0])}, SP := ${operand(o.src![1])}, CV := ${name(o.src![2])});`, ...when(`${name(o.src![2])} := ${o.tag}.OUT;`)];
   }
 }
