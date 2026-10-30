@@ -1,6 +1,6 @@
 import "server-only";
 import { and, desc, eq, gt, inArray, isNull } from "drizzle-orm";
-import { assessmentRuns, certificates, entitlements, examAttempts } from "@/db/schema";
+import { assessmentRuns, certificates, entitlements, examAttempts, seats } from "@/db/schema";
 import { FREE_RESIT_AFTER_DAYS, LEVELS, PLANS, type Level } from "@/config/plans";
 import { CURRICULUM } from "@/data/curriculum";
 import { QUIZZES } from "@/data/quizzes";
@@ -58,14 +58,20 @@ function shuffle<T>(xs: T[]) {
 
 type Paper = { ref: string; order: number[] }[];
 
-/** Exam credits bought for a level, from exam or resit payments and the bundle, still valid. */
+/** Exam credits for a level, from exam or resit payments, the bundle and employer vouchers, still valid. */
 async function creditsBought(userId: string, level: Level, now: Date) {
   const plans = PLANS.filter((p) => p.exams.includes(level)).map((p) => p.id);
-  const rows = await db
+  const own = await db
     .select({ id: entitlements.id })
     .from(entitlements)
     .where(and(eq(entitlements.userId, userId), inArray(entitlements.planId, plans), eq(entitlements.status, "active"), gt(entitlements.endsAt, now)));
-  return rows.length;
+  // Exam vouchers an employer has given this learner.
+  const given = await db
+    .select({ id: seats.id })
+    .from(seats)
+    .innerJoin(entitlements, eq(entitlements.id, seats.entitlementId))
+    .where(and(eq(seats.userId, userId), inArray(entitlements.planId, plans), eq(entitlements.status, "active"), gt(entitlements.endsAt, now)));
+  return own.length + given.length;
 }
 
 export interface ExamStatus {

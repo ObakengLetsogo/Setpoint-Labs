@@ -1,6 +1,7 @@
 import "server-only";
 import { and, desc, eq, inArray, isNotNull, sql } from "drizzle-orm";
 import { assignments, certificates, cohortMembers, cohorts, entitlements, memberships, organisations, progress, quizAttempts, seats, submissions, users } from "@/db/schema";
+import { LEVELS, examPlanIds, levelsOf, trainingPlanIds, type Level } from "@/config/plans";
 import { catalog } from "@/data/catalog";
 import type { SessionUser } from "./auth";
 import { assignSeat, audit } from "./billing";
@@ -32,14 +33,22 @@ export async function isOrgAdmin(user: SessionUser, organisationId: string) {
   return m?.role === "employer_admin" || m?.role === "institution_admin";
 }
 
-export async function seatUsage(organisationId: string) {
+async function usage(organisationId: string, plans: string[]) {
   const now = new Date();
   const rows = await db
     .select({ total: sql<number>`COUNT(*)`, used: sql<number>`SUM(${seats.userId} IS NOT NULL)` })
     .from(seats)
     .innerJoin(entitlements, eq(entitlements.id, seats.entitlementId))
-    .where(and(eq(seats.organisationId, organisationId), eq(entitlements.status, "active"), sql`${entitlements.endsAt} > ${now}`));
+    .where(and(eq(seats.organisationId, organisationId), inArray(entitlements.planId, plans), eq(entitlements.status, "active"), sql`${entitlements.endsAt} > ${now}`));
   return { total: Number(rows[0]?.total ?? 0), used: Number(rows[0]?.used ?? 0) };
+}
+
+/** Training seats in use, out of those bought. */
+export const seatUsage = (organisationId: string) => usage(organisationId, trainingPlanIds());
+
+/** Exam vouchers given out, per level, out of those bought. */
+export async function voucherUsage(organisationId: string) {
+  return Object.fromEntries(await Promise.all(LEVELS.map(async (l) => [l, await usage(organisationId, examPlanIds(l))] as const))) as Record<Level, { total: number; used: number }>;
 }
 
 export interface LearnerRow {
@@ -48,6 +57,8 @@ export interface LearnerRow {
   email: string;
   role: string;
   seated: boolean;
+  /** Levels for which the employer has given an exam voucher. */
+  examVouchers: Level[];
   completed: number;
   quizAvg: number | null;
   certificates: string[];
@@ -77,7 +88,11 @@ export async function learners(organisationId: string): Promise<LearnerRow[]> {
       .where(inArray(quizAttempts.userId, ids))
       .groupBy(quizAttempts.userId),
     db.select({ userId: certificates.userId, trackId: certificates.trackId }).from(certificates).where(and(inArray(certificates.userId, ids), sql`${certificates.revokedAt} IS NULL`)),
-    db.select({ userId: seats.userId }).from(seats).where(and(eq(seats.organisationId, organisationId), isNotNull(seats.userId))),
+    db
+      .select({ userId: seats.userId, planId: entitlements.planId })
+      .from(seats)
+      .innerJoin(entitlements, eq(entitlements.id, seats.entitlementId))
+      .where(and(eq(seats.organisationId, organisationId), isNotNull(seats.userId))),
     db
       .select({ userId: cohortMembers.userId, name: cohorts.name })
       .from(cohortMembers)
@@ -86,7 +101,8 @@ export async function learners(organisationId: string): Promise<LearnerRow[]> {
   ]);
   return members.map((m) => ({
     ...m,
-    seated: seated.some((s) => s.userId === m.id),
+    seated: seated.some((s) => s.userId === m.id && levelsOf(s.planId).length > 0),
+    examVouchers: LEVELS.filter((l) => seated.some((s) => s.userId === m.id && examPlanIds(l).includes(s.planId))),
     completed: Number(done.find((d) => d.userId === m.id)?.n ?? 0),
     quizAvg: quiz.find((q) => q.userId === m.id) ? Math.round(Number(quiz.find((q) => q.userId === m.id)!.avg)) : null,
     certificates: certs.filter((c) => c.userId === m.id).map((c) => c.trackId),

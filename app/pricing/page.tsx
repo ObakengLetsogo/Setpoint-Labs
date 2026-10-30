@@ -55,6 +55,7 @@ export default function PricingPage() {
   const monthly = listed.find((p) => p.id === "learner-month")!;
   const corporate = listed.filter((p) => p.audience === "employer");
   const college = listed.filter((p) => p.audience === "institution");
+  const examVouchers = PLANS.filter((p) => p.id.startsWith("corp-exam-"));
   return (
     <SiteShell wide>
       <div className="mx-auto max-w-[760px] text-center">
@@ -96,6 +97,18 @@ export default function PricingPage() {
       <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {corporate.map((p) => <PlanCard key={p.id} p={p} unit="per learner" highlight={p.id === "corp-all" ? "All levels" : undefined} />)}
       </div>
+      <section className={`${card} mt-4`}>
+        <h3 className="text-[17px] font-semibold text-ink">Exam vouchers for your staff</h3>
+        <p className="mt-1 text-[13px] text-muted-ink">Buy exam vouchers in bulk and give them to learners from your dashboard. The same price as for individuals, valid for {VOUCHER_MONTHS} months.</p>
+        <div className="mt-2 grid gap-4 md:grid-cols-3">
+          {examVouchers.map((p) => (
+            <div key={p.id}>
+              <p className="mt-3 text-[14px] font-semibold text-ink">{p.name}: {rand(p.priceCents)} each</p>
+              <BuyButton planId={p.id} perSeat minSeats={1} priceCents={p.priceCents} organisation label="Buy vouchers" />
+            </div>
+          ))}
+        </div>
+      </section>
 
       <section id="institutions" className="mt-12 grid gap-6 rounded-2xl border border-[#e4e6e9] bg-white p-6 md:grid-cols-[1fr_1.3fr]">
         <div>

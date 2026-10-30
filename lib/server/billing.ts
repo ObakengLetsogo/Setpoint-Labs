@@ -1,7 +1,7 @@
 import "server-only";
-import { and, desc, eq, isNull, or } from "drizzle-orm";
+import { and, desc, eq, gt, inArray, isNull, or } from "drizzle-orm";
 import { auditLog, entitlements, invoices, memberships, organisations, paymentEvents, payments, seats, subscriptions, users } from "@/db/schema";
-import { levelsOf, planById, priceFor, rand, vatOf, VAT_NUMBER } from "@/config/plans";
+import { examPlanIds, levelsOf, planById, priceFor, rand, trainingPlanIds, vatOf, VAT_NUMBER, type Level } from "@/config/plans";
 import { SITE_URL } from "@/lib/config";
 import { db } from "./db";
 import { mails } from "./email";
@@ -82,8 +82,8 @@ export async function grant(opts: { userId: string | null; organisationId: strin
 
   if (opts.organisationId) {
     await db.insert(seats).values(Array.from({ length: opts.seats }, () => ({ id: newId(), organisationId: opts.organisationId!, entitlementId: id })));
-    // The buyer takes the first seat so they can see what their people see.
-    if (opts.userId) await assignSeat(opts.organisationId, opts.userId);
+    // The buyer takes the first training seat so they can see what their people see.
+    if (opts.userId && levelsOf(opts.planId).length > 0) await assignSeat(opts.organisationId, opts.userId);
   }
 
   if (!training) {
@@ -103,19 +103,45 @@ export async function grant(opts: { userId: string | null; organisationId: strin
   return { id, startsAt, endsAt };
 }
 
-/** Puts a user on a free seat of the organisation's newest active entitlement. */
-export async function assignSeat(organisationId: string, userId: string) {
-  const taken = await db.select().from(seats).where(and(eq(seats.organisationId, organisationId), eq(seats.userId, userId))).limit(1);
-  if (taken[0]) return true;
+/** The seat plans of a kind: training seats, or exam vouchers for one level. */
+const seatPlans = (exam?: Level) => (exam ? examPlanIds(exam) : trainingPlanIds());
+
+/**
+ * Puts a user on a free seat of the organisation's newest active entitlement: a training seat, or
+ * with exam set, an exam voucher for that level. A learner holds one training seat, and one exam
+ * voucher per level at a time.
+ */
+export async function assignSeat(organisationId: string, userId: string, exam?: Level) {
+  const plans = seatPlans(exam);
+  const taken = await db
+    .select({ id: seats.id })
+    .from(seats)
+    .innerJoin(entitlements, eq(entitlements.id, seats.entitlementId))
+    .where(and(eq(seats.organisationId, organisationId), eq(seats.userId, userId), inArray(entitlements.planId, plans), eq(entitlements.status, "active"), gt(entitlements.endsAt, new Date())))
+    .limit(1);
+  if (taken[0] && !exam) return true;
   const free = await db
     .select({ id: seats.id })
     .from(seats)
     .innerJoin(entitlements, eq(entitlements.id, seats.entitlementId))
-    .where(and(eq(seats.organisationId, organisationId), isNull(seats.userId), eq(entitlements.status, "active")))
+    .where(and(eq(seats.organisationId, organisationId), isNull(seats.userId), inArray(entitlements.planId, plans), eq(entitlements.status, "active"), gt(entitlements.endsAt, new Date())))
     .orderBy(desc(entitlements.endsAt))
     .limit(1);
   if (!free[0]) return false;
   await db.update(seats).set({ userId, assignedAt: new Date() }).where(eq(seats.id, free[0].id));
+  return true;
+}
+
+/** Frees a learner's training seat so it can go to someone else. Exam vouchers stay with the learner. */
+export async function releaseSeat(organisationId: string, userId: string, actorId: string) {
+  const held = await db
+    .select({ id: seats.id })
+    .from(seats)
+    .innerJoin(entitlements, eq(entitlements.id, seats.entitlementId))
+    .where(and(eq(seats.organisationId, organisationId), eq(seats.userId, userId), inArray(entitlements.planId, trainingPlanIds())));
+  if (!held.length) return false;
+  await db.update(seats).set({ userId: null, assignedAt: null }).where(inArray(seats.id, held.map((h) => h.id)));
+  await audit(actorId, "seat.released", organisationId, { userId });
   return true;
 }
 

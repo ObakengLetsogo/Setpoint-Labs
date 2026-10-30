@@ -32,6 +32,7 @@ export interface PlanConfig {
 }
 
 const ALL: Level[] = ["F", "P", "E"];
+const VOUCHER_MONTHS_CONST = 12;
 
 /** Level exams, resits and endorsements, the same price for individuals and employers. */
 export const EXAM_PRICES: Record<Level, number> = { F: 120000, P: 180000, E: 350000 };
@@ -192,6 +193,7 @@ export const PLANS: PlanConfig[] = [
   ...(["F", "P", "E"] as Level[]).flatMap((l): PlanConfig[] => [
     { id: `exam-${l}`, name: `${LEVEL_NAMES[l]} exam`, audience: "learner", priceCents: EXAM_PRICES[l], periodMonths: 12, perSeat: false, minSeats: 1, levels: [], exams: [l], blurb: "", features: [], online: true, listed: false },
     { id: `resit-${l}`, name: `${LEVEL_NAMES[l]} exam resit`, audience: "learner", priceCents: RESIT_CENTS, periodMonths: 12, perSeat: false, minSeats: 1, levels: [], exams: [l], blurb: "", features: [], online: true, listed: false },
+    { id: `corp-exam-${l}`, name: `${LEVEL_NAMES[l]} exam vouchers`, audience: "employer", priceCents: EXAM_PRICES[l], periodMonths: VOUCHER_MONTHS_CONST, perSeat: true, minSeats: 1, levels: [], exams: [l], blurb: "Per learner, the same price as for individuals.", features: [], online: true, listed: false },
   ]),
   // Retired plans, kept so earlier payments and entitlements still resolve.
   { id: "learner-year", name: "Learner, yearly (retired)", audience: "learner", priceCents: 149000, periodMonths: 12, perSeat: false, minSeats: 1, levels: ALL, exams: [], blurb: "", features: [], online: false, listed: false },
@@ -204,7 +206,10 @@ export const ENDORSEMENT_CENTS = 75000;
 /** A failed exam can be resat once for free, 14 days after the attempt. */
 export const FREE_RESIT_AFTER_DAYS = 14;
 /** Corporate and college vouchers stay valid this long. */
-export const VOUCHER_MONTHS = 12;
+export const VOUCHER_MONTHS = VOUCHER_MONTHS_CONST;
+/** Plans whose seats are training seats, and plans whose seats are exam vouchers for a level. */
+export const trainingPlanIds = () => PLANS.filter((p) => p.levels.length > 0).map((p) => p.id);
+export const examPlanIds = (level: Level) => PLANS.filter((p) => p.exams.includes(level)).map((p) => p.id);
 
 export const planById = (id: string) => PLANS.find((p) => p.id === id);
 /** Levels a plan opens. An unknown plan id opens everything, so no old payment loses access. */
@@ -217,7 +222,8 @@ export const seatDiscount = (seats: number) => (seats >= 50 ? 0.15 : seats >= 20
 export function priceFor(plan: PlanConfig, seats = 1) {
   if (!plan.perSeat) return plan.priceCents;
   const n = Math.max(plan.minSeats, Math.floor(seats));
-  return Math.round(plan.priceCents * n * (1 - (plan.audience === "employer" ? seatDiscount(n) : 0)));
+  // Training seats earn the volume discount; exam vouchers cost the same as for individuals.
+  return Math.round(plan.priceCents * n * (1 - (plan.audience === "employer" && plan.levels.length > 0 ? seatDiscount(n) : 0)));
 }
 
 export const rand = (cents: number) => `R${(cents / 100).toLocaleString("en-ZA", { minimumFractionDigits: cents % 100 ? 2 : 0, maximumFractionDigits: 2 })}`;

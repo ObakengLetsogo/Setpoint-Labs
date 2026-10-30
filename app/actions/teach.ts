@@ -3,11 +3,12 @@
 import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { assignments, cohortMembers, cohorts, organisations, submissions } from "@/db/schema";
+import { assignments, cohortMembers, cohorts, memberships, organisations, submissions } from "@/db/schema";
 import { metaOf } from "@/data/catalog";
 import { PLATFORMS } from "@/engine/platforms";
 import { requireUser } from "@/lib/server/auth";
-import { audit } from "@/lib/server/billing";
+import { assignSeat, audit, releaseSeat } from "@/lib/server/billing";
+import { examStatus } from "@/lib/server/exams";
 import { db } from "@/lib/server/db";
 import { newId } from "@/lib/server/ids";
 import { addLearners, canManage, isOrgAdmin } from "@/lib/server/orgs";
@@ -104,4 +105,24 @@ export async function saveOrgSettings(_: FormState, form: FormData): Promise<For
   await audit(user.id, "org.settings", orgId, { platform, certificateName });
   revalidatePath(`/teach/${orgId}`);
   return { ok: "Saved." };
+}
+
+const SeatAction = z.object({ orgId: z.string().min(1), userId: z.string().min(1), level: z.enum(["F", "P", "E"]).optional() });
+
+/** Seat and voucher buttons on the dashboard: give or free a training seat, or give an exam voucher. */
+export async function manageSeat(form: FormData) {
+  const p = SeatAction.safeParse(Object.fromEntries(form));
+  if (!p.success) return;
+  const { orgId, userId, level } = p.data;
+  const user = await manager(orgId);
+  if (!(await isOrgAdmin(user, orgId))) return;
+  const member = (await db.select().from(memberships).where(and(eq(memberships.organisationId, orgId), eq(memberships.userId, userId))).limit(1))[0];
+  if (!member) return;
+  const action = String(form.get("action"));
+  if (action === "release") await releaseSeat(orgId, userId, user.id);
+  if (action === "seat") await assignSeat(orgId, userId);
+  if (action === "voucher" && level && !(await examStatus(userId, level)).credits && !(await examStatus(userId, level)).passed) {
+    if (await assignSeat(orgId, userId, level)) await audit(user.id, "voucher.given", orgId, { userId, level });
+  }
+  revalidatePath(`/teach/${orgId}`);
 }

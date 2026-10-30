@@ -9,7 +9,7 @@ export function BuyButton({ planId, perSeat, minSeats, priceCents, organisation,
   const [state, run, pending] = useActionState(checkout, {});
   const [seats, setSeats] = useState(minSeats);
   // Mirrors priceFor: the volume discount applies to company seats.
-  const discount = organisation ? seatDiscount(seats) : 0;
+  const discount = organisation && !planId.startsWith("corp-exam-") ? seatDiscount(seats) : 0;
   const total = Math.round(priceCents * seats * (1 - discount));
   return (
     <form action={run} className="mt-5 flex flex-col gap-3">
@@ -19,7 +19,7 @@ export function BuyButton({ planId, perSeat, minSeats, priceCents, organisation,
       )}
       {perSeat && (
         <label className="flex items-center justify-between gap-3 text-[13px] text-[#4b5058]">
-          Seats
+          {planId.startsWith("corp-exam-") ? "Vouchers" : "Seats"}
           <input
             name="seats"
             type="number"

@@ -151,6 +151,33 @@ describe.skipIf(!url)("billing and access", () => {
     expect(p.amountCents).toBe(Math.round(750000 * 20 * 0.9));
   });
 
+  it("company exam vouchers go to chosen staff, and training seats move between staff", async () => {
+    const boss = await makeUser();
+    const train = await m.billing.startCheckout(boss, "corp-f", 5, "Voucher Mine");
+    await deliver(train.paymentId, "paid");
+    const [mem] = await m.db.db.select().from(m.schema.memberships).where(m.orm.eq(m.schema.memberships.userId, boss.id));
+    const ex = await m.billing.startCheckout(boss, "corp-exam-F", 3);
+    const [pay] = await m.db.db.select().from(m.schema.payments).where(m.orm.eq(m.schema.payments.id, ex.paymentId));
+    expect(pay.amountCents).toBe(120000 * 3);
+    await deliver(ex.paymentId, "paid");
+    expect((await m.exams.examStatus(boss.id, "F")).credits).toBe(0);
+
+    const a = await makeUser();
+    const b = await makeUser();
+    for (const u of [a, b]) await m.db.db.insert(m.schema.memberships).values({ userId: u.id, organisationId: mem.organisationId, role: "learner" });
+    expect(await m.billing.assignSeat(mem.organisationId, a.id)).toBe(true);
+    expect((await m.access.accessFor(a.id)).levels).toEqual(["F"]);
+    expect((await m.exams.examStatus(a.id, "F")).credits).toBe(0);
+    expect(await m.billing.assignSeat(mem.organisationId, a.id, "F")).toBe(true);
+    expect((await m.exams.examStatus(a.id, "F")).credits).toBe(1);
+
+    expect(await m.billing.releaseSeat(mem.organisationId, a.id, boss.id)).toBe(true);
+    expect((await m.access.accessFor(a.id)).paid).toBe(false);
+    expect((await m.exams.examStatus(a.id, "F")).credits).toBe(1);
+    expect(await m.billing.assignSeat(mem.organisationId, b.id)).toBe(true);
+    expect((await m.access.accessFor(b.id)).levels).toEqual(["F"]);
+  });
+
   describe("level exams", () => {
     const now = () => new Date();
     async function buyExam(userId: string, level: "F" | "P" | "E") {
