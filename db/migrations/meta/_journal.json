@@ -15,6 +15,13 @@
       "when": 1793140122896,
       "tag": "0001_lesson_videos",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1793337935921,
+      "tag": "0002_level_exams",
+      "breakpoints": true
     }
   ]
 }

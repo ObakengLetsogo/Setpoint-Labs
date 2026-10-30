@@ -16,6 +16,7 @@ export function SiteShell({ children, wide = false }: { children: ReactNode; wid
         <nav className="flex items-center rounded-full border border-[#e4e6e9] bg-white p-1 text-[13px] font-medium">
           <Link href="/" className="rounded-full px-3 py-1.5 text-[#3d434a] hover:text-ink">Labs</Link>
           <Link href="/pricing" className="rounded-full px-3 py-1.5 text-[#3d434a] hover:text-ink">Pricing</Link>
+          <Link href="/exams" className="rounded-full px-3 py-1.5 text-[#3d434a] hover:text-ink">Exams</Link>
           <Link href="/account" className="rounded-full bg-ink px-3 py-1.5 text-white">Account</Link>
         </nav>
       </header>

@@ -52,7 +52,9 @@ export async function accessFor(userId: string | null | undefined, now = new Dat
   }
 
   // Every entitlement still inside its grace counts; each opens the levels its plan covers.
+  // Exam credits are entitlements too, but they open no training.
   const live = [...own.map((e) => ({ e, via: "personal" as const })), ...org.map((e) => ({ e, via: "organisation" as const }))]
+    .filter((x) => levelsOf(x.e.planId).length > 0)
     .map((x) => ({ ...x, until: new Date(x.e.endsAt.getTime() + (x.e.source === "admin" ? 0 : GRACE_DAYS * DAY)) }))
     .filter((x) => x.until > now)
     .sort((a, b) => b.e.endsAt.getTime() - a.e.endsAt.getTime());

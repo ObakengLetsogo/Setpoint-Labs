@@ -1,7 +1,7 @@
 import "server-only";
 import { and, desc, eq, isNull, or } from "drizzle-orm";
 import { auditLog, entitlements, invoices, memberships, organisations, paymentEvents, payments, seats, subscriptions, users } from "@/db/schema";
-import { planById, priceFor, rand, vatOf, VAT_NUMBER } from "@/config/plans";
+import { levelsOf, planById, priceFor, rand, vatOf, VAT_NUMBER } from "@/config/plans";
 import { SITE_URL } from "@/lib/config";
 import { db } from "./db";
 import { mails } from "./email";
@@ -73,7 +73,9 @@ export async function grant(opts: { userId: string | null; organisationId: strin
   const now = new Date(Math.floor(Date.now() / 1000) * 1000);
   const holder = opts.organisationId ? eq(entitlements.organisationId, opts.organisationId) : eq(entitlements.userId, opts.userId!);
   const current = await db.select().from(entitlements).where(and(holder, eq(entitlements.planId, opts.planId), eq(entitlements.status, "active"))).orderBy(desc(entitlements.endsAt)).limit(1);
-  const startsAt = current[0] && current[0].endsAt > now ? current[0].endsAt : now;
+  // Exam credits never stack: each one is its own voucher, valid from today.
+  const training = levelsOf(opts.planId).length > 0;
+  const startsAt = training && current[0] && current[0].endsAt > now ? current[0].endsAt : now;
   const endsAt = addMonths(startsAt, months);
   const id = newId();
   await db.insert(entitlements).values({ id, userId: opts.organisationId ? null : opts.userId, organisationId: opts.organisationId, planId: opts.planId, seats: opts.seats, startsAt, endsAt, source: opts.source, note: opts.note ?? null });
@@ -82,6 +84,11 @@ export async function grant(opts: { userId: string | null; organisationId: strin
     await db.insert(seats).values(Array.from({ length: opts.seats }, () => ({ id: newId(), organisationId: opts.organisationId!, entitlementId: id })));
     // The buyer takes the first seat so they can see what their people see.
     if (opts.userId) await assignSeat(opts.organisationId, opts.userId);
+  }
+
+  if (!training) {
+    await audit(opts.actorId ?? null, "entitlement.granted", id, { ...opts, startsAt, endsAt });
+    return { id, startsAt, endsAt };
   }
 
   const sub = await db
@@ -146,7 +153,7 @@ export async function handlePaymentEvent(providerId: string, event: WebhookEvent
     if (user) {
       const lines = [
         `Thank you. We received ${rand(payment.amountCents)} for ${plan?.name ?? payment.planId}${payment.seats > 1 ? `, ${payment.seats} seats` : ""}.`,
-        `Access runs until ${g.endsAt.toISOString().slice(0, 10)}.`,
+        plan && plan.levels.length === 0 ? `Your exam credit is valid until ${g.endsAt.toISOString().slice(0, 10)}. Book it from the Exams page.` : `Access runs until ${g.endsAt.toISOString().slice(0, 10)}.`,
         VAT_NUMBER ? `Includes VAT of ${rand(vatOf(payment.amountCents))}. VAT number ${VAT_NUMBER}.` : "No VAT was charged: Setpoint Labs is not registered for VAT.",
         `Reference SPL-${payment.id.slice(0, 12).toUpperCase()}.`,
       ];

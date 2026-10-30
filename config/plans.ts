@@ -33,6 +33,10 @@ export interface PlanConfig {
 
 const ALL: Level[] = ["F", "P", "E"];
 
+/** Level exams, resits and endorsements, the same price for individuals and employers. */
+export const EXAM_PRICES: Record<Level, number> = { F: 120000, P: 180000, E: 350000 };
+export const RESIT_CENTS = 50000;
+
 export const PLANS: PlanConfig[] = [
   {
     id: "level-f",
@@ -184,6 +188,11 @@ export const PLANS: PlanConfig[] = [
     online: false,
     listed: true,
   },
+  // Exams and paid resits: each payment is one exam credit for that level, valid for 12 months.
+  ...(["F", "P", "E"] as Level[]).flatMap((l): PlanConfig[] => [
+    { id: `exam-${l}`, name: `${LEVEL_NAMES[l]} exam`, audience: "learner", priceCents: EXAM_PRICES[l], periodMonths: 12, perSeat: false, minSeats: 1, levels: [], exams: [l], blurb: "", features: [], online: true, listed: false },
+    { id: `resit-${l}`, name: `${LEVEL_NAMES[l]} exam resit`, audience: "learner", priceCents: RESIT_CENTS, periodMonths: 12, perSeat: false, minSeats: 1, levels: [], exams: [l], blurb: "", features: [], online: true, listed: false },
+  ]),
   // Retired plans, kept so earlier payments and entitlements still resolve.
   { id: "learner-year", name: "Learner, yearly (retired)", audience: "learner", priceCents: 149000, periodMonths: 12, perSeat: false, minSeats: 1, levels: ALL, exams: [], blurb: "", features: [], online: false, listed: false },
   { id: "employer-seat-year", name: "Employer seats (retired)", audience: "employer", priceCents: 90000, periodMonths: 12, perSeat: true, minSeats: 10, levels: ALL, exams: [], blurb: "", features: [], online: false, listed: false },
@@ -191,9 +200,6 @@ export const PLANS: PlanConfig[] = [
   { id: "institution-site-year", name: "Site licence (retired)", audience: "institution", priceCents: 4500000, periodMonths: 12, perSeat: false, minSeats: 1, levels: ALL, exams: [], blurb: "", features: [], online: false, listed: false },
 ];
 
-/** Level exams, resits and endorsements, the same price for individuals and employers. */
-export const EXAM_PRICES: Record<Level, number> = { F: 120000, P: 180000, E: 350000 };
-export const RESIT_CENTS = 50000;
 export const ENDORSEMENT_CENTS = 75000;
 /** A failed exam can be resat once for free, 14 days after the attempt. */
 export const FREE_RESIT_AFTER_DAYS = 14;

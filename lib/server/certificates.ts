@@ -14,7 +14,9 @@ import { db } from "./db";
 import { mails } from "./email";
 import { certificateCode, newId } from "./ids";
 
-export const trackName = (trackId: string) => CURRICULUM.find((t) => t.id === trackId)?.name ?? trackId;
+const LEVEL_CERTS: Record<string, string> = { "level-F": "Level 1: Foundation", "level-P": "Level 2: Professional", "level-E": "Level 3: Expert" };
+export const isLevelCert = (trackId: string) => trackId in LEVEL_CERTS;
+export const trackName = (trackId: string) => LEVEL_CERTS[trackId] ?? CURRICULUM.find((t) => t.id === trackId)?.name ?? trackId;
 
 export type SubmitOutcome = AssessmentResult & { certificate?: string; note?: string };
 
@@ -94,10 +96,11 @@ export async function certificatePdf(cert: NonNullable<Awaited<ReturnType<typeof
   page.drawImage(logo, { x: (width - lw) / 2, y: height - 110, width: lw, height: (lw * logo.height) / logo.width });
 
   const centre = (text: string, y: number, font = sans, size = 12, color = ink) => page.drawText(text, { x: (width - font.widthOfTextAtSize(text, size)) / 2, y, size, font, color });
-  centre("CERTIFICATE OF COMPLETION", height - 160, bold, 12, orange);
+  const level = isLevelCert(cert.trackId);
+  centre(level ? "CERTIFICATE OF COMPETENCE" : "CERTIFICATE OF COMPLETION", height - 160, bold, 12, orange);
   centre("This certifies that", height - 205, sans, 13, muted);
   centre(cert.nameOnCertificate, height - 260, serif, 40);
-  centre("has completed the practical assessment for", height - 300, sans, 13, muted);
+  centre(level ? "has passed the theory and practical exam for" : "has completed the practical assessment for", height - 300, sans, 13, muted);
   centre(cert.track, height - 340, bold, 24);
   if (cert.issuer) centre(`through ${cert.issuer}`, height - 368, sans, 12, muted);
 

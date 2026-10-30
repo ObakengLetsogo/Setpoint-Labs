@@ -278,6 +278,30 @@ export const assessmentRuns = mysqlTable(
   (t) => [index("assessment_runs_user").on(t.userId, t.assessmentId)],
 );
 
+// ── Level exams ─────────────────────────────────────────────────────────────
+
+export const examAttempts = mysqlTable(
+  "exam_attempts",
+  {
+    id: id(),
+    userId: ref("user_id").notNull(),
+    /** F, P or E. */
+    level: char("level", { length: 1 }).notNull(),
+    /** How the attempt was paid for: an exam credit, a paid resit or the free resit. */
+    kind: mysqlEnum("kind", ["credit", "free_resit"]).notNull(),
+    /** The drawn questions as lessonId:index, with each question's option order. */
+    paper: json("paper").notNull(),
+    answers: json("answers"),
+    startedAt: datetime("started_at").notNull(),
+    deadlineAt: datetime("deadline_at").notNull(),
+    submittedAt: at("submitted_at"),
+    theoryPct: int("theory_pct"),
+    practicalPassed: boolean("practical_passed"),
+    passed: boolean("passed"),
+  },
+  (t) => [index("exam_attempts_user").on(t.userId, t.level)],
+);
+
 export const certificates = mysqlTable(
   "certificates",
   {

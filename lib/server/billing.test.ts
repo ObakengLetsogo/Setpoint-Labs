@@ -14,6 +14,8 @@ describe.skipIf(!url)("billing and access", () => {
     dev: typeof import("./payments/dev");
     orm: typeof import("drizzle-orm");
     ids: typeof import("./ids");
+    exams: typeof import("./exams");
+    quizzes: typeof import("@/data/quizzes");
   };
 
   beforeAll(async () => {
@@ -36,6 +38,8 @@ describe.skipIf(!url)("billing and access", () => {
       dev: await import("./payments/dev"),
       orm: await import("drizzle-orm"),
       ids: await import("./ids"),
+      exams: await import("./exams"),
+      quizzes: await import("@/data/quizzes"),
     };
   });
 
@@ -145,6 +149,72 @@ describe.skipIf(!url)("billing and access", () => {
     const { paymentId } = await m.billing.startCheckout(boss, "corp-f", 20, "Big Mine");
     const [p] = await m.db.db.select().from(m.schema.payments).where(m.orm.eq(m.schema.payments.id, paymentId));
     expect(p.amountCents).toBe(Math.round(750000 * 20 * 0.9));
+  });
+
+  describe("level exams", () => {
+    const now = () => new Date();
+    async function buyExam(userId: string, level: "F" | "P" | "E") {
+      await m.billing.grant({ userId, organisationId: null, planId: `exam-${level}`, seats: 1, source: "payment" });
+    }
+    async function passPractical(userId: string, tracks: string[]) {
+      for (const t of tracks) await m.db.db.insert(m.schema.assessmentRuns).values({ id: m.ids.newId(), userId, assessmentId: t, source: "x", language: "ladder", passed: true, results: [] });
+    }
+    async function correctAnswers(attemptId: string) {
+      const [a] = await m.db.db.select().from(m.schema.examAttempts).where(m.orm.eq(m.schema.examAttempts.id, attemptId));
+      return (a.paper as { ref: string; order: number[] }[]).map((p) => {
+        const [lesson, i] = p.ref.split(":");
+        return p.order.indexOf(m.quizzes.QUIZZES[lesson][Number(i)].answer);
+      });
+    }
+
+    it("draws enough questions for every level", () => {
+      for (const l of ["F", "P", "E"] as const) expect(m.exams.questionBank(l).length).toBeGreaterThanOrEqual(m.exams.EXAM_SPEC[l].questions);
+    });
+
+    it("needs a credit, does not open training, and issues a certificate on a pass", async () => {
+      const u = await makeUser();
+      const user = { ...u, name: "Thandi" };
+      expect((await m.exams.examStatus(u.id, "F")).blocked).toMatch(/Buy this exam/);
+      await buyExam(u.id, "F");
+      expect((await m.access.accessFor(u.id)).paid).toBe(false);
+      await passPractical(u.id, ["foundations", "wiring"]);
+      const id = await m.exams.startExam(u.id, "F");
+      const learner = await m.exams.attemptForLearner(u.id, id);
+      expect(learner!.questions).toHaveLength(40);
+      expect(JSON.stringify(learner)).not.toContain('"answer"');
+      const r = await m.exams.submitExam(user, id, await correctAnswers(id));
+      expect(r).toMatchObject({ theoryPct: 100, practical: true, passed: true });
+      const certs = await m.db.db.select().from(m.schema.certificates).where(m.orm.eq(m.schema.certificates.userId, u.id));
+      expect(certs.map((c) => c.trackId)).toContain("level-F");
+      await expect(m.exams.startExam(u.id, "F")).rejects.toThrow(/Already passed/);
+    });
+
+    it("fails without the practical, then gives one free resit after 14 days", async () => {
+      const u = await makeUser();
+      const user = { ...u, name: "Sipho" };
+      await buyExam(u.id, "F");
+      const id = await m.exams.startExam(u.id, "F");
+      const r = await m.exams.submitExam(user, id, await correctAnswers(id));
+      expect(r).toMatchObject({ theoryPct: 100, practical: false, passed: false });
+      const st = await m.exams.examStatus(u.id, "F");
+      expect(st.canStart).toBe(false);
+      const later = new Date(Date.now() + 15 * 86_400_000);
+      expect((await m.exams.examStatus(u.id, "F", later)).canStart).toBe(true);
+      const id2 = await m.exams.startExam(u.id, "F", later);
+      await m.exams.submitExam(user, id2, [], new Date(later.getTime() + 1000));
+      expect((await m.exams.examStatus(u.id, "F", new Date(later.getTime() + 30 * 86_400_000))).canStart).toBe(false);
+    });
+
+    it("keeps the levels in order and ignores answers sent after the deadline", async () => {
+      const u = await makeUser();
+      await buyExam(u.id, "P");
+      expect((await m.exams.examStatus(u.id, "P")).blocked).toMatch(/Foundation exam first/);
+      await buyExam(u.id, "F");
+      await passPractical(u.id, ["foundations", "wiring"]);
+      const id = await m.exams.startExam(u.id, "F");
+      const r = await m.exams.submitExam({ ...u, name: "Late" }, id, await correctAnswers(id), new Date(now().getTime() + 63 * 60_000));
+      expect(r).toMatchObject({ late: true, theoryPct: 0, passed: false });
+    });
   });
 
   it("free lessons need no account", async () => {
