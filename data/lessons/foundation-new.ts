@@ -459,3 +459,198 @@ export const FOUNDATION_NEW: Record<string, LessonContent> = {
     ],
   },
 };
+
+const PP = {
+  start: io("I0.0", "Start_PB", "#2e9e5b", "Cycle start pushbutton", "Momentary, normally open"),
+  stop: io("I0.1", "Stop_PB", "#d64545", "Stop pushbutton", "Normally closed: 1 at rest"),
+  air: io("I0.2", "Air_OK", "#3d8fd6", "Pressure switch", "1 while the air is above 4 bar"),
+  part: io("I0.3", "Part_In", "#3d434a", "Magazine sensor", "1 while a part waits"),
+  aHome: io("I0.4", "A_Home", "#6b6f76", "Reed switch, A retracted", "1 when cylinder A is home"),
+  aEnd: io("I0.5", "A_End", "#6b6f76", "Reed switch, A extended", "1 when cylinder A is fully out"),
+  bHome: io("I0.6", "B_Home", "#6b6f76", "Reed switch, B up", "1 when cylinder B is up"),
+  bEnd: io("I0.7", "B_End", "#6b6f76", "Reed switch, B down", "1 when cylinder B is fully down"),
+  aExt: io("Q0.0", "A_Extend", "#2457a6", "Valve Y1", "Cylinder A out; a spring brings it back"),
+  bExt: io("Q0.1", "B_Extend", "#2457a6", "Valve Y2", "Cylinder B down"),
+  bRet: io("Q0.2", "B_Retract", "#2457a6", "Valve Y3", "Cylinder B up"),
+  lamp: io("Q0.3", "Run_Lamp", "#2e9e5b", "Green cycle lamp", "Lit while a cycle runs"),
+};
+
+const HM = {
+  start: io("I0.0", "Start_PB", "#2e9e5b", "Auto start pushbutton", "Momentary, normally open"),
+  stop: io("I0.1", "Stop_PB", "#d64545", "Stop pushbutton", "Normally closed: 1 at rest"),
+  high: io("I0.3", "Float_High", "#3d8fd6", "High float switch", "1 when the water covers it"),
+  raw: io("IW64", "Level_Raw", "#6b4fa0", "Level transmitter LT1", "0 to 27648 for 0 to 100 %"),
+  valve: io("Q0.0", "Inlet_Valve", "#2457a6", "Inlet solenoid valve", "Opens when energised"),
+  auto: io("Q0.1", "Run_Lamp", "#2e9e5b", "Auto lamp", "Shown on the screen as AUTO"),
+  alarm: io("Q0.2", "Alarm_Lamp", "#d64545", "Alarm lamp", "Shown on the screen as the alarm banner"),
+  hStart: io("HMI", "HMI_Start", "#2e9e5b", "Screen START button", "Written by the HMI while touched"),
+  hStop: io("HMI", "HMI_Stop", "#d64545", "Screen STOP button", "Written by the HMI while touched"),
+  hAck: io("HMI", "HMI_Ack", "#e0a526", "Screen ACK button", "Written by the HMI while touched"),
+};
+
+const AUTO_HMI = "RUNG 1: (XIC(Start_PB) OR XIC(HMI_Start) OR XIC(Run_Lamp)) AND XIC(Stop_PB) AND XIO(HMI_Stop) OTE(Run_Lamp)";
+const FILL = "RUNG 2: XIC(Run_Lamp) XIO(Float_High) OTE(Inlet_Valve)";
+
+export const FOUNDATION_MACHINES: Record<string, LessonContent> = {
+  "f-pneu-air": {
+    difficulty: "beginner",
+    checkpoint: { steps: [(m) => Boolean(m.Run_Lamp), (m, i) => Boolean(i.A_Home) && !m.A_Out], message: "sent cylinder A out, saw its end switch and brought it home" },
+    summary:
+      "Compressed air moves a lot of machinery. A compressor fills a receiver, a filter, regulator and lubricator unit cleans the air and sets the pressure, and valves send it to cylinders. This lab sends cylinder A out on Start and home on Stop, and uses the reed switch at the end of its stroke.",
+    facts: [
+      { icon: "info", text: "Typical supply is 6 bar. A pressure switch tells the PLC the air is on." },
+      { icon: "press", text: "Tap Start: cylinder A goes out. Its end reed switch lights the cycle lamp." },
+      { icon: "bolt", text: "Turn the air off at the FRL and try again: the valve switches, but nothing moves." },
+    ],
+    io: [PP.start, PP.stop, PP.air, PP.aHome, PP.aEnd, PP.aExt, PP.lamp],
+    steps: [
+      { line: 2, text: "Start only sends A out if the air is on." },
+      { line: 3, text: "Stop, wired NC, brings it home." },
+      { line: 4, text: "Y1 is a single solenoid valve: energised, A goes out; released, a spring sends it home." },
+      { line: 5, text: "The reed switch at the end of the stroke proves A got there." },
+    ],
+    code: [
+      "// One cylinder, one valve, two reed switches.",
+      "RUNG 1: XIC(Start_PB) XIC(Air_OK) OTL(A_Out)",
+      "RUNG 2: XIO(Stop_PB) OTU(A_Out)",
+      "RUNG 3: XIC(A_Out) OTE(A_Extend)",
+      "RUNG 4: XIC(A_End) OTE(Run_Lamp)",
+    ],
+    specs: [
+      { label: "Supply", value: "6 bar" },
+      { label: "Valve", value: "5/2, single solenoid" },
+      { label: "Sensors", value: "Reed switches" },
+      { label: "Level", value: "Beginner" },
+    ],
+  },
+
+  "f-pneu-seq": {
+    difficulty: "beginner",
+    checkpoint: { steps: [(m) => Number(m.Step) === 2, (m) => Number(m.Step) === 4, (m) => Number(m["Cycles.ACC"] ?? 0) >= 1], message: "ran a full A+ B+ B- A- cycle, one step at a time" },
+    summary:
+      "Machines with cylinders run in sequences. Engineers write them as A+ B+ B- A-: A out, B down, B up, A home. Each step waits for the reed switch of the move before it, so nothing moves until the last move has finished. This program keeps the step number in a word and moves on when each sensor says so.",
+    facts: [
+      { icon: "press", text: "Tap Start with a part in the magazine. Watch Step go 1, 2, 3, 4 and back to 0." },
+      { icon: "info", text: "B has a double solenoid valve: Y2 sends it down, Y3 sends it up, and it stays put in between." },
+      { icon: "bolt", text: "Move A's end switch out of position from its popover: the sequence waits at step 1, as it should." },
+    ],
+    io: [PP.start, PP.stop, PP.air, PP.part, PP.aHome, PP.aEnd, PP.bHome, PP.bEnd, PP.aExt, PP.bExt, PP.bRet, PP.lamp],
+    steps: [
+      { line: 2, text: "Step 0 is home. A cycle starts only with air, a part, and both cylinders home." },
+      { line: 3, text: "Step 1, A+: when A's end switch closes, go to step 2." },
+      { line: 4, text: "Step 2, B+: when B is down, go to step 3." },
+      { line: 5, text: "Step 3, B-: when B is back up, go to step 4." },
+      { line: 6, text: "Step 4, A-: when A is home, count the cycle." },
+      { line: 7, text: "Then go back to step 0, ready for the next one." },
+      { line: 8, text: "Stop sends the sequence back to step 0." },
+      { line: 9, text: "The outputs are decided by the step number alone." },
+    ],
+    code: [
+      "// A+ B+ B- A-, one step at a time.",
+      "RUNG 1: XIC(Start_PB) XIC(Air_OK) XIC(Part_In) XIC(A_Home) XIC(B_Home) EQU(Step, 0) MOV(1, Step)",
+      "RUNG 2: EQU(Step, 1) XIC(A_End) MOV(2, Step)",
+      "RUNG 3: EQU(Step, 2) XIC(B_End) MOV(3, Step)",
+      "RUNG 4: EQU(Step, 3) XIC(B_Home) MOV(4, Step)",
+      "RUNG 5: EQU(Step, 4) XIC(A_Home) CTU(Cycles, 999)",
+      "RUNG 6: EQU(Step, 4) XIC(A_Home) MOV(0, Step)",
+      "RUNG 7: XIO(Stop_PB) MOV(0, Step)",
+      "RUNG 8: GEQ(Step, 1) LEQ(Step, 3) OTE(A_Extend)",
+      "RUNG 9: EQU(Step, 2) OTE(B_Extend)",
+      "RUNG 10: EQU(Step, 3) OTE(B_Retract)",
+      "RUNG 11: GRT(Step, 0) OTE(Run_Lamp)",
+    ],
+    specs: [
+      { label: "Sequence", value: "A+ B+ B- A-" },
+      { label: "Steps", value: "5, numbered 0 to 4" },
+      { label: "Valves", value: "Single and double solenoid" },
+      { label: "Level", value: "Beginner" },
+    ],
+  },
+
+  "f-hmi-what": {
+    difficulty: "beginner",
+    checkpoint: { steps: [(m, i) => Boolean(m.Run_Lamp) && Boolean(i.HMI_Start), (m, i) => !m.Run_Lamp && Boolean(i.HMI_Stop)], message: "started and stopped the process from the screen" },
+    summary:
+      "An HMI is the screen on or near a machine; SCADA is the software in a control room that watches a whole plant. Both read and write tags in the PLC. A button on the screen writes a bit, and the program decides what to do with it, exactly as it would with a wired button. This lab runs the tank from the screen or the panel.",
+    facts: [
+      { icon: "press", text: "Touch START on the screen. The tank goes into automatic and the screen shows AUTO." },
+      { icon: "info", text: "Siemens WinCC, Rockwell FactoryTalk, AVEVA and Ignition are common HMI and SCADA products." },
+      { icon: "shield", text: "Screen buttons are never safety devices. The E-stop and Stop stay hard wired." },
+    ],
+    io: [HM.start, HM.stop, HM.hStart, HM.hStop, HM.high, HM.valve, HM.auto],
+    steps: [
+      { line: 2, text: "Auto starts from the panel button or the screen button, and stops from either Stop." },
+      { line: 3, text: "In auto the inlet fills the tank up to the high float." },
+    ],
+    code: ["// The screen writes bits; the program decides.", AUTO_HMI, FILL],
+    specs: [
+      { label: "HMI", value: "Touch panel at the machine" },
+      { label: "SCADA", value: "Control room software" },
+      { label: "Link", value: "Ethernet, reads and writes tags" },
+      { label: "Level", value: "Beginner" },
+    ],
+  },
+
+  "f-hmi-screen": {
+    difficulty: "beginner",
+    checkpoint: { steps: [(m) => Number(m.Status) === 1, (m) => Number(m.Status) === 2], message: "showed FILLING and then FULL on the screen" },
+    summary:
+      "A good operator screen shows the state of the process at a glance: what is running, what is filling, what needs attention. The program often writes a status number for the screen to show as text and colour. This program writes 0 for stopped, 1 for filling and 2 for full.",
+    facts: [
+      { icon: "press", text: "Touch START. Status becomes 1, filling, while the inlet is open." },
+      { icon: "watch", text: "When the high float is reached, Status becomes 2, full." },
+      { icon: "info", text: "Grey for normal, colour only for what needs attention: this is the idea behind ISA-101 screens." },
+    ],
+    io: [HM.start, HM.stop, HM.hStart, HM.hStop, HM.high, HM.valve, HM.auto, word("Status", "0 stopped, 1 filling, 2 full: shown on the screen")],
+    steps: [
+      { line: 4, text: "Status starts each scan at 0, stopped." },
+      { line: 5, text: "In auto with the inlet open, it becomes 1, filling." },
+      { line: 6, text: "In auto at the high float, it becomes 2, full. Later rungs win." },
+    ],
+    code: ["// A status number for the screen.", AUTO_HMI, FILL, "RUNG 3: MOV(0, Status)", "RUNG 4: XIC(Run_Lamp) XIC(Inlet_Valve) MOV(1, Status)", "RUNG 5: XIC(Run_Lamp) XIC(Float_High) MOV(2, Status)"],
+    specs: [
+      { label: "Status 0", value: "Stopped" },
+      { label: "Status 1", value: "Filling" },
+      { label: "Status 2", value: "Full" },
+      { label: "Level", value: "Beginner" },
+    ],
+  },
+
+  "f-hmi-alarms": {
+    difficulty: "beginner",
+    checkpoint: { steps: [(m) => Boolean(m.Alarm_Lamp) && !m.Alarm_Acked, (m) => Boolean(m.Alarm_Acked), (m) => !m.Alarm_Lamp], message: "raised a high level alarm, acknowledged it and saw it clear" },
+    summary:
+      "An alarm tells the operator something needs action. It flashes until someone acknowledges it, stays on while the problem lasts, and clears only when it is both acknowledged and gone. A trend shows how a value got there. Here a high level alarm comes on above 85 %, the screen flashes it, and ACK steadies it.",
+    facts: [
+      { icon: "bolt", text: "Make the inlet valve stick open from its popover. The level climbs past 85 % and the alarm flashes." },
+      { icon: "press", text: "Touch ACK. The banner goes steady. Fix the valve and stop auto; the level falls and the alarm clears." },
+      { icon: "watch", text: "The trend on the screen shows the level climbing, then falling." },
+    ],
+    io: [HM.start, HM.stop, HM.hStart, HM.hStop, HM.hAck, HM.raw, HM.valve, HM.auto, HM.alarm],
+    steps: [
+      { line: 4, text: "Above 23500, 85 %, for 2 s raises the alarm. The delay stops ripples raising it." },
+      { line: 5, text: "The alarm latches, so it is not missed if the level dips." },
+      { line: 6, text: "ACK from the screen marks it acknowledged." },
+      { line: 7, text: "It clears only when acknowledged and the level is back below 80 %." },
+      { line: 8, text: "No alarm, no acknowledgement left over." },
+      { line: 9, text: "The alarm lamp and the screen banner follow the alarm." },
+    ],
+    code: [
+      "// A high level alarm: raise, acknowledge, clear.",
+      AUTO_HMI,
+      FILL,
+      "RUNG 3: GRT(Level_Raw, 23500) TON(Hi_T, 2000)",
+      "RUNG 4: XIC(Hi_T.DN) OTL(Alarm_Active)",
+      "RUNG 5: XIC(Alarm_Active) XIC(HMI_Ack) OTL(Alarm_Acked)",
+      "RUNG 6: XIC(Alarm_Acked) LES(Level_Raw, 22000) OTU(Alarm_Active)",
+      "RUNG 7: XIO(Alarm_Active) OTU(Alarm_Acked)",
+      "RUNG 8: XIC(Alarm_Active) OTE(Alarm_Lamp)",
+    ],
+    specs: [
+      { label: "Alarm", value: "High level, 85 %" },
+      { label: "Delay", value: "2 s" },
+      { label: "Clears", value: "Acknowledged and below 80 %" },
+      { label: "Level", value: "Beginner" },
+    ],
+  },
+};

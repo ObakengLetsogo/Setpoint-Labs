@@ -5,6 +5,8 @@ import { bottling, conveyor, sorting } from "./conveyors";
 import { mixer, pumps, tank } from "./process";
 import { lift, traffic } from "./sequences";
 import { vsd } from "./vsd";
+import { pickPlace } from "./pneumatics";
+import { hmi } from "./hmi";
 import type { RigDef } from "./types";
 
 /** Every rig that is built. A lesson on a rig missing here stays planned. */
@@ -21,6 +23,8 @@ export const RIGS: Partial<Record<RigId, RigDef>> = {
   traffic,
   lift,
   vsd,
+  pickplace: pickPlace,
+  hmi,
 };
 
 export const rigFor = (id: RigId | undefined): RigDef => (id && RIGS[id]) || motorStarter;

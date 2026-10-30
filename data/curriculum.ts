@@ -14,7 +14,9 @@ export type RigId =
   | "mixer"
   | "tank"
   | "pumps"
-  | "vsd";
+  | "vsd"
+  | "pickplace"
+  | "hmi";
 
 export interface LessonRef {
   id: string;
@@ -156,6 +158,24 @@ export const CURRICULUM: Track[] = [
         title: "Safety",
         blurb: "E-stops and fail-safe wiring",
         lessons: [L("f-estop", "E-stop circuits", "estop"), L("f-safe-stop", "Safe stop design", "safety")],
+      },
+      {
+        id: "pneumatics",
+        stage: 1,
+        title: "Pneumatics basics",
+        blurb: "Air supply, cylinders, valves and sequences",
+        lessons: [L("f-pneu-air", "Compressed air and cylinders", "sequence", "pickplace"), L("f-pneu-seq", "Solenoid valves and cylinder sequences", "sequence", "pickplace")],
+      },
+      {
+        id: "hmi-scada",
+        stage: 1,
+        title: "HMI and SCADA first look",
+        blurb: "Operator screens, status, alarms and trends",
+        lessons: [
+          L("f-hmi-what", "What HMI and SCADA are", "lamp", "hmi"),
+          L("f-hmi-screen", "Your first operator screen", "lamp", "hmi"),
+          L("f-hmi-alarms", "Alarms and trends on the screen", "lamp", "hmi"),
+        ],
       },
     ],
   },

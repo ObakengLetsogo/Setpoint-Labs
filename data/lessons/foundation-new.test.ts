@@ -119,3 +119,60 @@ describe("new foundation lessons pass their own checkpoints", () => {
     expect(b.done()).toBe(true);
   });
 });
+
+describe("pneumatics and HMI lessons", () => {
+  it("one cylinder out and home", () => {
+    const b = bench("f-pneu-air");
+    tap(b, "startPressed");
+    b.run(1500);
+    expect(b.mem().Run_Lamp).toBe(true);
+    tap(b, "stopPressed");
+    b.run(1500);
+    expect(b.done()).toBe(true);
+  });
+
+  it("a full A+ B+ B- A- cycle", () => {
+    const b = bench("f-pneu-seq");
+    tap(b, "startPressed");
+    b.run(6000);
+    expect(b.phys().cycles).toBe(1);
+    expect(b.mem().Step).toBe(0);
+    expect(b.done()).toBe(true);
+  });
+
+  it("the sequence waits on a missing sensor", () => {
+    const b = bench("f-pneu-seq");
+    b.run(300, { startPressed: true }, { reedA: true });
+    b.run(5000, { startPressed: false });
+    expect(b.mem().Step).toBe(1);
+  });
+
+  it("screen start and stop", () => {
+    const b = bench("f-hmi-what");
+    tap(b, "hmiStart");
+    expect(b.mem().Run_Lamp).toBe(true);
+    tap(b, "hmiStop");
+    expect(b.done()).toBe(true);
+  });
+
+  it("status for the screen", () => {
+    const b = bench("f-hmi-screen");
+    tap(b, "hmiStart");
+    b.run(40000);
+    expect(b.done()).toBe(true);
+  });
+
+  it("alarm raise, acknowledge, clear", () => {
+    const b = bench("f-hmi-alarms");
+    tap(b, "hmiStart");
+    b.run(30000, {}, { valveStuck: true });
+    expect(b.mem().Alarm_Lamp).toBe(true);
+    tap(b, "hmiAck");
+    expect(b.mem().Alarm_Acked).toBe(true);
+    b.run(100, {}, { valveStuck: false });
+    tap(b, "hmiStop");
+    b.run(60000, { demand: 1 });
+    expect(b.mem().Alarm_Lamp).toBeFalsy();
+    expect(b.done()).toBe(true);
+  });
+});

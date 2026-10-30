@@ -371,4 +371,134 @@ export const TEACH_FOUNDATION_NEW: Record<string, LessonTeach> = {
     ],
     words: [...BASE, { term: "Upload", meaning: "Copying the program from the PLC to the laptop." }, { term: "Backup", meaning: "A saved copy of a working program, kept off the laptop too." }, { term: "Version", meaning: "A number that names each change of a program." }],
   },
+
+  "f-pneu-air": {
+    goal: "Know how compressed air moves a cylinder, and send one out and home from the PLC.",
+    learn: ["compressor and receiver", "the FRL unit", "5/2 single solenoid valve", "double acting cylinder", "reed switches"],
+    wires: [1, 2, 3, 4, 6, 7, 8],
+    steps: [
+      "Switch the PLC to RUN.",
+      "Tap Start. Y1 energises and cylinder A goes out. When it reaches the end, its reed switch lights the cycle lamp.",
+      "Tap Stop. Y1 releases and the spring in the valve sends A home.",
+      "Turn the air off at the FRL from its popover and tap Start. Air_OK is 0, so nothing happens.",
+      "Now think: if the program did not check Air_OK, the valve would switch and the cylinder would not move. The reed switch would tell you.",
+    ],
+    between: ["Dump the air before you touch a cylinder.", ...BETWEEN],
+    tour: [
+      { kicker: "Scene 1 of 3 · The air", title: "From compressor to valve", lines: [2, 2], lead: "Start only sends A out when the pressure switch says the air is on.", body: "The compressor fills a receiver. The FRL filters the air, sets it to about 6 bar and adds a little oil.", handsTo: ["Start_PB", "Air_OK"] },
+      { kicker: "Scene 2 of 3 · The valve", title: "One coil, one spring", lines: [4, 4], lead: "A_Extend energises Y1 and A goes out.", body: "A 5/2 valve has five ports and two positions. With one solenoid, a spring returns it when the coil drops out.", precise: "Lose power and a single solenoid valve goes back to its rest position. Designers choose that rest position so the machine is safe.", handsTo: ["A_Extend"] },
+      { kicker: "Scene 3 of 3 · The proof", title: "Reed switches", lines: [5, 5], lead: "A_End closes when the magnet in the piston reaches it.", body: "The output only says what the PLC asked for. The reed switch says what the cylinder actually did.", handsTo: ["A_End", "Run_Lamp"] },
+    ],
+    story: [
+      { t: "Start", text: "Air is on, so A_Out latches and Y1 energises." },
+      { t: "moving", text: "Air pushes the piston out. A_Home opens." },
+      { t: "A_End", text: "The magnet reaches the end switch: the cycle lamp lights." },
+      { t: "Stop", text: "A_Out unlatches, Y1 drops out and the spring sends A home." },
+    ],
+    words: [...BASE, { term: "FRL", meaning: "Filter, regulator and lubricator: cleans the air and sets its pressure." }, { term: "5/2 valve", meaning: "A valve with five ports and two positions, used to drive a double acting cylinder." }, { term: "Reed switch", meaning: "A switch on the cylinder barrel that closes when the piston's magnet is beside it." }],
+  },
+
+  "f-pneu-seq": {
+    goal: "Run an A+ B+ B- A- sequence where each move waits for the sensor of the one before.",
+    learn: ["sequence notation", "step numbers", "double solenoid valves", "waiting on sensors", "counting cycles"],
+    wires: [1, 2, 3, 4, 5, 6, 7, 8],
+    steps: [
+      "Switch the PLC to RUN with parts in the magazine.",
+      "Tap Start. Watch Step in the code card go 1, 2, 3, 4 and back to 0.",
+      "Watch the cylinders: A pushes the part under the press, B comes down, goes up, then A comes home.",
+      "Use A's end switch fault from its popover. Start again: the sequence waits at step 1 and nothing else moves.",
+      "Clear the fault. Cycles.ACC counts each finished cycle.",
+    ],
+    between: BETWEEN,
+    tour: [
+      { kicker: "Scene 1 of 4 · Ready", title: "Step 0 is home", lines: [2, 2], lead: "A cycle starts only with air, a part and both cylinders home.", body: "These checks are called start conditions. Every machine sequence has them.", handsTo: ["Start_PB", "Part_In", "A_Home", "B_Home"] },
+      { kicker: "Scene 2 of 4 · Waiting", title: "Move, then prove", lines: [3, 5], lead: "Each step moves on only when the reed switch of its move closes.", body: "If a cylinder sticks, the sequence stops on that step. The step number tells you where to look.", handsTo: ["Step", "A_End", "B_End"] },
+      { kicker: "Scene 3 of 4 · Outputs", title: "Decided by the step", lines: [9, 11], lead: "The outputs look only at Step.", body: "Keeping moves and step changes in separate rungs makes the program easy to read and to fault find.", precise: "B uses a double solenoid valve. It stays where it was sent when both coils are off, so B_Extend and B_Retract are each on for one step.", handsTo: ["A_Extend", "B_Extend", "B_Retract"] },
+      { kicker: "Scene 4 of 4 · Done", title: "Count and go home", lines: [6, 8], lead: "A home at step 4 counts the cycle and returns to step 0.", body: "Stop sends the sequence back to step 0 at any time.", handsTo: ["Cycles"] },
+    ],
+    story: [
+      { t: "Step 1, A+", text: "A pushes a part out of the magazine." },
+      { t: "Step 2, B+", text: "B comes down to press it." },
+      { t: "Step 3, B-", text: "B goes back up." },
+      { t: "Step 4, A-", text: "A comes home, the cycle is counted, and Step returns to 0." },
+    ],
+    words: [...BASE, { term: "A+ / A-", meaning: "Cylinder A out / cylinder A home." }, { term: "Step", meaning: "A number that says which move of the sequence is happening." }, { term: "Double solenoid", meaning: "A valve with a coil each side. It stays where it was last sent." }],
+  },
+
+  "f-hmi-what": {
+    goal: "Know what an HMI and SCADA are, and run a process from a screen.",
+    learn: ["HMI", "SCADA", "screen tags", "screen buttons are not safety devices", "common products"],
+    wires: [1, 2, 3, 5, 6, 7],
+    steps: [
+      "Switch the PLC to RUN.",
+      "Touch START on the screen. AUTO shows and the inlet opens.",
+      "Watch the level bar and the trend on the screen follow the tank.",
+      "Touch STOP on the screen. The process stops, exactly like the panel Stop.",
+      "Try starting from the panel and stopping from the screen. The program does not care where the bit came from.",
+    ],
+    between: ["The screen writes bits; the program decides.", ...BETWEEN],
+    tour: [
+      { kicker: "Scene 1 of 3 · The screen", title: "A window into the PLC", lines: [2, 2], lead: "HMI_Start is a bit the screen writes while you touch it.", body: "The HMI reads tags to draw the picture and writes tags when you press. It holds no machine logic itself.", handsTo: ["HMI_Start", "HMI_Stop"] },
+      { kicker: "Scene 2 of 3 · Two ways in", title: "Panel or screen", lines: [2, 2], lead: "Either Start works, and either Stop stops.", body: "The panel Stop is wired NC and is the one you trust. A screen can freeze or lose its link.", precise: "Screen buttons must never be the only way to stop. E-stops and safety stops stay hard wired.", handsTo: ["Start_PB", "Stop_PB"] },
+      { kicker: "Scene 3 of 3 · SCADA", title: "The whole plant", lines: [3, 3], lead: "The fill rung runs no matter which screen started it.", body: "SCADA in a control room reads many PLCs, logs history and raises alarms for a whole plant, such as a water works.", handsTo: ["Inlet_Valve"] },
+    ],
+    story: [
+      { t: "touch", text: "The HMI writes HMI_Start = 1 while your finger is on it." },
+      { t: "scan", text: "The PLC sees the bit and seals in Run_Lamp." },
+      { t: "show", text: "The HMI reads Run_Lamp and shows AUTO." },
+    ],
+    words: [...BASE, { term: "HMI", meaning: "Human machine interface: the operator screen at a machine." }, { term: "SCADA", meaning: "Supervisory control and data acquisition: software that watches a whole plant." }, { term: "Screen tag", meaning: "A PLC tag the HMI reads or writes." }],
+  },
+
+  "f-hmi-screen": {
+    goal: "Show the state of a process clearly, using a status number the screen turns into words.",
+    learn: ["status words", "MOV", "later rungs win", "clear colour use", "ISA-101 idea"],
+    wires: [1, 2, 3, 5, 6, 7],
+    steps: [
+      "Switch the PLC to RUN. Status reads 0.",
+      "Touch START. Status becomes 1 while the inlet is open.",
+      "Wait for the high float. Status becomes 2.",
+      "Stop. Status goes back to 0.",
+      "Think of a status 3, such as alarm. Where would its rung go so it wins over the others?",
+    ],
+    between: BETWEEN,
+    tour: [
+      { kicker: "Scene 1 of 3 · Default", title: "Start at zero", lines: [4, 4], lead: "Every scan, Status is first set to 0.", body: "Then later rungs overwrite it if something else is true.", handsTo: ["Status"] },
+      { kicker: "Scene 2 of 3 · Filling", title: "One number, one meaning", lines: [5, 5], lead: "Auto and the inlet open make Status 1.", body: "The screen turns 1 into FILLING. Changing the words never touches the PLC.", handsTo: ["Inlet_Valve"] },
+      { kicker: "Scene 3 of 3 · Full", title: "Later rungs win", lines: [6, 6], lead: "At the high float Status becomes 2.", body: "If two rungs write the same word, the last one in the scan decides.", precise: "Good screens are mostly grey. Colour is kept for things that need the operator, so they stand out.", handsTo: ["Float_High"] },
+    ],
+    story: [
+      { t: "0", text: "Stopped: grey." },
+      { t: "1", text: "Filling: the valve shows open." },
+      { t: "2", text: "Full: the high float is covered." },
+    ],
+    words: [...BASE, { term: "Status word", meaning: "A number the program writes so the screen can show a state." }, { term: "MOV", meaning: "Copies a value into a word." }, { term: "ISA-101", meaning: "A standard for operator screens: calm, grey, colour only for what matters." }],
+  },
+
+  "f-hmi-alarms": {
+    goal: "Raise, acknowledge and clear an alarm, and read the trend.",
+    learn: ["alarm delay", "latching alarms", "acknowledge", "clear with hysteresis", "trends"],
+    wires: [1, 2, 3, 5, 6, 7, 8],
+    steps: [
+      "Switch the PLC to RUN and touch START.",
+      "Make the inlet valve stick open from its popover. Watch the level pass 85 % on the trend.",
+      "After 2 s the alarm flashes on the screen and the alarm lamp lights.",
+      "Touch ACK. The banner goes steady: someone has seen it.",
+      "Clear the valve fault and stop. When the level falls below 80 % the alarm clears.",
+    ],
+    between: ["An alarm needs an action. If it needs none, it should not be an alarm.", ...BETWEEN],
+    tour: [
+      { kicker: "Scene 1 of 4 · Raise", title: "Above 85 % for 2 s", lines: [4, 5], lead: "The level must stay high for 2 s before the alarm latches.", body: "The delay stops a ripple on the surface raising and dropping the alarm many times.", handsTo: ["Level_Raw", "Alarm_Active"] },
+      { kicker: "Scene 2 of 4 · Acknowledge", title: "Someone has seen it", lines: [6, 6], lead: "ACK from the screen sets Alarm_Acked.", body: "Acknowledging does not fix anything. It only says an operator knows.", handsTo: ["HMI_Ack", "Alarm_Acked"] },
+      { kicker: "Scene 3 of 4 · Clear", title: "Acknowledged and gone", lines: [7, 8], lead: "It clears below 80 %, not 85 %.", body: "The gap between raise and clear is hysteresis. Without it the alarm would chatter at the limit.", handsTo: ["Alarm_Active"] },
+      { kicker: "Scene 4 of 4 · Show", title: "Lamp and banner", lines: [9, 9], lead: "The lamp and the banner follow the alarm.", body: "The trend shows how the level got there, which often tells you why.", precise: "Too many alarms are as bad as none. Operators stop reading them.", handsTo: ["Alarm_Lamp"] },
+    ],
+    story: [
+      { t: "high", text: "The level passes 85 % and stays there for 2 s." },
+      { t: "flashing", text: "Unacknowledged: the banner flashes red." },
+      { t: "ACK", text: "Acknowledged: the banner goes steady." },
+      { t: "clear", text: "Below 80 % and acknowledged: the alarm clears." },
+    ],
+    words: [...BASE, { term: "Acknowledge", meaning: "Telling the system an operator has seen an alarm." }, { term: "Hysteresis", meaning: "A gap between the raise and clear limits so a signal does not chatter." }, { term: "Trend", meaning: "A graph of a value over time." }],
+  },
 };
