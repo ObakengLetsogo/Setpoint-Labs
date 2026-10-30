@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { CURRICULUM, STAGES, type Track } from "@/data/curriculum";
-import { LEVEL_NAMES, LEVELS } from "@/config/plans";
+import { LEVEL_NAMES, LEVELS, type Level } from "@/config/plans";
 import { catalog as lessons } from "@/data/catalog";
 import type { LessonIcon } from "@/data/types";
 import { useSim } from "@/store/sim";
@@ -182,10 +182,13 @@ function TrackSection({ track, nodes, activeId, open, onToggle, onOpen }: { trac
   );
 }
 
+/** A stable empty list: a new [] on every render would make the store selector loop. */
+const NO_LEVELS: Level[] = [];
+
 export function LabTrack({ onOpen }: { onOpen: (id: string) => void }) {
   const completed = useSim((s) => s.completed);
   const ran = useSim((s) => s.ranLessons);
-  const levels = useSim((s) => s.account?.levels ?? []);
+  const levels = useSim((s) => s.account?.levels ?? NO_LEVELS);
   const lessonId = useSim((s) => s.lessonId);
   const activeTrack = lessons.find((l) => l.id === lessonId)?.trackId;
   const [openTracks, setOpenTracks] = useState<Record<string, boolean>>({});

@@ -10,6 +10,7 @@ import { hmi } from "./hmi";
 import { pid } from "./pid";
 import { instruments } from "./instruments";
 import { mcc } from "./mcc";
+import { safety } from "./safety";
 import type { RigDef } from "./types";
 
 /** Every rig that is built. A lesson on a rig missing here stays planned. */
@@ -31,6 +32,7 @@ export const RIGS: Partial<Record<RigId, RigDef>> = {
   pid,
   instruments,
   mcc,
+  safety,
 };
 
 export const rigFor = (id: RigId | undefined): RigDef => (id && RIGS[id]) || motorStarter;

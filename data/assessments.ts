@@ -158,6 +158,30 @@ export const ASSESSMENTS: AssessmentBrief[] = [
     ],
     starter: STARTER(["Platform tours assessment: start counter for maintenance."]),
   },
+  {
+    trackId: "safety-systems",
+    title: "The cell's safety program",
+    rig: "safety",
+    brief: "Write the safety program for the guarded cell: two channel inputs, a monitored reset, contactor feedback and a discrepancy check.",
+    requirements: [
+      "With every safety input healthy and K_FB on, releasing Reset_PB turns F_K1 and F_K2 on.",
+      "A Reset_PB held down does nothing until it is released.",
+      "The E-stop, the door or the light curtain opening turns F_K1 and F_K2 off.",
+      "Closing a guard again does not turn them back on without a new reset.",
+      "Reset is refused unless K_FB proves both contactors are open.",
+      "If ES_A and ES_B disagree for more than half a second, latch F_Disc and keep the outputs off until both channels have opened and Reset is pressed again.",
+    ],
+    io: [
+      ["ES_A, ES_B", "I0.3, I0.4: E-stop channels, 1 when released"],
+      ["Door_A, Door_B", "I0.5, I0.6: door channels, 1 when closed"],
+      ["LC_OSSD1, LC_OSSD2", "I0.7, I1.0: light curtain, 1 when clear"],
+      ["K_FB", "I1.1: both contactors open"],
+      ["Reset_PB", "I0.2: safety reset"],
+      ["F_K1, F_K2", "Safety outputs to the contactors"],
+      ["F_Disc", "Discrepancy fault, latched"],
+    ],
+    starter: STARTER(["Safety Systems assessment: the cell's safety program."]),
+  },
 ];
 
 export const assessmentFor = (trackId: string) => ASSESSMENTS.find((a) => a.trackId === trackId);

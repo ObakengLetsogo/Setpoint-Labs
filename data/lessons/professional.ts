@@ -632,3 +632,274 @@ export const PRO_MOTORS: Record<string, LessonContent> = {
     ],
   },
 };
+
+/* ------------------------------------------------------------- safety */
+
+const SF = {
+  start: io("I0.0", "Start_PB", "#2e9e5b", "Start pushbutton", "Standard input"),
+  stop: io("I0.1", "Stop_PB", "#d64545", "Stop pushbutton", "Operational stop, NC"),
+  reset: io("I0.2", "Reset_PB", "#2457a6", "Safety reset", "Acts on release"),
+  esA: io("I0.3", "ES_A", "#c9a227", "E-stop channel A", "1 when released"),
+  esB: io("I0.4", "ES_B", "#c9a227", "E-stop channel B", "1 when released"),
+  doorA: io("I0.5", "Door_A", "#c9a227", "Door channel A", "1 when closed"),
+  doorB: io("I0.6", "Door_B", "#c9a227", "Door channel B", "1 when closed"),
+  lc1: io("I0.7", "LC_OSSD1", "#c9a227", "Light curtain OSSD 1", "1 when clear"),
+  lc2: io("I1.0", "LC_OSSD2", "#c9a227", "Light curtain OSSD 2", "1 when clear"),
+  kfb: io("I1.1", "K_FB", "#2457a6", "K1 and K2 mirror contacts", "1 when both contactors are open"),
+  relayOk: io("I1.2", "Relay_OK", "#2457a6", "Safety relay status", "1 when its outputs are on"),
+  relayFault: io("I1.3", "Relay_Fault", "#d64545", "Safety relay diagnostic", "1 on a channel fault"),
+  sto: io("I1.4", "STO_Active", "#2457a6", "Drive STO feedback", "1 when torque is off"),
+  speed: io("IW64", "Motor_Speed", "#6b4fa0", "Drive actual speed", "0 to 100 %"),
+  coast: io("I1.5", "Coast_Stop", "#d64545", "Drive coast flag", "Torque removed above 5 %"),
+  run: io("Q0.0", "Drive_Run", "#2457a6", "Drive run", "Standard command"),
+  runLamp: io("Q0.1", "Run_Lamp", "#2e9e5b", "Run lamp", "Green"),
+  safeLamp: io("Q0.2", "Safety_Lamp", "#2457a6", "Reset required lamp", "Blue"),
+  fk1: io("F-Q0.0", "F_K1", "#c9a227", "Safety output to K1", "Safety PLC"),
+  fk2: io("F-Q0.1", "F_K2", "#c9a227", "Safety output to K2", "Safety PLC"),
+  fsto: io("F-Q0.2", "F_STO", "#c9a227", "Safety output to drive STO", "1 enables torque"),
+  fqs: io("F-Q0.3", "F_QS", "#c9a227", "Safety output to drive quick stop", "1 ramps down fast"),
+};
+
+const STD_RELAY = [
+  "RUNG 1: (XIC(Start_PB) OR XIC(Run_Cmd)) AND XIC(Stop_PB) AND XIC(Relay_OK) OTE(Run_Cmd)",
+  "RUNG 2: XIC(Run_Cmd) OTE(Drive_Run)",
+  "RUNG 3: XIO(Relay_OK) OTE(Safety_Lamp)",
+  "RUNG 4: GRT(Motor_Speed, 2) OTE(Run_Lamp)",
+];
+
+const F_PROGRAM = [
+  "// F-program: dual channel inputs, discrepancy and a monitored reset.",
+  "RUNG 1: XIC(ES_A) XIC(ES_B) XIC(Door_A) XIC(Door_B) XIC(LC_OSSD1) XIC(LC_OSSD2) OTE(F_Chain_OK)",
+  "RUNG 2: (XIC(ES_A) XIO(ES_B)) OR (XIO(ES_A) XIC(ES_B)) TON(F_Disc_T, 200)",
+  "RUNG 3: XIC(F_Disc_T.DN) OTL(F_Disc)",
+  "RUNG 4: XIO(ES_A) XIO(ES_B) OTU(F_Disc)",
+  "RUNG 5: XIC(F_Chain_OK) XIO(F_Disc) XIC(K_FB) XIO(Reset_PB) XIC(F_Rst_Prev) OTL(F_Enable)",
+  "RUNG 6: XIC(Reset_PB) OTE(F_Rst_Prev)",
+  "RUNG 7: XIO(F_Chain_OK) OTU(F_Enable)",
+  "RUNG 8: XIC(F_Disc) OTU(F_Enable)",
+  "RUNG 9: XIC(F_Enable) OTE(F_K1) OTE(F_K2)",
+  "// Standard program: it reads the safety signals and never writes them.",
+  "RUNG 10: (XIC(Start_PB) OR XIC(Run_Cmd)) AND XIC(Stop_PB) AND XIC(F_Enable) OTE(Run_Cmd)",
+  "RUNG 11: XIC(Run_Cmd) OTE(Drive_Run)",
+  "RUNG 12: XIO(F_Enable) OTE(Safety_Lamp)",
+  "RUNG 13: GRT(Motor_Speed, 2) OTE(Run_Lamp)",
+];
+
+const F_STEPS = [
+  { line: 2, text: "Every safety input, both channels, in series: the chain is OK only if all are healthy." },
+  { line: 3, text: "If the two E-stop channels disagree for 200 ms, one is faulty." },
+  { line: 4, text: "Latch the discrepancy so it cannot be missed." },
+  { line: 5, text: "It clears only when both channels have opened, proving neither is shorted." },
+  { line: 6, text: "Enable on the release of Reset, with the chain healthy, no discrepancy and both contactors proved open." },
+  { line: 8, text: "Any break in the chain removes the enable." },
+  { line: 10, text: "The safety outputs follow the enable." },
+  { line: 12, text: "The standard program only asks to run while the safety system allows it." },
+];
+
+export const PRO_SAFETY: Record<string, LessonContent> = {
+  "p-safe-law": {
+    difficulty: "intermediate",
+    checkpoint: {
+      steps: [(m) => Boolean(m.Run_Lamp), (_m, i) => !i.Door_A && Number(i.Motor_Speed) === 0 && !i.Relay_OK, (m, i) => Boolean(i.Door_A) && Boolean(m.Run_Lamp)],
+      message: "ran the cell, saw the door stop it through the safety relay, then reset and restarted it deliberately",
+    },
+    summary:
+      "In South Africa the Occupational Health and Safety Act and its Driven Machinery Regulations make the employer responsible for safe machinery. The method is a risk assessment: find each hazard, judge its risk, and reduce it with guards and safety functions that are as reliable as the risk requires. ISO 13849 calls that required reliability the performance level, PLr, from a to e. This cell's safety functions are built to PL d. The standard program only asks to run; the safety relay decides.",
+    facts: [
+      { icon: "press", text: "Press Reset, then Start. The machine runs." },
+      { icon: "shield", text: "Open the door. The safety relay drops its outputs, the contactors open and the machine stops." },
+      { icon: "info", text: "Closing the door does not restart it. A reset, then a Start, is a deliberate act: no surprise restarts." },
+    ],
+    io: [SF.start, SF.stop, SF.reset, SF.doorA, SF.relayOk, SF.speed, SF.run, SF.runLamp, SF.safeLamp],
+    steps: [
+      { line: 2, text: "The standard program runs only while the safety relay is on." },
+      { line: 3, text: "It is a request. The relay's own outputs switch the power, whatever the program says." },
+      { line: 4, text: "Blue: the safety system needs a reset." },
+      { line: 5, text: "The run lamp follows the real speed, not the request." },
+    ],
+    code: ["// Standard program: it only asks. The safety relay decides.", ...STD_RELAY],
+    specs: [
+      { label: "Law", value: "OHS Act, Driven Machinery Regs" },
+      { label: "Standard", value: "ISO 13849-1" },
+      { label: "This cell", value: "PL d, category 3" },
+      { label: "Level", value: "Intermediate" },
+    ],
+  },
+
+  "p-safe-relay": {
+    difficulty: "intermediate",
+    checkpoint: {
+      steps: [
+        (_m, i) => !i.ES_A && !i.ES_B && Number(i.Motor_Speed) === 0,
+        (_m, i, f) => Boolean(f.esShort) && Boolean(i.Relay_Fault),
+        (m, i, f) => Boolean(f.weldK2) && Boolean(i.ES_A) && Boolean(i.ES_B) && Boolean(m.Reset_Tried) && !i.Relay_OK && !i.Reset_PB,
+        (m, _i, f) => !f.weldK2 && Boolean(m.Run_Lamp),
+      ],
+      message: "stopped with the E-stop, saw the relay catch a shorted channel and refuse to reset over a welded contactor",
+    },
+    summary:
+      "A safety relay watches two channels from every safety device. Two channels mean one failed wire cannot hide a stop. It cross-checks them, so a short on one channel is found the next time the E-stop is pressed. It resets only when Reset is released, so a jammed button cannot reset it. And it checks the mirror contacts of its two contactors: if one has welded shut, it will not reset at all.",
+    facts: [
+      { icon: "press", text: "Reset, Start, then press the E-stop. Both channels open and the machine stops." },
+      { icon: "bolt", text: "Short channel B, then press the E-stop again: the channels disagree and the relay locks out with a channel fault." },
+      { icon: "bolt", text: "Clear that. Weld K2, then stop and try to reset: K2's mirror contact shows it is still closed, so the relay refuses." },
+    ],
+    io: [SF.start, SF.stop, SF.reset, SF.esA, SF.esB, SF.kfb, SF.relayOk, SF.relayFault, SF.speed, SF.run, SF.runLamp, SF.safeLamp],
+    steps: [
+      { line: 2, text: "Run only while the relay is on." },
+      { line: 6, text: "The relay's diagnostic output tells the program which kind of fault it is." },
+      { line: 7, text: "Remember a reset attempt that did not work, for the operator screen." },
+      { line: 8, text: "Forget it once the relay comes on." },
+    ],
+    code: [
+      "// The relay does the safety. The program reports what it sees.",
+      ...STD_RELAY,
+      "RUNG 5: XIC(Relay_Fault) OTE(Chan_Fault)",
+      "RUNG 6: XIC(Reset_PB) XIO(Relay_OK) OTL(Reset_Tried)",
+      "RUNG 7: XIC(Relay_OK) OTU(Reset_Tried)",
+    ],
+    specs: [
+      { label: "Channels", value: "Two, cross monitored" },
+      { label: "Reset", value: "Monitored, on release" },
+      { label: "Feedback", value: "Mirror contacts, EDM" },
+      { label: "Level", value: "Intermediate" },
+    ],
+  },
+
+  "p-safe-guards": {
+    difficulty: "advanced",
+    checkpoint: {
+      steps: [(m, i) => !i.LC_OSSD1 && Number(i.Motor_Speed) === 0 && Number(m.Stop_ms) > 0, (m) => Number(m.Safe_mm) > 1500],
+      message: "measured the machine's stopping time and worked out how far the light curtain must be from the hazard",
+    },
+    summary:
+      "Guards keep people out; interlocks stop the machine when a guard opens; a light curtain stops it when a hand goes through. But a curtain only works if the machine stops before the hand gets there. ISO 13855 gives the safe distance: S = K × T + C, with an approach speed K of 2000 mm/s, T the total stopping time, and C an allowance for the curtain's resolution. This program measures the stopping time and does the sum.",
+    facts: [
+      { icon: "press", text: "Reset, Start and let the machine reach full speed. Then reach through the curtain." },
+      { icon: "watch", text: "Stop_ms records how long the machine took to stop. Safe_mm is the distance the curtain must be from the hazard." },
+      { icon: "shield", text: "Bridging the door switch defeats it, and no program can see that. Defeating a guard is a criminal offence under the OHS Act." },
+    ],
+    io: [SF.start, SF.stop, SF.reset, SF.doorA, SF.lc1, SF.lc2, SF.relayOk, SF.speed, SF.run, SF.runLamp, SF.safeLamp],
+    steps: [
+      { line: 6, text: "Which guard stopped it: the door or the curtain." },
+      { line: 8, text: "Time from the relay dropping out until the machine stands still." },
+      { line: 9, text: "Hold the last measurement." },
+      { line: 10, text: "T is the stop time plus the curtain's own 20 ms. 2000 mm/s is 2 mm per ms. C is 128 mm for a 30 mm curtain." },
+    ],
+    code: [
+      "// Measure the stopping time and work out the safe distance, ISO 13855.",
+      ...STD_RELAY,
+      "RUNG 5: XIO(Door_A) OTE(Door_Msg)",
+      "RUNG 6: XIO(LC_OSSD1) OTE(Curtain_Msg)",
+      "RUNG 7: XIO(Relay_OK) GRT(Motor_Speed, 0) TON(Stop_T, 10000)",
+      "RUNG 8: XIC(Stop_T.TT) MOV(Stop_T.ACC, Stop_ms)",
+      "RUNG 9: ADD(Stop_ms, 20, T_ms) MUL(T_ms, 2, T_mm) ADD(T_mm, 128, Safe_mm)",
+    ],
+    specs: [
+      { label: "Formula", value: "S = K × T + C" },
+      { label: "K", value: "2000 mm/s" },
+      { label: "Curtain", value: "30 mm, 20 ms, C = 128 mm" },
+      { label: "Level", value: "Advanced" },
+    ],
+  },
+
+  "p-fplc-basics": {
+    difficulty: "advanced",
+    checkpoint: {
+      steps: [(m) => Boolean(m.Run_Lamp), (m, _i, f) => Boolean(f.esShort) && Boolean(m.F_Disc) && !m.F_K1, (m, _i, f) => !f.esShort && !m.F_Disc && Boolean(m.Run_Lamp)],
+      message: "ran the cell from a safety program, caught an E-stop channel fault with the discrepancy check and recovered",
+    },
+    summary:
+      "A safety PLC runs two programs in one CPU: the normal one, and a separate, protected safety program with its own signature, written with a restricted set of instructions and checked by the CPU twice over. Here the safety program does what the relay did: two channels, a discrepancy check, a monitored reset and contactor feedback. The standard program can read safety signals, but must never write them.",
+    facts: [
+      { icon: "press", text: "Reset, then Start. The F-program enables the contactors; the standard program runs the drive." },
+      { icon: "bolt", text: "Short E-stop channel B and press the E-stop. After 200 ms the discrepancy latches and the contactors open." },
+      { icon: "info", text: "Clear the short with the E-stop still pressed: both channels open and the discrepancy clears. Release, reset, start." },
+    ],
+    io: [SF.start, SF.stop, SF.reset, SF.esA, SF.esB, SF.doorA, SF.doorB, SF.lc1, SF.lc2, SF.kfb, SF.speed, SF.run, SF.fk1, SF.fk2, SF.runLamp, SF.safeLamp],
+    steps: F_STEPS,
+    code: F_PROGRAM,
+    specs: [
+      { label: "Programs", value: "Safety and standard, separate" },
+      { label: "Inputs", value: "Dual channel, 200 ms discrepancy" },
+      { label: "Platforms", value: "S7-1500F, GuardLogix" },
+      { label: "Level", value: "Advanced" },
+    ],
+  },
+
+  "p-fplc-validate": {
+    difficulty: "advanced",
+    checkpoint: {
+      steps: [
+        (m, i) => !i.ES_A && !i.ES_B && !m.F_K1 && Number(i.Motor_Speed) === 0,
+        (m, i) => !i.Door_A && !m.F_K1 && Number(i.Motor_Speed) === 0,
+        (m, i) => !i.LC_OSSD1 && !m.F_K1 && Number(i.Motor_Speed) === 0,
+        (m, _i, f) => Boolean(f.esShort) && Boolean(m.F_Disc),
+        (m, i, f) => Boolean(f.weldK2) && !i.K_FB && Boolean(m.Reset_Tried) && !m.F_Enable,
+        (m, _i, f) => !f.esShort && !f.weldK2 && Boolean(m.Run_Lamp),
+      ],
+      message: "validated every safety function and every fault reaction, in order, and returned the cell to service",
+    },
+    summary:
+      "A safety function is not finished until it is validated: each function is tested against the risk assessment, and each fault the design claims to detect is injected to prove it is detected. The results go on a signed validation record. Work through the list in order: E-stop, door, light curtain, a shorted channel, a welded contactor, then return the cell to service.",
+    facts: [
+      { icon: "shield", text: "1 E-stop, 2 door, 3 light curtain: each must stop the machine and open the contactors." },
+      { icon: "bolt", text: "4 short E-stop channel B: the discrepancy must be detected. 5 weld K2 and stop: the reset must be refused." },
+      { icon: "info", text: "6 clear the faults and return to service. Each step ticks off as you prove it." },
+    ],
+    io: [SF.start, SF.stop, SF.reset, SF.esA, SF.esB, SF.doorA, SF.doorB, SF.lc1, SF.lc2, SF.kfb, SF.speed, SF.run, SF.fk1, SF.fk2, SF.runLamp, SF.safeLamp],
+    steps: [...F_STEPS, { line: 16, text: "Record a reset that was refused, for the validation sheet." }],
+    code: [...F_PROGRAM, "RUNG 14: XIC(Reset_PB) XIO(F_Enable) OTL(Reset_Tried)", "RUNG 15: XIC(F_Enable) OTU(Reset_Tried)"],
+    specs: [
+      { label: "Functions", value: "E-stop, door, curtain" },
+      { label: "Faults", value: "Short, welded contactor" },
+      { label: "Record", value: "Signed validation sheet" },
+      { label: "Level", value: "Advanced" },
+    ],
+  },
+
+  "p-sto": {
+    difficulty: "advanced",
+    checkpoint: {
+      steps: [(m, i) => Boolean(m.F_QS) && Number(i.Motor_Speed) > 0 && !i.STO_Active, (m, i) => Boolean(m.F_QS) && Boolean(i.STO_Active) && Number(i.Motor_Speed) === 0 && !i.Coast_Stop],
+      message: "stopped the machine under control first, then removed torque with STO: safe stop 1",
+    },
+    summary:
+      "Opening contactors removes power at once, and a heavy machine coasts. Safe torque off (STO) is a drive input that removes torque safely without breaking the motor's supply. Used well, it is the second half of safe stop 1 (SS1): the safety PLC first tells the drive to ramp down quickly, then, after a set time, removes torque. The machine stops faster and under control, and the drive does not lose power.",
+    facts: [
+      { icon: "press", text: "Reset, Start, full speed. Then open the door." },
+      { icon: "watch", text: "F_QS ramps the drive down in under a second; 1.5 s after the stop demand F_STO removes torque. Coast_Stop stays off." },
+      { icon: "bolt", text: "Change the SS1 time to 300 ms and try again: torque goes while the machine is still turning, and it coasts." },
+    ],
+    io: [SF.start, SF.stop, SF.reset, SF.doorA, SF.esA, SF.lc1, SF.sto, SF.speed, SF.coast, SF.run, SF.fsto, SF.fqs, SF.fk1, SF.runLamp, SF.safeLamp],
+    steps: [
+      { line: 3, text: "Enable needs the drive to confirm STO is active first: the reset proves the STO circuit works." },
+      { line: 6, text: "A stop demand starts a quick stop at once." },
+      { line: 7, text: "And starts the SS1 timer." },
+      { line: 8, text: "Torque stays on until the timer ends, so the drive can brake. Then STO." },
+      { line: 9, text: "The supply contactors stay closed: STO does the stopping." },
+    ],
+    code: [
+      "// F-program: safe stop 1, a controlled stop, then safe torque off.",
+      "RUNG 1: XIC(ES_A) XIC(ES_B) XIC(Door_A) XIC(Door_B) XIC(LC_OSSD1) XIC(LC_OSSD2) OTE(F_Chain_OK)",
+      "RUNG 2: XIC(F_Chain_OK) XIC(STO_Active) XIO(Reset_PB) XIC(F_Rst_Prev) OTL(F_Enable)",
+      "RUNG 3: XIC(Reset_PB) OTE(F_Rst_Prev)",
+      "RUNG 4: XIO(F_Chain_OK) OTU(F_Enable)",
+      "RUNG 5: XIO(F_Enable) OTE(F_QS)",
+      "RUNG 6: XIO(F_Enable) TON(SS1_T, 1500)",
+      "RUNG 7: XIO(SS1_T.DN) OTE(F_STO)",
+      "RUNG 8: MOV(1, F_K1) MOV(1, F_K2)",
+      "// Standard program.",
+      "RUNG 9: (XIC(Start_PB) OR XIC(Run_Cmd)) AND XIC(Stop_PB) AND XIC(F_Enable) OTE(Run_Cmd)",
+      "RUNG 10: XIC(Run_Cmd) OTE(Drive_Run)",
+      "RUNG 11: XIO(F_Enable) OTE(Safety_Lamp)",
+      "RUNG 12: GRT(Motor_Speed, 2) OTE(Run_Lamp)",
+    ],
+    specs: [
+      { label: "Stop", value: "SS1: ramp, then STO" },
+      { label: "SS1 time", value: "1.5 s" },
+      { label: "STO", value: "IEC 61800-5-2" },
+      { label: "Level", value: "Advanced" },
+    ],
+  },
+};

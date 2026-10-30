@@ -8,6 +8,7 @@ const LOOP = [
   { term: "CV", meaning: "Control variable: the PID's output, here the valve opening." },
   { term: "Error", meaning: "The difference between SP and PV." },
 ];
+const SAFETY_BETWEEN = ["This simulator teaches the ideas. It is not a certified safety tool.", "Never test safety functions on live plant without a permit and a plan."];
 const BETWEEN = ["Stop the PLC before you change the program.", "Edits apply on the next Run.", "Change one tuning value at a time and watch the trend."];
 
 export const TEACH_PROFESSIONAL: Record<string, LessonTeach> = {
@@ -362,5 +363,157 @@ export const TEACH_PROFESSIONAL: Record<string, LessonTeach> = {
       { t: "idle stop", text: "20 s idle: the belt stops itself." },
     ],
     words: [{ term: "kW", meaning: "Power: how fast energy is used." }, { term: "kWh", meaning: "Energy: what the electricity bill counts." }, { term: "Power factor", meaning: "Real power divided by apparent power; 1.0 is ideal." }, { term: "Modbus", meaning: "A simple, common protocol for reading meters and instruments." }],
+  },
+
+  "p-safe-law": {
+    goal: "Know who is responsible for machine safety in South Africa, how risk is assessed, and what a safety function is.",
+    learn: ["OHS Act and Driven Machinery Regulations", "risk assessment", "performance levels", "safety functions", "no surprise restarts"],
+    wires: [1, 2, 3, 4, 7, 8, 12],
+    steps: [
+      "Switch the PLC to RUN. Press Reset: the blue lamp goes out. Press Start.",
+      "Open the door. The relay drops out, the contactors open and the machine stops.",
+      "Close the door. Nothing happens: the machine stays stopped.",
+      "Press Reset, then Start. Only now does it run again.",
+      "List the hazards of this cell, and for each one the guard or safety function that deals with it.",
+    ],
+    between: SAFETY_BETWEEN,
+    tour: [
+      { kicker: "Scene 1 of 3 · Responsibility", title: "The employer's duty", lines: [2, 2], lead: "The program asks to run only while the relay is on.", body: "The OHS Act makes the employer responsible for safe machinery, and the Driven Machinery Regulations set out how. Competent people design, install and inspect it.", handsTo: ["Relay_OK"] },
+      { kicker: "Scene 2 of 3 · The safety function", title: "Door opens, machine stops", lines: [3, 3], lead: "The relay's own contacts switch the power.", body: "A safety function is one job, like stop when the door opens, with a required reliability: its performance level, PLr, from the risk assessment.", precise: "ISO 13849-1 rates PLs from a to e. Most guard interlocks on machines like this need PL c or PL d.", handsTo: ["Drive_Run"] },
+      { kicker: "Scene 3 of 3 · Restart", title: "No surprises", lines: [4, 5], lead: "Blue means a reset is needed; green follows the real speed.", body: "A machine must never restart just because a guard closed. Reset, then Start: two deliberate actions.", handsTo: ["Safety_Lamp", "Run_Lamp"] },
+    ],
+    story: [
+      { t: "hazard", text: "A rotating arm that can strike anyone inside the fence." },
+      { t: "risk", text: "Severe injury, frequent access for loading: PLr d." },
+      { t: "measure", text: "Fence, interlocked door, light curtain, E-stop, safety relay." },
+      { t: "check", text: "Door opens: stop. Door closes: stays stopped." },
+    ],
+    words: [{ term: "Risk assessment", meaning: "Finding each hazard, judging its risk and choosing how to reduce it." }, { term: "Safety function", meaning: "A function whose failure would increase risk, like stopping when a guard opens." }, { term: "PLr", meaning: "Required performance level, a to e, from the risk assessment." }, { term: "OHS Act", meaning: "South Africa's Occupational Health and Safety Act, 85 of 1993." }],
+  },
+
+  "p-safe-relay": {
+    goal: "Understand how a safety relay finds wiring faults and welded contactors, and why it resets on release.",
+    learn: ["dual channels", "cross monitoring", "monitored reset", "contactor feedback (EDM)", "force guided contacts"],
+    wires: [1, 2, 3, 4, 5, 6, 11, 12],
+    steps: [
+      "Switch the PLC to RUN. Reset, Start, then press the E-stop. Release it, Reset, Start.",
+      "Short E-stop channel B from its popover. Press the E-stop: the relay shows a channel fault.",
+      "Clear the short, release, Reset, Start.",
+      "Weld K2 from the contactors' popover. Press the E-stop, release it and press Reset: refused.",
+      "Clear the weld (a new contactor), Reset and Start.",
+    ],
+    between: SAFETY_BETWEEN,
+    tour: [
+      { kicker: "Scene 1 of 3 · Two channels", title: "One fault is not enough", lines: [2, 2], lead: "The E-stop has two contacts, on two channels.", body: "If one wire shorts, the other still stops the machine, and the relay notices the two disagree.", handsTo: ["ES_A", "ES_B"] },
+      { kicker: "Scene 2 of 3 · Feedback", title: "Proving the contactors", lines: [6, 6], lead: "Mirror contacts close only when a contactor is truly open.", body: "Force guided contacts are mechanically linked: if the main contacts weld, the mirror contact cannot close. The relay sees that and will not reset.", handsTo: ["K_FB", "Relay_Fault"] },
+      { kicker: "Scene 3 of 3 · Reset", title: "On release", lines: [7, 8], lead: "The relay resets when Reset is let go, not when pressed.", body: "A button that is stuck, or taped down, can never reset the machine.", precise: "This is category 3 or 4 wiring in ISO 13849 terms: single faults are detected.", handsTo: ["Reset_Tried"] },
+    ],
+    story: [
+      { t: "E-stop", text: "Both channels open: outputs off." },
+      { t: "short", text: "Channel B stays closed: channel fault." },
+      { t: "weld", text: "K2 stays closed: mirror contact open, no reset." },
+    ],
+    words: [{ term: "Cross monitoring", meaning: "Checking that two channels always agree." }, { term: "EDM", meaning: "External device monitoring: checking the contactors' feedback." }, { term: "Mirror contact", meaning: "An auxiliary contact guaranteed to be open while the main contacts are closed." }, { term: "Monitored reset", meaning: "A reset that acts on release and checks the button is not stuck." }],
+  },
+
+  "p-safe-guards": {
+    goal: "Choose and place guards, interlocks and light curtains, and calculate a safe distance.",
+    learn: ["fixed and interlocked guards", "light curtains and OSSDs", "stopping time", "safe distance, ISO 13855", "defeating guards"],
+    wires: [1, 2, 3, 4, 7, 8, 9, 10, 12],
+    steps: [
+      "Switch the PLC to RUN. Reset, Start and wait for full speed.",
+      "Reach through the light curtain from its popover. The machine stops.",
+      "Read Stop_ms: about 900 ms for this machine to run down.",
+      "Read Safe_mm: the curtain must be about 2 m from the hazard. Too far? A brake shortens the stop.",
+      "Bridge the door switch and open the door: nothing stops it. That is why defeating a guard is an offence.",
+    ],
+    between: SAFETY_BETWEEN,
+    tour: [
+      { kicker: "Scene 1 of 3 · Which guard", title: "Door or curtain", lines: [6, 7], lead: "The program tells the operator which guard stopped the machine.", body: "Fixed guards need a tool to remove. Interlocked guards stop the machine when opened. Light curtains stop it when a beam is broken.", handsTo: ["Door_Msg", "Curtain_Msg"] },
+      { kicker: "Scene 2 of 3 · Stopping time", title: "How long to stop", lines: [8, 9], lead: "Time from the stop signal to standstill.", body: "Measure it at commissioning, and again at every inspection. Brakes wear, and stopping times grow.", handsTo: ["Stop_ms"] },
+      { kicker: "Scene 3 of 3 · Distance", title: "S = K × T + C", lines: [10, 10], lead: "A hand moves at 2000 mm/s.", body: "The curtain must be far enough away that the machine stops before a hand can reach it.", precise: "For a 30 mm curtain, C = 8 × (30 - 14) = 128 mm. If S works out over 500 mm, ISO 13855 recalculates with K = 1600 mm/s.", handsTo: ["Safe_mm"] },
+    ],
+    story: [
+      { t: "full speed", text: "The arm turns at 100 %." },
+      { t: "hand in", text: "The OSSDs drop; the relay opens the contactors." },
+      { t: "run down", text: "About 0.9 s to standstill." },
+      { t: "distance", text: "About 2 m from curtain to hazard." },
+    ],
+    words: [{ term: "OSSD", meaning: "Output signal switching device: the curtain's two safety outputs." }, { term: "Resolution", meaning: "The smallest object a curtain is sure to detect, like 14 mm for fingers or 30 mm for hands." }, { term: "Safe distance", meaning: "How far a guard must be from the hazard so the machine stops first." }, { term: "Defeating", meaning: "Bridging or bypassing a guard. Illegal and dangerous." }],
+  },
+
+  "p-fplc-basics": {
+    goal: "Write a safety program: dual channel inputs, discrepancy, monitored reset and contactor feedback.",
+    learn: ["safety and standard programs", "F-tags", "discrepancy time", "monitored reset in software", "never write safety from standard"],
+    wires: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+    steps: [
+      "Switch the PLC to RUN. Reset, then Start: F_Enable turns on, then the drive runs.",
+      "Short E-stop channel B, then press the E-stop.",
+      "After 200 ms F_Disc latches and F_K1 and F_K2 drop.",
+      "With the E-stop still pressed, clear the short: both channels open and F_Disc clears.",
+      "Release the E-stop, Reset and Start.",
+    ],
+    between: SAFETY_BETWEEN,
+    tour: [
+      { kicker: "Scene 1 of 3 · The chain", title: "Every input, both channels", lines: [2, 2], lead: "F_Chain_OK needs all twelve contacts healthy.", body: "In a real F-CPU each input is a safety input, tested by the card itself for shorts and cross faults.", handsTo: ["F_Chain_OK"] },
+      { kicker: "Scene 2 of 3 · Discrepancy", title: "Two channels must agree", lines: [3, 5], lead: "Disagreeing for 200 ms latches a fault.", body: "It clears only when both channels are seen open, proving neither is stuck.", handsTo: ["F_Disc"] },
+      { kicker: "Scene 3 of 3 · Two programs", title: "Read, never write", lines: [6, 12], lead: "The standard program reads F_Enable; it never writes an F-tag.", body: "S7-1500F and GuardLogix enforce this: the safety program is separate, signed and protected.", precise: "In TIA Portal the safety program uses F-blocks and has its own signature. Changing it needs the safety password and a new validation.", handsTo: ["F_Enable", "Run_Cmd"] },
+    ],
+    story: [
+      { t: "healthy", text: "Chain OK, reset released: F_Enable." },
+      { t: "short", text: "Channels disagree for 200 ms: F_Disc." },
+      { t: "cleared", text: "Both open, short repaired: F_Disc clears." },
+      { t: "restart", text: "Reset, Start." },
+    ],
+    words: [{ term: "F-CPU", meaning: "A safety PLC: it runs a protected safety program alongside the standard one." }, { term: "Discrepancy time", meaning: "How long two channels may disagree before it is a fault." }, { term: "F-tag", meaning: "A tag belonging to the safety program." }, { term: "Safety signature", meaning: "A checksum that changes whenever the safety program changes." }],
+  },
+
+  "p-fplc-validate": {
+    goal: "Validate a safety system the way you would before handing it over: every function, every fault.",
+    learn: ["validation plans", "functional tests", "fault injection", "validation records", "return to service"],
+    wires: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+    steps: [
+      "1 E-stop: run, press it, check the machine stops and the contactors open. Release, Reset, Start.",
+      "2 Door and 3 light curtain: the same.",
+      "4 Short E-stop channel B and press the E-stop: F_Disc must latch. Clear it.",
+      "5 Weld K2, press the E-stop and try to reset: it must be refused. Replace K2.",
+      "6 Reset and Start: returned to service. Sign the record.",
+    ],
+    between: SAFETY_BETWEEN,
+    tour: [
+      { kicker: "Scene 1 of 2 · Functions", title: "Does each one stop it?", lines: [2, 10], lead: "Every safety function from the risk assessment, tested one by one.", body: "Record what you did, what happened, and the stopping time.", handsTo: ["F_K1", "F_K2"] },
+      { kicker: "Scene 2 of 2 · Faults", title: "Does it find its faults?", lines: [15, 16], lead: "A refused reset is recorded as a pass.", body: "If the design claims to detect a fault, inject it and prove it. A test you did not do is a test that failed.", precise: "Keep the validation record with the safety signature it applies to. Any change to the safety program means validating again.", handsTo: ["Reset_Tried"] },
+    ],
+    story: [
+      { t: "functions", text: "E-stop, door, curtain: each stops the machine." },
+      { t: "faults", text: "Shorted channel detected; welded contactor blocks the reset." },
+      { t: "record", text: "Signed, with the safety signature, before handover." },
+    ],
+    words: [{ term: "Validation", meaning: "Proving the safety system meets the risk assessment." }, { term: "Fault injection", meaning: "Creating a fault on purpose to prove it is detected." }, { term: "Return to service", meaning: "Putting a machine back into use after work, once proved safe." }, { term: "Validation record", meaning: "The signed record of every test and result." }],
+  },
+
+  "p-sto": {
+    goal: "Stop a machine under control and then remove torque safely: safe stop 1 with STO.",
+    learn: ["safe torque off", "stop categories 0, 1 and 2", "safe stop 1", "quick stop ramps", "safe speed functions"],
+    wires: [1, 2, 3, 4, 7, 8, 9, 10],
+    steps: [
+      "Switch the PLC to RUN. Wait 2 s for STO to be confirmed, then Reset and Start.",
+      "At full speed, open the door. F_QS ramps the machine down; F_STO drops 1.5 s later.",
+      "Check Coast_Stop: off. The machine was stopped before torque went.",
+      "Change the SS1 time to 300 and try again: Coast_Stop turns on.",
+      "Put it back to 1500. The SS1 time must be longer than the worst case ramp down.",
+    ],
+    between: SAFETY_BETWEEN,
+    tour: [
+      { kicker: "Scene 1 of 3 · STO", title: "Torque off, power on", lines: [8, 9], lead: "F_STO removes torque inside the drive; the contactors stay closed.", body: "The drive keeps its supply, so it restarts without waiting for its DC bus to charge, and contactors do not wear.", handsTo: ["F_STO", "STO_Active"] },
+      { kicker: "Scene 2 of 3 · SS1", title: "Stop, then remove torque", lines: [6, 7], lead: "Quick stop at once, STO after the SS1 time.", body: "Stop category 1: a controlled stop with power, then power removed. Category 0 removes power at once and the machine coasts.", handsTo: ["F_QS", "SS1_T"] },
+      { kicker: "Scene 3 of 3 · Reset", title: "Prove STO works", lines: [3, 3], lead: "Enable needs the drive to report STO active first.", body: "Each reset proves the STO circuit can still remove torque.", precise: "Drives also offer safe speed functions: safely limited speed for maintenance, safe direction, safe stop 2. They are set up in the drive's safety parameters.", handsTo: ["STO_Active"] },
+    ],
+    story: [
+      { t: "stop demand", text: "Door opens: quick stop at once." },
+      { t: "ramp", text: "About 0.8 s to standstill under control." },
+      { t: "STO", text: "At 1.5 s torque is removed. No coast." },
+    ],
+    words: [{ term: "STO", meaning: "Safe torque off: the drive safely stops making torque." }, { term: "SS1", meaning: "Safe stop 1: ramp down, then STO." }, { term: "Stop category 0", meaning: "Immediate removal of power; the machine coasts." }, { term: "Stop category 1", meaning: "Controlled stop with power, then power removed." }],
   },
 };

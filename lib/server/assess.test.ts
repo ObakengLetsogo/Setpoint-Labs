@@ -86,6 +86,20 @@ END_IF;
 Fault_Lamp := Comms_Fault;`,
     ],
   ],
+  "safety-systems": [
+    [
+      "ladder",
+      `RUNG 1: XIC(ES_A) XIC(ES_B) XIC(Door_A) XIC(Door_B) XIC(LC_OSSD1) XIC(LC_OSSD2) OTE(F_Chain_OK)
+RUNG 2: (XIC(ES_A) XIO(ES_B)) OR (XIO(ES_A) XIC(ES_B)) TON(F_Disc_T, 200)
+RUNG 3: XIC(F_Disc_T.DN) OTL(F_Disc)
+RUNG 4: XIO(ES_A) XIO(ES_B) OTU(F_Disc)
+RUNG 5: XIC(F_Chain_OK) XIO(F_Disc) XIC(K_FB) XIO(Reset_PB) XIC(F_Rst_Prev) OTL(F_Enable)
+RUNG 6: XIC(Reset_PB) OTE(F_Rst_Prev)
+RUNG 7: XIO(F_Chain_OK) OTU(F_Enable)
+RUNG 8: XIC(F_Disc) OTU(F_Enable)
+RUNG 9: XIC(F_Enable) OTE(F_K1) OTE(F_K2)`,
+    ],
+  ],
   platforms: [
     [
       "ladder",

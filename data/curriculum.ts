@@ -19,7 +19,8 @@ export type RigId =
   | "hmi"
   | "pid"
   | "instruments"
-  | "mcc";
+  | "mcc"
+  | "safety";
 
 export interface LessonRef {
   id: string;
@@ -65,7 +66,7 @@ export const STAGES: Stage[] = [
   { n: 2, name: "Installation and Commissioning", level: "F" },
   { n: 3, name: "Machines, Process Control and PID", level: "P" },
   { n: 4, name: "Motor Management and Drives", level: "P" },
-  { n: 7, name: "Safety Systems", level: "P", planned: true },
+  { n: 7, name: "Safety Systems", level: "P" },
   { n: 5, name: "Advanced Programming", level: "E" },
   { n: 6, name: "Plant Systems, DCS and Upgrades", level: "E", planned: true },
 ];
@@ -342,6 +343,38 @@ export const CURRICULUM: Track[] = [
           L("p-mpr", "Motor protection relays", "overload", "mcc"),
           L("p-mcc", "Motor control centres", "interlock", "mcc"),
           L("p-energy", "Motor energy and efficiency", "compare", "mcc"),
+        ],
+      },
+    ],
+  },
+  {
+    id: "safety-systems",
+    level: "P",
+    code: "P7",
+    name: "Safety Systems",
+    blurb: "Machine safety law, safety relays, guards, safety PLCs and safe drives.",
+    ring: "#c9a227",
+    chapters: [
+      {
+        id: "safety-design",
+        stage: 7,
+        title: "Safety design",
+        blurb: "The law, risk, relays and guards",
+        lessons: [
+          L("p-safe-law", "Machine safety and the law", "safety", "safety"),
+          L("p-safe-relay", "Safety relays and E-stop chains", "estop", "safety"),
+          L("p-safe-guards", "Guards, interlocks and light curtains", "interlock", "safety"),
+        ],
+      },
+      {
+        id: "safety-plcs",
+        stage: 7,
+        title: "Safety PLCs",
+        blurb: "Safety programs, validation and STO",
+        lessons: [
+          L("p-fplc-basics", "Safety PLC basics", "safety", "safety"),
+          L("p-fplc-validate", "Validating safety functions", "fault", "safety"),
+          L("p-sto", "Safe torque off and safe drives", "estop", "safety"),
         ],
       },
     ],

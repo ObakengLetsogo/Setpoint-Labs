@@ -103,6 +103,23 @@ const SUITES: Record<string, Suite> = {
     ],
   },
 
+  "safety-systems": {
+    rest: { ES_A: true, ES_B: true, Door_A: true, Door_B: true, LC_OSSD1: true, LC_OSSD2: true, K_FB: true, Reset_PB: false },
+    tests: [
+      { name: "Releasing Reset with everything healthy enables F_K1 and F_K2", steps: [{ run: 300 }, { expect: { F_K1: false, F_K2: false } }, tap("Reset_PB"), { expect: { F_K1: true, F_K2: true } }] },
+      { name: "A Reset held down does not enable until it is released", steps: [{ set: { Reset_PB: true } }, { run: 1500 }, { expect: { F_K1: false } }, { set: { Reset_PB: false } }, { run: 300 }, { expect: { F_K1: true } }] },
+      { name: "The E-stop drops both outputs", steps: [tap("Reset_PB"), { expect: { F_K1: true, F_K2: true } }, { set: { ES_A: false, ES_B: false } }, { run: 200 }, { expect: { F_K1: false, F_K2: false } }] },
+      { name: "The door drops both outputs", steps: [tap("Reset_PB"), { expect: { F_K1: true, F_K2: true } }, { set: { Door_A: false, Door_B: false } }, { run: 200 }, { expect: { F_K1: false, F_K2: false } }] },
+      { name: "The light curtain drops both outputs", steps: [tap("Reset_PB"), { expect: { F_K1: true, F_K2: true } }, { set: { LC_OSSD1: false, LC_OSSD2: false } }, { run: 200 }, { expect: { F_K1: false, F_K2: false } }] },
+      { name: "Closing a guard again does not re-enable without a new reset", steps: [tap("Reset_PB"), { set: { Door_A: false, Door_B: false } }, { run: 300 }, { set: { Door_A: true, Door_B: true } }, { run: 1500 }, { expect: { F_K1: false } }, tap("Reset_PB"), { expect: { F_K1: true } }] },
+      { name: "Reset is refused unless K_FB proves both contactors open", steps: [{ set: { K_FB: false } }, tap("Reset_PB"), { run: 300 }, { expect: { F_K1: false } }, { set: { K_FB: true } }, tap("Reset_PB"), { expect: { F_K1: true } }] },
+      {
+        name: "E-stop channels that disagree latch F_Disc until both have opened and Reset is pressed",
+        steps: [tap("Reset_PB"), { set: { ES_B: false } }, { run: 700 }, { expect: { F_Disc: true, F_K1: false } }, { set: { ES_B: true } }, tap("Reset_PB"), { expect: { F_K1: false, F_Disc: true } }, { set: { ES_A: false, ES_B: false } }, { run: 300 }, { set: { ES_A: true, ES_B: true } }, { run: 300 }, tap("Reset_PB"), { expect: { F_Disc: false, F_K1: true } }],
+      },
+    ],
+  },
+
   platforms: {
     rest: { Start_PB: false, Stop_PB: false, Overload_OK: true, Aux_PB: false },
     tests: [
