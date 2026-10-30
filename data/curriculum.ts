@@ -18,7 +18,8 @@ export type RigId =
   | "pickplace"
   | "hmi"
   | "pid"
-  | "instruments";
+  | "instruments"
+  | "mcc";
 
 export interface LessonRef {
   id: string;
@@ -329,6 +330,18 @@ export const CURRICULUM: Track[] = [
           L("p-vsd-setup", "Drive set up and parameters", "compare", "vsd"),
           L("p-vsd-bus", "Controlling a drive from the PLC", "compare", "vsd"),
           L("p-vsd-faults", "Drive faults and protection", "fault", "vsd"),
+          L("p-soft-starter", "Soft starters", "stardelta", "mcc"),
+        ],
+      },
+      {
+        id: "motor-management",
+        stage: 4,
+        title: "Motor management",
+        blurb: "Protection relays, MCCs and energy",
+        lessons: [
+          L("p-mpr", "Motor protection relays", "overload", "mcc"),
+          L("p-mcc", "Motor control centres", "interlock", "mcc"),
+          L("p-energy", "Motor energy and efficiency", "compare", "mcc"),
         ],
       },
     ],

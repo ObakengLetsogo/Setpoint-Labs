@@ -262,4 +262,105 @@ export const TEACH_PROFESSIONAL: Record<string, LessonTeach> = {
     ],
     words: [{ term: "Telegram", meaning: "The fixed set of words exchanged with a drive over PROFINET." }, { term: "STW1", meaning: "Control word 1: commands from PLC to drive." }, { term: "ZSW1", meaning: "Status word 1: the drive's state back to the PLC." }, { term: "NSOLL / NIST", meaning: "Speed setpoint and actual speed, 16384 for 100 %." }],
   },
+
+  "p-soft-starter": {
+    goal: "Set a soft starter to limit a pump's starting current, and stop it softly.",
+    learn: ["starting current", "voltage ramps", "current limit", "bypass contactors", "soft stop and water hammer"],
+    wires: [1, 2, 3, 4, 5, 6, 7],
+    steps: [
+      "Switch the PLC to RUN and tap Start with the soft starter as it is. Note Peak_A.",
+      "Stop. On the soft starter set initial voltage 30 %, ramp 10 s, current limit 3.5 ×.",
+      "Start again. The ramp takes longer, and Peak_A stays under 105 A.",
+      "Set a soft stop of 10 s and press Stop. Current flows on while the voltage falls.",
+      "Try a 2 × limit: the pump stalls and the soft starter faults on start time. Reset it.",
+    ],
+    between: BETWEEN.slice(0, 2),
+    tour: [
+      { kicker: "Scene 1 of 3 · The command", title: "One output", lines: [2, 3], lead: "SS_Run on ramps up; off ramps down.", body: "The soft starter does the timing itself. The PLC only says run or stop.", handsTo: ["SS_Run"] },
+      { kicker: "Scene 2 of 3 · The proof", title: "Peak current", lines: [4, 5], lead: "Peak_A keeps the highest current of each start.", body: "Supply authorities and generator sets care about starting current. This is how you prove the setting.", handsTo: ["Peak_A", "M1_Amps"] },
+      { kicker: "Scene 3 of 3 · Bypass", title: "Top of ramp", lines: [6, 6], lead: "At full voltage an internal contactor bypasses the thyristors.", body: "That keeps the soft starter cool while the motor runs.", precise: "A soft starter only controls voltage while starting and stopping. For speed control you need a drive.", handsTo: ["SS_TOR"] },
+    ],
+    story: [
+      { t: "DOL-like", text: "80 % voltage in 1 s: about 140 A." },
+      { t: "tuned", text: "30 %, 10 s, 3.5 × limit: under 105 A." },
+      { t: "soft stop", text: "10 s down: no water hammer in the pipe." },
+    ],
+    words: [{ term: "FLA", meaning: "Full load amps: the motor's rated current." }, { term: "Current limit", meaning: "The soft starter holds the voltage so current stays below this multiple of FLA." }, { term: "Bypass", meaning: "A contactor that shorts out the thyristors once the motor is up to speed." }, { term: "Water hammer", meaning: "A pressure shock in a pipe when flow stops suddenly." }],
+  },
+
+  "p-mpr": {
+    goal: "Use a motor protection relay: warnings, trip causes, cooling and safe resets.",
+    learn: ["thermal models", "warning before trip", "trip causes", "reset rules", "hard wired trip contacts"],
+    wires: [1, 2, 3, 4, 10, 11, 12, 13, 14],
+    steps: [
+      "Switch the PLC to RUN, tap Start. The conveyor runs at load 0.7: thermal settles around 60 %.",
+      "Raise the load to 1.4. At 90 % the amber lamp warns.",
+      "Let it trip. Last_Trip reads 1: overload. Lower the load back to 0.6.",
+      "Press Reset straight away: nothing. Wait for thermal to fall below 50 %, then Reset and Start.",
+      "Try a phase loss and an earth fault. The earth fault will not reset from this program.",
+    ],
+    between: BETWEEN.slice(0, 2),
+    tour: [
+      { kicker: "Scene 1 of 3 · Two layers", title: "Relay first, PLC second", lines: [2, 3], lead: "K2's coil is wired through the relay's trip contact.", body: "The PLC also drops its command, but the motor would stop even if the PLC did nothing.", handsTo: ["K2_Run", "MPR_Trip"] },
+      { kicker: "Scene 2 of 3 · Warning", title: "Time to act", lines: [4, 6], lead: "90 % thermal lights the amber lamp.", body: "The operator can ease the load before the motor trips and the line stops.", handsTo: ["MPR_Warn", "MPR_Code"] },
+      { kicker: "Scene 3 of 3 · Reset", title: "When it is safe", lines: [7, 7], lead: "Only below 50 %, and never for an earth fault.", body: "Resetting a hot motor trips it again, hotter. An earth fault means damaged insulation: test it first.", precise: "Siemens SIMOCODE and Rockwell E300 are common relays of this kind, read over PROFINET or EtherNet/IP.", handsTo: ["MPR_Reset"] },
+    ],
+    story: [
+      { t: "normal", text: "Load 0.7: thermal steady near 60 %." },
+      { t: "warning", text: "Load 1.4: thermal passes 90 %." },
+      { t: "trip", text: "112 %: overload trip, code 1." },
+      { t: "reset", text: "Cooled below 50 %: reset and run." },
+    ],
+    words: [{ term: "Thermal model", meaning: "The relay's calculation of the motor's heating from its current." }, { term: "Trip class", meaning: "How fast an overload trips; class 10 trips within 10 s at 7.2 × FLA." }, { term: "Phase loss", meaning: "One supply phase missing: the motor overheats on the other two." }, { term: "Earth fault", meaning: "Current leaking to earth through damaged insulation." }],
+  },
+
+  "p-mcc": {
+    goal: "Control an MCC feeder the way plants do: availability, command and proof.",
+    learn: ["MCC buckets", "local and remote", "feeder availability", "run feedback", "fail to start"],
+    wires: [1, 2, 3, 4, 8, 9, 10, 11],
+    steps: [
+      "Switch the PLC to RUN. Turn feeder 2 to local: amber, not available. Back to remote.",
+      "Switch the isolator off and on again: the same.",
+      "Open the contactor coil from the popover, tap Start. After 2 s: fail to start, red lamp.",
+      "Close the coil again and press Reset.",
+      "Tap Start: the auxiliary contact proves the run and the green lamp lights.",
+    ],
+    between: ["Lock off the isolator before you open a bucket.", ...BETWEEN.slice(0, 2)],
+    tour: [
+      { kicker: "Scene 1 of 3 · Available", title: "Can it run?", lines: [2, 2], lead: "Remote, isolator on and not tripped.", body: "SCADA shows each feeder's availability, so operators know before they press start.", handsTo: ["F2_Avail"] },
+      { kicker: "Scene 2 of 3 · Proof", title: "Never trust an output", lines: [5, 6], lead: "Commanded with no feedback for 2 s is a fail to start.", body: "A blown control fuse, an open coil or a racked out bucket all look the same to the PLC: no feedback.", handsTo: ["FTS", "F2_Run_FB"] },
+      { kicker: "Scene 3 of 3 · Lamps", title: "What the operator sees", lines: [8, 10], lead: "Green from the feedback, red for a fault, amber for not available.", body: "The lamp follows what the plant did, not what the PLC asked for.", precise: "In local the feeder is run from its bucket. Remote is how the PLC and SCADA run it.", handsTo: ["Run_Lamp"] },
+    ],
+    story: [
+      { t: "local", text: "Not available: Start ignored." },
+      { t: "coil open", text: "Commanded, no feedback: fail to start." },
+      { t: "fixed", text: "Reset, Start, feedback: running." },
+    ],
+    words: [{ term: "MCC", meaning: "Motor control centre: a line-up of cabinets feeding the plant's motors." }, { term: "Bucket", meaning: "One withdrawable feeder unit in an MCC." }, { term: "Feedback", meaning: "A signal that proves the equipment did what it was told." }, { term: "Fail to start", meaning: "A command with no feedback within the allowed time." }],
+  },
+
+  "p-energy": {
+    goal: "Read an energy meter, report energy per run, and stop motors running for nothing.",
+    learn: ["kW and kWh", "power factor", "Modbus meters", "energy per run", "idle detection"],
+    wires: [1, 2, 3, 10, 11],
+    steps: [
+      "Switch the PLC to RUN, tap Start with load 0.7. Watch Total_kW and Used_kWh.",
+      "Wait a minute: Used_kWh reaches 1, which is 0.1 kWh.",
+      "Drop the load to 0.1. Total_kW falls below 2 kW.",
+      "After 20 s the program stops the belt and lights amber: Idle_Stop.",
+      "Look at Low_PF while lightly loaded. Tap Start to run again.",
+    ],
+    between: BETWEEN.slice(0, 2),
+    tour: [
+      { kicker: "Scene 1 of 3 · The meter", title: "Over Modbus", lines: [5, 6], lead: "Remember the meter at the start of a run, then subtract.", body: "Meters count energy for ever. Per run, per shift or per tonne is just a subtraction.", handsTo: ["Total_kWh", "Used_kWh"] },
+      { kicker: "Scene 2 of 3 · Idle", title: "Running for nothing", lines: [7, 9], lead: "Under 2 kW for 20 s means the belt is empty.", body: "An empty conveyor left running all night wastes energy and wears the belt.", handsTo: ["Total_kW", "Idle_Stop"] },
+      { kicker: "Scene 3 of 3 · Power factor", title: "Lightly loaded", lines: [10, 10], lead: "Below 0.70 is flagged.", body: "Motors running far below their rating draw current that does little work. Eskom charges for that on many tariffs.", precise: "kW is real power doing work. kVA includes the reactive part. Power factor is kW divided by kVA.", handsTo: ["PF_x100"] },
+    ],
+    story: [
+      { t: "run", text: "5 kW for a minute: about 0.1 kWh." },
+      { t: "empty", text: "Load drops: 1.3 kW." },
+      { t: "idle stop", text: "20 s idle: the belt stops itself." },
+    ],
+    words: [{ term: "kW", meaning: "Power: how fast energy is used." }, { term: "kWh", meaning: "Energy: what the electricity bill counts." }, { term: "Power factor", meaning: "Real power divided by apparent power; 1.0 is ideal." }, { term: "Modbus", meaning: "A simple, common protocol for reading meters and instruments." }],
+  },
 };

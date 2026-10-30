@@ -438,3 +438,197 @@ export const PRO_MACHINES: Record<string, LessonContent> = {
     ],
   },
 };
+
+/* ------------------------------------------------- motor management */
+
+const MC = {
+  start: io("I0.0", "Start_PB", "#2e9e5b", "Start pushbutton", "Momentary, normally open"),
+  stop: io("I0.1", "Stop_PB", "#d64545", "Stop pushbutton", "Normally closed: 1 at rest"),
+  reset: io("I0.2", "Reset_PB", "#3d434a", "Reset pushbutton", "Momentary"),
+  tor: io("I0.4", "SS_TOR", "#2457a6", "Soft starter top of ramp", "1 once the bypass has closed"),
+  ssFault: io("I0.5", "SS_Fault", "#d64545", "Soft starter fault relay", "1 while tripped"),
+  remote: io("I0.6", "F2_Remote", "#6b6f76", "Feeder 2 local / remote", "1 in remote"),
+  isol: io("I0.7", "F2_Isol", "#6b6f76", "Feeder 2 isolator auxiliary", "1 with the isolator on"),
+  fb: io("I1.0", "F2_Run_FB", "#2457a6", "Feeder 2 contactor auxiliary", "1 when K2 has pulled in"),
+  warn: io("I1.1", "MPR_Warn", "#e0a526", "Protection relay warning", "1 above 90 % thermal"),
+  trip: io("I1.2", "MPR_Trip", "#d64545", "Protection relay trip", "1 while tripped"),
+  a1: io("IW64", "M1_Amps", "#6b4fa0", "Pump current", "Amps, from the soft starter"),
+  a2: io("MPR", "M2_Amps", "#6b4fa0", "Conveyor current", "Amps, from the relay"),
+  th: io("MPR", "M2_Thermal", "#6b4fa0", "Thermal capacity used", "% of trip level"),
+  code: io("MPR", "MPR_Code", "#6b4fa0", "Trip cause", "1 overload, 2 phase loss, 3 earth fault, 4 jam"),
+  kw: io("Modbus", "Total_kW", "#0f766e", "Incomer power", "Tenths of a kW"),
+  kwh: io("Modbus", "Total_kWh", "#0f766e", "Incomer energy", "Tenths of a kWh"),
+  pf: io("Modbus", "PF_x100", "#0f766e", "Power factor", "× 100"),
+  ssRun: io("Q0.0", "SS_Run", "#2457a6", "Soft starter run", "On: ramp up. Off: soft stop"),
+  k2: io("Q0.1", "K2_Run", "#2457a6", "Feeder 2 contactor", "Through the relay trip contact"),
+  rst: io("Q0.2", "MPR_Reset", "#2457a6", "Remote reset", "To the soft starter and the relay"),
+  runLamp: io("Q0.3", "Run_Lamp", "#2e9e5b", "Run lamp", "Green"),
+  faultLamp: io("Q0.4", "Fault_Lamp", "#d64545", "Fault lamp", "Red"),
+  warnLamp: io("Q0.5", "Warn_Lamp", "#e0a526", "Warning lamp", "Amber"),
+};
+
+export const PRO_MOTORS: Record<string, LessonContent> = {
+  "p-soft-starter": {
+    difficulty: "intermediate",
+    checkpoint: {
+      steps: [(m, i) => Boolean(i.SS_TOR) && Number(m.Peak_A) > 0 && Number(m.Peak_A) <= 105, (m, i) => !m.SS_Run && Number(i.M1_Amps) > 0],
+      message: "set the soft starter to keep the pump's starting current under 3.5 times full load, and stopped it softly",
+    },
+    summary:
+      "Started direct on line, a motor draws six to eight times its full load current and slams its load. A soft starter ramps the voltage up instead, limits the current, then closes a bypass contactor and gets out of the way. It cannot change the speed once running: that is a drive's job. On pumps, a soft stop also stops water hammer.",
+    facts: [
+      { icon: "watch", text: "Run it as set: 80 % initial voltage and a 1 s ramp. Peak_A shows the pump took about 140 A, near five times its 30 A." },
+      { icon: "press", text: "On the soft starter set 30 % initial voltage, a 10 s ramp and a 3.5 × current limit. Start again: the peak drops below 105 A." },
+      { icon: "bolt", text: "Set a 10 s soft stop and press Stop: current keeps flowing while the voltage ramps down. Set the limit to 2 × and the pump never gets up to speed." },
+    ],
+    io: [MC.start, MC.stop, MC.reset, MC.tor, MC.ssFault, MC.a1, MC.ssRun, MC.rst, MC.runLamp, MC.faultLamp],
+    steps: [
+      { line: 2, text: "Run seals in unless the soft starter has faulted." },
+      { line: 3, text: "One output: on means ramp up, off means soft stop." },
+      { line: 4, text: "Clear the peak at the start of each run." },
+      { line: 5, text: "Keep the highest current seen." },
+      { line: 6, text: "Top of ramp: the bypass has closed and the motor is on full voltage." },
+      { line: 8, text: "Reset a fault from the panel." },
+    ],
+    code: [
+      "// A soft started pump: ramp, bypass, soft stop and the peak current.",
+      "RUNG 1: (XIC(Start_PB) OR XIC(Run_Cmd)) AND XIC(Stop_PB) AND XIO(SS_Fault) OTE(Run_Cmd)",
+      "RUNG 2: XIC(Run_Cmd) OTE(SS_Run)",
+      "RUNG 3: XIC(Run_Cmd) ONS(Start_OS) MOV(0, Peak_A)",
+      "RUNG 4: GRT(M1_Amps, Peak_A) MOV(M1_Amps, Peak_A)",
+      "RUNG 5: XIC(SS_TOR) OTE(Run_Lamp)",
+      "RUNG 6: XIC(SS_Fault) OTE(Fault_Lamp)",
+      "RUNG 7: XIC(SS_Fault) XIC(Reset_PB) OTE(MPR_Reset)",
+    ],
+    specs: [
+      { label: "Motor", value: "15 kW pump, 30 A" },
+      { label: "Target", value: "Peak below 3.5 × FLA" },
+      { label: "Stop", value: "Soft stop for water hammer" },
+      { label: "Level", value: "Intermediate" },
+    ],
+  },
+
+  "p-mpr": {
+    difficulty: "intermediate",
+    checkpoint: {
+      steps: [(_m, i) => Boolean(i.MPR_Warn), (_m, i) => Boolean(i.MPR_Trip) && Number(i.MPR_Code) === 1, (m, i) => !i.MPR_Trip && Boolean(m.Run_Lamp)],
+      message: "saw the relay warn, trip on overload, cool down and reset, then ran again",
+    },
+    summary:
+      "A thermal overload only guesses the motor's heating from its bimetal strips. A motor protection relay measures the current in each phase and models the motor's temperature, so it can warn before it trips, tell you why it tripped, and refuse a reset until the motor has cooled. Its trip contact is wired in the contactor circuit: it stops the motor even if the PLC does not.",
+    facts: [
+      { icon: "press", text: "Start the conveyor, then raise its load to 1.4. Thermal climbs; at 90 % the amber lamp warns." },
+      { icon: "bolt", text: "About 30 s later the relay trips: code 1, overload. The reset is refused until thermal is below 50 %." },
+      { icon: "shield", text: "Try an earth fault: code 3. This program will not reset it at all. Earth faults are found and fixed, never reset and retried." },
+    ],
+    io: [MC.start, MC.stop, MC.reset, MC.fb, MC.warn, MC.trip, MC.a2, MC.th, MC.code, MC.k2, MC.rst, MC.runLamp, MC.faultLamp, MC.warnLamp],
+    steps: [
+      { line: 2, text: "Run seals in unless the relay has tripped." },
+      { line: 3, text: "K2 runs through the relay's trip contact, so a trip drops it directly." },
+      { line: 4, text: "The warning gives the operator time to reduce the load." },
+      { line: 6, text: "Keep the trip cause for the screen and the fault log." },
+      { line: 7, text: "Reset only when cool, and never for an earth fault." },
+      { line: 8, text: "The run lamp follows the contactor's own auxiliary contact." },
+    ],
+    code: [
+      "// Feeder 2 with a motor protection relay.",
+      "RUNG 1: (XIC(Start_PB) OR XIC(Run_Cmd)) AND XIC(Stop_PB) AND XIO(MPR_Trip) OTE(Run_Cmd)",
+      "RUNG 2: XIC(Run_Cmd) OTE(K2_Run)",
+      "RUNG 3: XIC(MPR_Warn) OTE(Warn_Lamp)",
+      "RUNG 4: XIC(MPR_Trip) OTE(Fault_Lamp)",
+      "RUNG 5: XIC(MPR_Trip) MOV(MPR_Code, Last_Trip)",
+      "RUNG 6: XIC(MPR_Trip) XIC(Reset_PB) LES(M2_Thermal, 50) NEQ(MPR_Code, 3) OTE(MPR_Reset)",
+      "RUNG 7: XIC(F2_Run_FB) OTE(Run_Lamp)",
+    ],
+    specs: [
+      { label: "Motor", value: "7.5 kW conveyor, 15 A" },
+      { label: "Warn / trip", value: "90 % / 112 % thermal" },
+      { label: "Reset", value: "Below 50 %, not earth faults" },
+      { label: "Level", value: "Intermediate" },
+    ],
+  },
+
+  "p-mcc": {
+    difficulty: "intermediate",
+    checkpoint: {
+      steps: [(m) => Boolean(m.Warn_Lamp), (m) => Boolean(m.FTS), (m, i) => Boolean(i.F2_Run_FB) && !m.FTS],
+      message: "showed a feeder unavailable, caught a fail to start and ran the feeder once it was fixed",
+    },
+    summary:
+      "A motor control centre is a row of cabinets, one bucket per motor, each with its isolator, protection, contactor and a local / remote selector. The PLC can only run a feeder that is available: in remote, isolator on, not tripped. And it never trusts its own output: if the contactor's auxiliary contact does not prove the feeder started within 2 s, that is a fail to start.",
+    facts: [
+      { icon: "press", text: "Turn feeder 2 to local, or switch its isolator off: the amber lamp says not available, and Start does nothing." },
+      { icon: "bolt", text: "Back in remote with the isolator on, open the contactor coil from the popover and press Start. After 2 s: fail to start." },
+      { icon: "info", text: "Fix the coil, press Reset, then Start. The feedback proves the run." },
+    ],
+    io: [MC.start, MC.stop, MC.reset, MC.remote, MC.isol, MC.fb, MC.trip, MC.k2, MC.runLamp, MC.faultLamp, MC.warnLamp],
+    steps: [
+      { line: 2, text: "Available: remote, isolator on and not tripped." },
+      { line: 3, text: "The PLC only runs an available feeder, and not after a fail to start." },
+      { line: 5, text: "Commanded but no feedback for 2 s." },
+      { line: 6, text: "Latch it, so the operator sees it even if the command drops." },
+      { line: 7, text: "Reset clears it." },
+      { line: 8, text: "The run lamp follows the feedback, not the command." },
+      { line: 10, text: "Not available shows amber." },
+    ],
+    code: [
+      "// An MCC feeder: available, commanded, proved.",
+      "RUNG 1: XIC(F2_Remote) XIC(F2_Isol) XIO(MPR_Trip) OTE(F2_Avail)",
+      "RUNG 2: (XIC(Start_PB) OR XIC(Run_Cmd)) AND XIC(Stop_PB) AND XIC(F2_Avail) AND XIO(FTS) OTE(Run_Cmd)",
+      "RUNG 3: XIC(Run_Cmd) OTE(K2_Run)",
+      "RUNG 4: XIC(Run_Cmd) XIO(F2_Run_FB) TON(FTS_T, 2000)",
+      "RUNG 5: XIC(FTS_T.DN) OTL(FTS)",
+      "RUNG 6: XIC(Reset_PB) OTU(FTS)",
+      "RUNG 7: XIC(F2_Run_FB) OTE(Run_Lamp)",
+      "RUNG 8: XIC(FTS) OR XIC(MPR_Trip) OTE(Fault_Lamp)",
+      "RUNG 9: XIO(F2_Avail) OTE(Warn_Lamp)",
+    ],
+    specs: [
+      { label: "Available", value: "Remote, on, healthy" },
+      { label: "Proof", value: "Contactor auxiliary" },
+      { label: "Fail to start", value: "2 s" },
+      { label: "Level", value: "Intermediate" },
+    ],
+  },
+
+  "p-energy": {
+    difficulty: "intermediate",
+    checkpoint: { steps: [(m) => Number(m.Used_kWh) >= 1, (m) => Boolean(m.Idle_Stop)], message: "measured a run's energy and stopped a motor that was running for nothing" },
+    summary:
+      "Motors use most of the electricity in a plant, and Eskom bills every kWh. An energy meter on the MCC incomer, read over Modbus, tells the PLC the power, energy and power factor. With that the program can report energy per run, flag a poor power factor, and stop a conveyor that is running empty instead of leaving it on all shift.",
+    facts: [
+      { icon: "press", text: "Start the conveyor at load 0.7. Used_kWh counts up in tenths: about 0.1 kWh a minute." },
+      { icon: "bolt", text: "Drop the load to 0.1, an empty belt. Under 2 kW for 20 s, the program stops it: Idle_Stop." },
+      { icon: "info", text: "Lightly loaded motors have a poor power factor. Low_PF shows it: right-size motors, or use a drive." },
+    ],
+    io: [MC.start, MC.stop, MC.fb, MC.trip, MC.kw, MC.kwh, MC.pf, MC.k2, MC.runLamp, MC.warnLamp],
+    steps: [
+      { line: 2, text: "Start clears an idle stop first." },
+      { line: 3, text: "Run, unless tripped or stopped for idling." },
+      { line: 5, text: "At the start of each run, remember the meter's reading." },
+      { line: 6, text: "Energy used this run is the difference, in tenths of a kWh." },
+      { line: 7, text: "Running but drawing under 2 kW for 20 s: the belt is empty." },
+      { line: 8, text: "Latch the idle stop." },
+      { line: 10, text: "Power factor below 0.70 while running is flagged." },
+    ],
+    code: [
+      "// Energy per run and an idle stop from the incomer meter.",
+      "RUNG 1: XIC(Start_PB) OTU(Idle_Stop)",
+      "RUNG 2: (XIC(Start_PB) OR XIC(Run_Cmd)) AND XIC(Stop_PB) AND XIO(MPR_Trip) AND XIO(Idle_Stop) OTE(Run_Cmd)",
+      "RUNG 3: XIC(Run_Cmd) OTE(K2_Run)",
+      "RUNG 4: XIC(Run_Cmd) ONS(Run_OS) MOV(Total_kWh, Start_kWh)",
+      "RUNG 5: SUB(Total_kWh, Start_kWh, Used_kWh)",
+      "RUNG 6: XIC(F2_Run_FB) LES(Total_kW, 20) TON(Idle_T, 20000)",
+      "RUNG 7: XIC(Idle_T.DN) OTL(Idle_Stop)",
+      "RUNG 8: XIC(Idle_Stop) OTE(Warn_Lamp)",
+      "RUNG 9: XIC(F2_Run_FB) LES(PF_x100, 70) OTE(Low_PF)",
+      "RUNG 10: XIC(F2_Run_FB) OTE(Run_Lamp)",
+    ],
+    specs: [
+      { label: "Meter", value: "Incomer, Modbus TCP" },
+      { label: "Idle", value: "Under 2 kW for 20 s" },
+      { label: "Power factor", value: "Flag below 0.70" },
+      { label: "Level", value: "Intermediate" },
+    ],
+  },
+};

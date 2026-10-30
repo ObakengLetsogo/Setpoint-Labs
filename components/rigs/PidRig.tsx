@@ -113,7 +113,7 @@ function Faceplate() {
   const texture = useFaceplate();
   return (
     <Part id="faceplate">
-      <group position={[4.3, 0, -1.6]} rotation={[0, -0.45, 0]}>
+      <group position={[4.0, 0, -1.4]} rotation={[0, -0.12, 0]}>
         <RBox size={[0.3, 1.8, 0.3]} position={[0, 0.9, -0.2]} radius={0.05} kind="paint" color={K.paint} />
         <group position={[0, 2.65, 0]} rotation={[-0.1, 0, 0]}>
           <RBox size={[2.3, 1.62, 0.16]} radius={0.06} kind="plastic" color={K.housingDark} />

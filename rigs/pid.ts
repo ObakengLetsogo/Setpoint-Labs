@@ -42,7 +42,7 @@ export const pid: RigDef = {
     { id: "lt", name: "Level transmitter", kicker: "ANALOG · IW64", spec: "4-20 MA · 0 TO 100 %", description: "Measures the level. The card scales it to percent.", anchor: [-0.6, 4.6, 1.4], explode: 0.8 },
     { id: "demand", name: "Outlet", kicker: "LOAD DISTURBANCE", spec: "HAND VALVE", description: "How much the plant takes. A change here is a load disturbance.", anchor: [2.6, 1.0, 1.6], explode: 0.6 },
     { id: "supply", name: "Supply pressure", kicker: "SUPPLY DISTURBANCE", spec: "HEADER 2 TO 5 BAR", description: "The pressure upstream of the valve. When it changes, the same valve opening gives a different flow.", anchor: [-4.6, 3.2, 0.2], explode: 0.6 },
-    { id: "faceplate", name: "Loop faceplate", kicker: "HMI · LIC1", spec: "SP · PV · CV · TREND", description: "Shows the setpoint, the measured level and the valve output, with a 60 s trend.", anchor: [4.3, 3.2, -1.6], explode: 0.6 },
+    { id: "faceplate", name: "Loop faceplate", kicker: "HMI · LIC1", spec: "SP · PV · CV · TREND", description: "Shows the setpoint, the measured level and the valve output, with a 60 s trend.", anchor: [4.0, 3.2, -1.4], explode: 0.6 },
     { id: "auto", name: "Hand / auto", kicker: "INPUT · I0.2", spec: "2 POSITION SELECTOR", description: "Hand: the operator sets the valve. Auto: the PID does.", anchor: [-2.9, 1.4, 3.2], explode: 1.4 },
   ],
   annotations: [

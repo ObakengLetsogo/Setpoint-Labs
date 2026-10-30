@@ -36,7 +36,7 @@ export const instruments: RigDef = {
   name: "Instrument bench",
   headline: ["Instrument", "bench"],
   tagline: "4-20 mA transmitters · Calibrator · HART",
-  view: { target: [0, 1.4, 0], scale: 1.05 },
+  view: { target: [0, 1.4, 0.4], scale: 0.82 },
   tags: [
     { tag: "PT_Raw", address: "IW64", kind: "input", color: "#6b4fa0", connectsTo: "Pressure transmitter PT1, 4-20 mA", analog: true },
     { tag: "LT_Raw", address: "IW66", kind: "input", color: "#6b4fa0", connectsTo: "Level transmitter LT1, 4-20 mA", analog: true },
