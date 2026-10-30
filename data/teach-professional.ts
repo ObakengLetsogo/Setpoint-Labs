@@ -185,4 +185,81 @@ export const TEACH_PROFESSIONAL: Record<string, LessonTeach> = {
     ],
     words: [{ term: "HART", meaning: "Highway Addressable Remote Transducer: digital data on a 4-20 mA loop." }, { term: "URV / LRV", meaning: "Upper and lower range values of a transmitter." }, { term: "Re-range", meaning: "Changing what 4 and 20 mA stand for." }, { term: "Device status", meaning: "The transmitter's own report of its health." }],
   },
+
+  "p-ep-machine": {
+    goal: "Program an electro-pneumatic machine the way factories run them: continuous auto, end of cycle stop and a step watchdog.",
+    learn: ["continuous auto", "end of cycle stop", "step watchdogs", "fault recovery", "valve memory"],
+    wires: [1, 2, 3, 4, 5, 6, 7, 8],
+    steps: [
+      "Switch the PLC to RUN with parts in the magazine. Tap Start and let it run two cycles.",
+      "Press Stop during a cycle. The part is finished and the cell stops at home.",
+      "Tap Start again, then make cylinder B stick from its popover.",
+      "After 3 s on step 2 the lamp flashes: Fault. Read Step to see where it stopped.",
+      "Clear the fault on B, press Stop to reset. B is sent home; tap Start to carry on.",
+    ],
+    between: BETWEEN.slice(0, 2),
+    tour: [
+      { kicker: "Scene 1 of 3 · Auto", title: "Run until told", lines: [2, 4], lead: "Auto latches on Start and drops on Stop.", body: "Dropping Auto only stops a new cycle from starting, so the cell always stops with the part finished.", handsTo: ["Auto"] },
+      { kicker: "Scene 2 of 3 · Watchdog", title: "3 s per step", lines: [10, 12], lead: "Last remembers the step, so the timer restarts on every step change.", body: "If a move does not finish in time, the fault says which step, and so which cylinder and which sensor.", precise: "Set each watchdog a little above the slowest normal move, and record the times when you commission.", handsTo: ["Watch", "Fault"] },
+      { kicker: "Scene 3 of 3 · Recovery", title: "Back home safely", lines: [13, 17], lead: "Stop resets the fault and sends the cell home.", body: "A double solenoid valve keeps B where it was sent, so the program must send it up on purpose.", handsTo: ["B_Retract"] },
+    ],
+    story: [
+      { t: "auto", text: "Cycle after cycle until Stop or no parts." },
+      { t: "stop", text: "Finish the part, then stop at home." },
+      { t: "watchdog", text: "B does not reach its sensor in 3 s: fault, lamp flashing." },
+      { t: "reset", text: "Stop resets; B is parked up; Start carries on." },
+    ],
+    words: [{ term: "Continuous auto", meaning: "Running cycle after cycle without a start for each." }, { term: "End of cycle stop", meaning: "A stop that waits for the cycle to finish." }, { term: "Watchdog", meaning: "A timer that faults when a step takes too long." }, { term: "Valve memory", meaning: "A double solenoid valve stays where it was last sent." }],
+  },
+
+  "p-vsd-setup": {
+    goal: "Commission a drive: nameplate data, speed limits and ramps, and prove them from the PLC.",
+    learn: ["motor nameplate data", "minimum and maximum frequency", "ramp times", "parameters live in the drive", "proving a setup"],
+    wires: [1, 2, 3, 4, 6, 8, 9, 11],
+    steps: [
+      "On the drive's popover set P0305 to 7.5 A, P1080 to 15 Hz, P1082 to 40 Hz, P1120 and P1121 to 10 s.",
+      "Switch the PLC to RUN, set the pot to 0 and tap Start. Actual_Hz settles at 15.",
+      "Turn the pot to full. Actual_Hz stops at 40, although the PLC asks for 50.",
+      "Watch the ramp: 10 s for 0 to 50 Hz, so 4 s to go from 0 to 20.",
+      "Write the parameter list into the commissioning sheet. Back it up from the drive too.",
+    ],
+    between: ["Read the motor nameplate before you power the drive.", ...BETWEEN.slice(0, 2)],
+    tour: [
+      { kicker: "Scene 1 of 2 · The ask", title: "The PLC asks", lines: [4, 4], lead: "The program sends the pot straight through: 0 to 50 Hz.", body: "Keep the program simple and put the machine's limits in the drive, where they protect the motor whatever the PLC sends.", handsTo: ["Speed_Ref"] },
+      { kicker: "Scene 2 of 2 · The proof", title: "Read it back", lines: [6, 6], lead: "Actual_Hz shows what the drive really did.", body: "Commissioning is not done until you have proved each limit at the motor, and recorded it.", precise: "Rated current lets the drive model the motor and protect it. Wrong nameplate data means poor control and nuisance trips.", handsTo: ["Actual_Hz"] },
+    ],
+    story: [
+      { t: "nameplate", text: "7.5 A, 4 pole, 1450 rpm at 50 Hz." },
+      { t: "limits", text: "15 Hz minimum, 40 Hz maximum." },
+      { t: "ramps", text: "10 s up and down." },
+      { t: "proof", text: "Run at both limits and record the frequencies." },
+    ],
+    words: [{ term: "Parameter", meaning: "A setting stored in the drive, numbered like P1082." }, { term: "Ramp time", meaning: "How long the drive takes to go from 0 to full frequency." }, { term: "Nameplate", meaning: "The motor's rating plate: voltage, current, power and speed." }, { term: "Commissioning", meaning: "Setting up and proving equipment before handover." }],
+  },
+
+  "p-vsd-bus": {
+    goal: "Run a drive over PROFINET with a control word and speed setpoint, and read its status word.",
+    learn: ["PROFINET telegram 1", "control word STW1", "status word ZSW1", "16384 scaling", "bits of a word"],
+    wires: [1, 2, 3, 7],
+    steps: [
+      "On the drive's popover set P0700 to fieldbus.",
+      "Switch the PLC to RUN and tap Start. STW1 becomes 1151, 16#047F, and the drive runs.",
+      "Turn the pot. Drive_NSOLL follows from 0 to 16384, and Actual_Hz follows NIST.",
+      "Jam the fan. ZSW1 bit 3 comes on and the fault lamp lights.",
+      "Clear the jam and press Reset: STW1 becomes 1278, 16#04FE, and bit 7 acknowledges the fault. Start again.",
+    ],
+    between: BETWEEN.slice(0, 2),
+    tour: [
+      { kicker: "Scene 1 of 3 · Control word", title: "Sixteen commands in one", lines: [3, 5], lead: "Each bit of STW1 is a command.", body: "16#047E switches the drive on and enables it. Bit 0 on as well, 16#047F, means run. Bit 7 acknowledges a fault.", handsTo: ["Drive_STW"] },
+      { kicker: "Scene 2 of 3 · Speeds", title: "16384 is 100 %", lines: [6, 7], lead: "Setpoint and actual speed both use 16384 for full speed.", body: "Scale with care: getting this wrong runs a motor at the wrong speed, with no fault to warn you.", handsTo: ["Drive_NSOLL", "Drive_NIST"] },
+      { kicker: "Scene 3 of 3 · Status word", title: "Reading bits", lines: [8, 9], lead: "Drive_ZSW.2 is bit 2: running. Drive_ZSW.3 is bit 3: fault.", body: "Studio 5000 writes a bit of a word as Tag.3, TIA Portal as Tag.%X3.", precise: "A real project also checks that the network is healthy, and stops the drive if the PLC stops talking to it.", handsTo: ["Drive_ZSW"] },
+    ],
+    story: [
+      { t: "STW1 16#047E", text: "Ready, not running." },
+      { t: "STW1 16#047F", text: "Running at the setpoint." },
+      { t: "ZSW1 bit 3", text: "The drive reports a fault." },
+      { t: "STW1 16#04FE", text: "Bit 7 acknowledges it." },
+    ],
+    words: [{ term: "Telegram", meaning: "The fixed set of words exchanged with a drive over PROFINET." }, { term: "STW1", meaning: "Control word 1: commands from PLC to drive." }, { term: "ZSW1", meaning: "Status word 1: the drive's state back to the PLC." }, { term: "NSOLL / NIST", meaning: "Speed setpoint and actual speed, 16384 for 100 %." }],
+  },
 };

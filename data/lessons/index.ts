@@ -9,9 +9,9 @@ import { WIRING } from "./wiring";
 import { ADVANCED } from "./advanced";
 import { PLATFORM_LESSONS } from "./platforms";
 import { FOUNDATION_MACHINES, FOUNDATION_NEW } from "./foundation-new";
-import { PRO_INSTRUMENTS, PRO_PID } from "./professional";
+import { PRO_INSTRUMENTS, PRO_MACHINES, PRO_PID } from "./professional";
 
-const CONTENT: Record<string, LessonContent> = { ...FOUNDATIONS, ...FOUNDATIONS_MORE, ...MACHINES, ...PROCESS, ...SEQUENCES, ...WIRING, ...ADVANCED, ...PLATFORM_LESSONS, ...FOUNDATION_NEW, ...FOUNDATION_MACHINES, ...PRO_PID, ...PRO_INSTRUMENTS };
+const CONTENT: Record<string, LessonContent> = { ...FOUNDATIONS, ...FOUNDATIONS_MORE, ...MACHINES, ...PROCESS, ...SEQUENCES, ...WIRING, ...ADVANCED, ...PLATFORM_LESSONS, ...FOUNDATION_NEW, ...FOUNDATION_MACHINES, ...PRO_PID, ...PRO_INSTRUMENTS, ...PRO_MACHINES };
 
 const PLANNED: LessonContent = {
   difficulty: "beginner",

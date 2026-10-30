@@ -235,3 +235,12 @@ describe("PID", () => {
     expect(mem.CV).toBe(held);
   });
 });
+
+describe("bits of a word", () => {
+  it("XIC(Word.n) reads bit n", () => {
+    const prog = parseProgram("RUNG 1: XIC(ZSW.3) OTE(Fault)\nRUNG 2: XIO(ZSW.0) OTE(NotReady)");
+    const m = scan(prog, { ZSW: 0b1010 }, 100).memory;
+    expect(m.Fault).toBe(true);
+    expect(m.NotReady).toBe(true);
+  });
+});

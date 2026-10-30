@@ -20,7 +20,7 @@ const none: LiveReadout = { text: null, ring: null };
 export const STROKE = { a: 0.8, b: 0.6 };
 const END = 0.97;
 const HOME = 0.03;
-const LABS = ["f-pneu-air", "f-pneu-seq"];
+const LABS = ["f-pneu-air", "f-pneu-seq", "p-ep-machine"];
 
 export const pickPlace: RigDef = {
   id: "pickplace",

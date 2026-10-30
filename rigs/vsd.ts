@@ -7,6 +7,8 @@ import type { PlcTerminal, RigDef } from "./types";
  */
 
 export const VSD = { full: 27648, maxHz: 50, ramp: 10 };
+/** PROFINET standard telegram 1: control word values and the 16384 = 100 % speed scale. */
+export const STW = { on: 0x047f, off: 0x047e, ack: 0x04fe, full: 16384 };
 
 const terminals: PlcTerminal[] = [
   { id: "24V", label: "L+ 24V", kind: "power" },
@@ -37,6 +39,10 @@ export const vsd: RigDef = {
     { tag: "Fault_Lamp", address: "Q0.2", kind: "output", color: "#d64545", connectsTo: "Red fault lamp" },
     { tag: "Run_Lamp", address: "Q0.3", kind: "output", color: "#2e9e5b", connectsTo: "Green run lamp" },
     { tag: "Speed_Ref", address: "QW64", kind: "output", color: "#6b4fa0", connectsTo: "Drive analog in: speed reference, 0 to 27648", analog: true },
+    { tag: "Drive_STW", address: "QW256", kind: "output", color: "#0f766e", connectsTo: "PROFINET control word STW1: 16#047F run, 16#047E stop", analog: true },
+    { tag: "Drive_NSOLL", address: "QW258", kind: "output", color: "#0f766e", connectsTo: "PROFINET speed setpoint: 16384 = 100 %", analog: true },
+    { tag: "Drive_ZSW", address: "IW256", kind: "input", color: "#0f766e", connectsTo: "PROFINET status word ZSW1", analog: true },
+    { tag: "Drive_NIST", address: "IW258", kind: "input", color: "#0f766e", connectsTo: "PROFINET actual speed: 16384 = 100 %", analog: true },
   ],
   parts: [
     { id: "start", name: "Start", kicker: "INPUT · I0.0", spec: "22 MM · GREEN · 1 NO", description: "Starts the fan.", anchor: [-4.4, 1.4, 3.2], explode: 1.4 },
@@ -49,14 +55,14 @@ export const vsd: RigDef = {
     { id: "fan", name: "Fan", kicker: "LOAD", spec: "AXIAL · 600 MM", description: "Fan power rises with the cube of speed, so a little slower saves a lot.", anchor: [4.6, 3.0, 1.0], explode: 0.9 },
   ],
   annotations: [
-    { n: 1, part: "start", title: "Pushbuttons", text: "Start, normally closed Stop and a fault Reset.", labs: ["p-vsd", "p-vsd-faults"], more: 0, side: "left", icon: "pushbuttons" },
-    { n: 2, part: "pot", title: "Speed pot", text: "The operator's speed setting as 0 to 27648.", labs: ["p-vsd"], more: 0, side: "left", icon: "plc" },
-    { n: 3, part: "plc", title: "Controller", text: "Scales the speed, sends run and reset, watches the drive's relays.", labs: ["p-vsd", "p-vsd-faults"], more: 0, side: "left", icon: "plc" },
-    { n: 4, part: "drive", title: "Drive", text: "Ramps the frequency at 10 Hz per second towards the reference.", labs: ["p-vsd", "p-vsd-faults"], more: 0, side: "right", icon: "plc" },
-    { n: 5, part: "motor", title: "Motor", text: "Speed and current follow the drive output.", labs: ["p-vsd", "p-vsd-faults"], more: 0, side: "right", icon: "motor" },
-    { n: 6, part: "fan", title: "Fan", text: "Jam it to make the drive trip on overcurrent.", labs: ["p-vsd-faults"], more: 0, side: "right", icon: "motor" },
+    { n: 1, part: "start", title: "Pushbuttons", text: "Start, normally closed Stop and a fault Reset.", labs: ["p-vsd", "p-vsd-setup", "p-vsd-bus", "p-vsd-faults"], more: 0, side: "left", icon: "pushbuttons" },
+    { n: 2, part: "pot", title: "Speed pot", text: "The operator's speed setting as 0 to 27648.", labs: ["p-vsd", "p-vsd-setup", "p-vsd-bus"], more: 0, side: "left", icon: "plc" },
+    { n: 3, part: "plc", title: "Controller", text: "Scales the speed, sends run and reset, watches the drive's relays.", labs: ["p-vsd", "p-vsd-setup", "p-vsd-bus", "p-vsd-faults"], more: 0, side: "left", icon: "plc" },
+    { n: 4, part: "drive", title: "Drive", text: "Ramps towards the reference, within the limits set on its keypad.", labs: ["p-vsd", "p-vsd-setup", "p-vsd-bus", "p-vsd-faults"], more: 0, side: "right", icon: "plc" },
+    { n: 5, part: "motor", title: "Motor", text: "Speed and current follow the drive output.", labs: ["p-vsd", "p-vsd-setup", "p-vsd-bus", "p-vsd-faults"], more: 0, side: "right", icon: "motor" },
+    { n: 6, part: "fan", title: "Fan", text: "Jam it to make the drive trip on overcurrent.", labs: ["p-vsd-bus", "p-vsd-faults"], more: 0, side: "right", icon: "motor" },
   ],
-  initial: { startPressed: false, stopPressed: false, resetPressed: false, pot: 0.6, hz: 0, amps: 0, fault: 0, faultT: 0, resetPrev: false, faults: 0, fanAngle: 0, atSpeed: false, hzNorm: 0 },
+  initial: { rampUp: 5, rampDown: 5, minHz: 0, maxHz: 50, ratedA: 8, fieldbus: false, startPressed: false, stopPressed: false, resetPressed: false, pot: 0.6, hz: 0, amps: 0, fault: 0, faultT: 0, resetPrev: false, faults: 0, fanAngle: 0, atSpeed: false, hzNorm: 0 },
   faults: [
     { key: "jam", label: "Jam the fan", part: "fan" },
     { key: "mainsLoss", label: "Mains supply lost", part: "drive" },
@@ -68,6 +74,12 @@ export const vsd: RigDef = {
     { kind: "slider", part: "pot", label: "Speed setting", key: "pot", min: 0, max: 1, step: 0.05, unit: "" },
     { kind: "meter", part: "drive", label: "Output frequency", key: "hz", max: 50, unit: "Hz", tone: "#2457a6" },
     { kind: "meter", part: "motor", label: "Current", key: "amps", max: 20, unit: "A", tone: "#6b4fa0" },
+    { kind: "slider", part: "drive", label: "P1120 ramp up time", key: "rampUp", min: 1, max: 30, step: 1, unit: "s" },
+    { kind: "slider", part: "drive", label: "P1121 ramp down time", key: "rampDown", min: 1, max: 30, step: 1, unit: "s" },
+    { kind: "slider", part: "drive", label: "P1080 minimum frequency", key: "minHz", min: 0, max: 25, step: 5, unit: "Hz" },
+    { kind: "slider", part: "drive", label: "P1082 maximum frequency", key: "maxHz", min: 30, max: 60, step: 5, unit: "Hz" },
+    { kind: "slider", part: "drive", label: "P0305 motor rated current", key: "ratedA", min: 4, max: 12, step: 0.5, unit: "A" },
+    { kind: "toggle", part: "drive", label: "P0700 command source", key: "fieldbus", on: "Fieldbus (PROFINET)", off: "Terminals", logOn: "drive · commands from fieldbus", logOff: "drive · commands from terminals" },
     { kind: "status", part: "drive", label: "Fault code", value: (p) => ({ text: Number(p.fault) === 1 ? "F001 overcurrent" : Number(p.fault) === 2 ? "F003 undervoltage" : "none", on: Number(p.fault) > 0 }) },
   ],
   wiring: {
@@ -107,6 +119,8 @@ export const vsd: RigDef = {
       At_Speed: Boolean(p.atSpeed),
       Speed_Pot: Math.round(Number(p.pot) * VSD.full),
       Motor_Hz: Math.round(hz * 10),
+      Drive_ZSW: (ready ? 0x0003 : 0) | (hz > 0.2 ? 0x0004 : 0) | (fault > 0 ? 0x0008 : 0) | (p.atSpeed ? 0x0100 : 0) | 0x0200,
+      Drive_NIST: Math.round((hz / VSD.maxHz) * STW.full),
     };
   },
   step: (p, f, m, dtMs) => {
@@ -115,21 +129,29 @@ export const vsd: RigDef = {
     let faultT = Number(p.faultT);
     let faults = Number(p.faults);
     // Reset on the rising edge of the reset command, once the cause has gone.
-    const resetNow = Boolean(m.Drive_Reset) && !p.resetPrev;
+    // Commands come from the terminals or, with P0700 set to fieldbus, from the control word.
+    const bus = Boolean(p.fieldbus);
+    const stw = Number(m.Drive_STW ?? 0);
+    const resetCmd = bus ? (stw & 0x0080) !== 0 : Boolean(m.Drive_Reset);
+    const runCmd = bus ? (stw & 0x047f) === 0x047f : Boolean(m.Drive_Run);
+    const refPct = bus ? Number(m.Drive_NSOLL ?? 0) / STW.full : Number(m.Speed_Ref ?? 0) / VSD.full;
+    const resetNow = resetCmd && !p.resetPrev;
     if (resetNow && fault > 0 && !(fault === 2 && f.mainsLoss)) fault = 0;
     if (f.mainsLoss && fault === 0) {
       fault = 2;
       faults += 1;
     }
-    const run = fault === 0 && Boolean(m.Drive_Run);
-    const refHz = Math.max(0, Math.min(VSD.maxHz, (Number(m.Speed_Ref ?? 0) / VSD.full) * VSD.maxHz));
+    const run = fault === 0 && runCmd;
+    const refHz = Math.max(Number(p.minHz), Math.min(Number(p.maxHz), refPct * VSD.maxHz));
     const target = run ? refHz : 0;
     let hz = Number(p.hz);
-    const step = VSD.ramp * dt;
-    hz = fault > 0 ? Math.max(0, hz - VSD.ramp * 3 * dt) : hz < target ? Math.min(target, hz + step) : Math.max(target, hz - step);
+    // Ramp times are for 0 to 50 Hz, as on a Siemens drive.
+    const up = (VSD.maxHz / Number(p.rampUp)) * dt;
+    const down = (VSD.maxHz / Number(p.rampDown)) * dt;
+    hz = fault > 0 ? Math.max(0, hz - VSD.ramp * 3 * dt) : hz < target ? Math.min(target, hz + up) : Math.max(target, hz - down);
     const load = (hz / VSD.maxHz) ** 2;
     const amps = hz > 0.2 ? 2.4 + 5.6 * load + (f.jam ? 14 : 0) : 0;
-    if (fault === 0 && amps > 16) {
+    if (fault === 0 && amps > Number(p.ratedA) * 2) {
       faultT += dt;
       if (faultT > 1) {
         fault = 1;
@@ -139,7 +161,7 @@ export const vsd: RigDef = {
     } else faultT = 0;
     const atSpeed = run && Math.abs(hz - refHz) < 0.5 && refHz > 0.5;
     const fanAngle = (Number(p.fanAngle) + (f.jam ? 0 : hz) * dt * 2.4) % (Math.PI * 2);
-    return { ...p, hz, hzNorm: f.jam ? 0 : hz / VSD.maxHz, amps, fault, faultT, faults, resetPrev: Boolean(m.Drive_Reset), atSpeed, fanAngle };
+    return { ...p, hz, hzNorm: f.jam ? 0 : hz / VSD.maxHz, amps, fault, faultT, faults, resetPrev: resetCmd, atSpeed, fanAngle };
   },
   events: (b, a) => {
     if (Number(b.fault) === 0 && Number(a.fault) === 1) return [["fault · drive tripped, F001 overcurrent", "fault"]];

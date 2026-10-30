@@ -271,6 +271,7 @@ export const CURRICULUM: Track[] = [
           L("m-traffic", "Traffic lights", "sequence", "traffic"),
           L("m-lift", "Lift control", "sequence", "lift"),
           L("m-mixer", "Batch mixer", "sequence", "mixer"),
+          L("p-ep-machine", "Electro-pneumatic machines", "sequence", "pickplace"),
         ],
       },
     ],
@@ -325,6 +326,8 @@ export const CURRICULUM: Track[] = [
         blurb: "Drives, ramps and speed references",
         lessons: [
           L("p-vsd", "Variable speed drives", "reverse", "vsd"),
+          L("p-vsd-setup", "Drive set up and parameters", "compare", "vsd"),
+          L("p-vsd-bus", "Controlling a drive from the PLC", "compare", "vsd"),
           L("p-vsd-faults", "Drive faults and protection", "fault", "vsd"),
         ],
       },

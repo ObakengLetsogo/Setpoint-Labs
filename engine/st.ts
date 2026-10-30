@@ -5,7 +5,7 @@
 // Timers and counters store their state under the same names as ladder (.ACC, .DN, .PRE),
 // so .Q and .ET / .CV are read as aliases and lessons can be marked the same way in either language.
 
-import { pidStep, type Memory } from "./scan";
+import { bool as scanBool, pidStep, type Memory } from "./scan";
 
 export class StError extends Error {
   constructor(
@@ -67,7 +67,7 @@ function tokenize(src: string): Tok[] {
       i += num[0].length;
       continue;
     }
-    const id = /^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)?/.exec(src.slice(i));
+    const id = /^[A-Za-z_][A-Za-z0-9_]*(\.(?:[A-Za-z_][A-Za-z0-9_]*|\d{1,2}\b))?/.exec(src.slice(i));
     if (id) {
       const upper = id[0].toUpperCase();
       if (KEYWORDS.has(upper)) out.push({ t: "kw", v: upper, line });
@@ -352,7 +352,11 @@ function resolveName(name: string, fbs: Record<string, FbType>) {
 export function runST(prog: StProgram, input: Memory, dtMs: number): StResult {
   const mem: Memory = { ...input };
   const lines: Record<number, StLineTrace> = {};
-  const read = (name: string): boolean | number => mem[resolveName(name, prog.fbs)] ?? 0;
+  const read = (name: string): boolean | number => {
+    const key = resolveName(name, prog.fbs);
+    if (mem[key] === undefined && /\.\d{1,2}$/.test(key)) return scanBool(mem, key);
+    return mem[key] ?? 0;
+  };
   const num = (v: boolean | number) => (typeof v === "boolean" ? (v ? 1 : 0) : v);
   const bool = (v: boolean | number) => Boolean(v);
 

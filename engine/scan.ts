@@ -20,7 +20,17 @@ export interface ScanResult {
   trace: RungTrace[];
 }
 
-export const bool = (mem: Memory, tag: string) => Boolean(mem[tag]);
+const BIT_RE = /^(.+)\.(\d{1,2})$/;
+/** A bit, or bit n of a word written Word.n (as Tag.3 in Studio 5000 or Word.%X3 in TIA Portal). */
+export const bool = (mem: Memory, tag: string) => {
+  const v = mem[tag];
+  if (v === undefined) {
+    const m = BIT_RE.exec(tag);
+    const word = m && mem[m[1]];
+    if (typeof word === "number") return ((word >> Number(m![2])) & 1) === 1;
+  }
+  return Boolean(v);
+};
 const num = (mem: Memory, tag: string) => Number(mem[tag] ?? 0);
 /** An operand is a number literal or a tag holding a number (or a bit, read as 0 or 1). */
 export const operand = (mem: Memory, a: string) => (/^-?\d/.test(a) ? Number(a) : num(mem, a));

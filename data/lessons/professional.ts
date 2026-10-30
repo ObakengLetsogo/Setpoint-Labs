@@ -271,3 +271,170 @@ export const PRO_INSTRUMENTS: Record<string, LessonContent> = {
     ],
   },
 };
+
+/* ------------------------------------------------ machines and drives */
+
+const PP = {
+  start: io("I0.0", "Start_PB", "#2e9e5b", "Cycle start pushbutton", "Momentary, normally open"),
+  stop: io("I0.1", "Stop_PB", "#d64545", "Stop pushbutton", "Normally closed: 1 at rest"),
+  air: io("I0.2", "Air_OK", "#3d8fd6", "Air pressure switch", "1 when the supply is above 4 bar"),
+  part: io("I0.3", "Part_In", "#6b6f76", "Magazine sensor", "1 when a part is waiting"),
+  aHome: io("I0.4", "A_Home", "#6b6f76", "Reed switch, A home", "1 when cylinder A is in"),
+  aEnd: io("I0.5", "A_End", "#6b6f76", "Reed switch, A out", "1 when cylinder A is fully out"),
+  bHome: io("I0.6", "B_Home", "#6b6f76", "Reed switch, B up", "1 when cylinder B is up"),
+  bEnd: io("I0.7", "B_End", "#6b6f76", "Reed switch, B down", "1 when cylinder B is fully down"),
+  aExt: io("Q0.0", "A_Extend", "#2457a6", "Valve Y1", "Cylinder A out; a spring brings it back"),
+  bExt: io("Q0.1", "B_Extend", "#2457a6", "Valve Y2", "Cylinder B down"),
+  bRet: io("Q0.2", "B_Retract", "#2457a6", "Valve Y3", "Cylinder B up"),
+  lamp: io("Q0.3", "Run_Lamp", "#2e9e5b", "Cycle lamp", "Steady in auto, flashing on a fault"),
+};
+
+const VD = {
+  start: io("I0.0", "Start_PB", "#2e9e5b", "Start pushbutton", "Momentary, normally open"),
+  stop: io("I0.1", "Stop_PB", "#d64545", "Stop pushbutton", "Normally closed: 1 at rest"),
+  ready: io("I0.2", "Drive_Ready", "#2457a6", "Drive relay 1", "1 when ready to run"),
+  running: io("I0.3", "Drive_Running", "#2457a6", "Drive relay 2", "1 while the motor turns"),
+  atSpeed: io("I0.5", "At_Speed", "#2e9e5b", "Drive digital out", "1 at the reference speed"),
+  reset: io("I0.6", "Reset_PB", "#3d434a", "Fault reset pushbutton", "Momentary"),
+  pot: io("IW64", "Speed_Pot", "#6b4fa0", "Speed potentiometer", "0 to 27648"),
+  hz: io("IW66", "Motor_Hz", "#6b4fa0", "Drive analog out", "Frequency × 10"),
+  run: io("Q0.0", "Drive_Run", "#2457a6", "Drive DI1", "Run forward"),
+  ref: io("QW64", "Speed_Ref", "#6b4fa0", "Drive AI1", "Speed reference, 0 to 27648"),
+  runLamp: io("Q0.3", "Run_Lamp", "#2e9e5b", "Run lamp", "Lit while the motor runs"),
+  faultLamp: io("Q0.2", "Fault_Lamp", "#d64545", "Fault lamp", "Lit while the drive is tripped"),
+  stw: io("QW256", "Drive_STW", "#0f766e", "PROFINET control word STW1", "16#047F run, 16#047E stop, 16#04FE acknowledge"),
+  nsoll: io("QW258", "Drive_NSOLL", "#0f766e", "PROFINET speed setpoint", "16384 = 100 % = 50 Hz"),
+  zsw: io("IW256", "Drive_ZSW", "#0f766e", "PROFINET status word ZSW1", "Bit 2 running, bit 3 fault, bit 8 at speed"),
+  nist: io("IW258", "Drive_NIST", "#0f766e", "PROFINET actual speed", "16384 = 100 %"),
+};
+
+const RUN_CMD = "(XIC(Start_PB) OR XIC(Run_Cmd)) AND XIC(Stop_PB) AND XIC(Drive_Ready) OTE(Run_Cmd)";
+
+export const PRO_MACHINES: Record<string, LessonContent> = {
+  "p-ep-machine": {
+    difficulty: "advanced",
+    checkpoint: { steps: [(m) => Number(m["Cycles.ACC"]) >= 2, (m) => Boolean(m.Fault), (m, i) => !m.Fault && Boolean(i.A_Home) && Boolean(i.B_Home)], message: "ran the cell in continuous auto, caught a sticking cylinder with the step watchdog and recovered it" },
+    summary:
+      "A production machine does more than run a sequence once. It runs continuously, stops at the end of a cycle so parts are never left half done, and watches every move: if a cylinder does not reach its sensor in time, the step watchdog stops the machine and says where. This is how electro-pneumatic machines are programmed in real factories.",
+    facts: [
+      { icon: "press", text: "Tap Start. The cell cycles on its own until the magazine is empty or you press Stop." },
+      { icon: "watch", text: "Press Stop mid-cycle. The cell finishes the part, then stops at home." },
+      { icon: "bolt", text: "Make cylinder B stick. After 3 s on one step the watchdog trips and the lamp flashes. Note that B keeps going down: a double solenoid valve remembers." },
+    ],
+    io: [PP.start, PP.stop, PP.air, PP.part, PP.aHome, PP.aEnd, PP.bHome, PP.bEnd, PP.aExt, PP.bExt, PP.bRet, PP.lamp],
+    steps: [
+      { line: 2, text: "Start latches Auto, unless a fault is waiting to be reset." },
+      { line: 3, text: "Stop drops Auto. The sequence finishes its cycle and does not start another." },
+      { line: 4, text: "A new cycle starts only in Auto, with air, a part and both cylinders home." },
+      { line: 10, text: "Each step gets 3 s. Step equals Last only after the step has lasted one scan, so a new step restarts the timer." },
+      { line: 11, text: "Remember the step for the next scan." },
+      { line: 12, text: "The watchdog latches a fault and drops Auto." },
+      { line: 13, text: "Stop resets the fault and sends the sequence home." },
+      { line: 14, text: "Outputs are dropped in a fault." },
+      { line: 16, text: "At home, B is sent up if it is not already up: the double solenoid will not do it by itself." },
+      { line: 20, text: "Steady lamp in auto, flashing in a fault." },
+    ],
+    code: [
+      "// Continuous auto with an end of cycle stop and a step watchdog.",
+      "RUNG 1: XIC(Start_PB) XIO(Fault) OTL(Auto)",
+      "RUNG 2: XIO(Stop_PB) OTU(Auto)",
+      "RUNG 3: XIC(Auto) XIC(Air_OK) XIC(Part_In) XIC(A_Home) XIC(B_Home) EQU(Step, 0) MOV(1, Step)",
+      "RUNG 4: EQU(Step, 1) XIC(A_End) MOV(2, Step)",
+      "RUNG 5: EQU(Step, 2) XIC(B_End) MOV(3, Step)",
+      "RUNG 6: EQU(Step, 3) XIC(B_Home) MOV(4, Step)",
+      "RUNG 7: EQU(Step, 4) XIC(A_Home) CTU(Cycles, 999)",
+      "RUNG 8: EQU(Step, 4) XIC(A_Home) MOV(0, Step)",
+      "RUNG 9: GRT(Step, 0) EQU(Step, Last) TON(Watch, 3000)",
+      "RUNG 10: MOV(Step, Last)",
+      "RUNG 11: XIC(Watch.DN) OTL(Fault) OTU(Auto)",
+      "RUNG 12: XIC(Fault) XIO(Stop_PB) OTU(Fault) MOV(0, Step)",
+      "RUNG 13: GEQ(Step, 1) LEQ(Step, 3) XIO(Fault) OTE(A_Extend)",
+      "RUNG 14: EQU(Step, 2) XIO(Fault) OTE(B_Extend)",
+      "RUNG 15: EQU(Step, 0) XIO(B_Home) OTE(B_Park)",
+      "RUNG 16: EQU(Step, 3) OR XIC(B_Park) OTE(B_Retract)",
+      "RUNG 17: XIO(Flash_B.DN) TON(Flash_A, 500)",
+      "RUNG 18: XIC(Flash_A.DN) TON(Flash_B, 500)",
+      "RUNG 19: (XIC(Auto) XIO(Fault)) OR (XIC(Fault) XIC(Flash_A.DN)) OTE(Run_Lamp)",
+    ],
+    specs: [
+      { label: "Mode", value: "Continuous auto" },
+      { label: "Stop", value: "End of cycle" },
+      { label: "Watchdog", value: "3 s per step" },
+      { label: "Level", value: "Advanced" },
+    ],
+  },
+
+  "p-vsd-setup": {
+    difficulty: "intermediate",
+    checkpoint: {
+      steps: [
+        (_m, i) => Boolean(i.Drive_Running) && Number(i.Speed_Pot) < 300 && Math.abs(Number(i.Motor_Hz) - 150) <= 5,
+        (_m, i) => Boolean(i.At_Speed) && Number(i.Speed_Pot) > 27000 && Math.abs(Number(i.Motor_Hz) - 400) <= 5,
+      ],
+      message: "commissioned the drive to the fan's limits: 15 Hz minimum and 40 Hz maximum",
+    },
+    summary:
+      "Before a drive runs a motor it is commissioned: the motor's nameplate data goes in, then the limits and ramps the machine needs. These live in the drive, not the PLC. The program here only asks for a speed; the drive's parameters decide what the motor actually does. Your job: set this fan up for its specification.",
+    facts: [
+      { icon: "info", text: "Spec: rated current 7.5 A, minimum 15 Hz for motor cooling, maximum 40 Hz for the fan, 10 s ramps." },
+      { icon: "press", text: "Set the parameters on the drive's keypad from its popover, then run with the pot at 0 and at full." },
+      { icon: "watch", text: "At pot 0 the motor runs at 15 Hz. At full it stops at 40 Hz, though the PLC asks for 50." },
+    ],
+    io: [VD.start, VD.stop, VD.ready, VD.running, VD.atSpeed, VD.pot, VD.hz, VD.run, VD.ref, VD.runLamp],
+    steps: [
+      { line: 2, text: "Run seals in while the drive is ready." },
+      { line: 4, text: "The pot goes straight to the drive. The PLC asks for 0 to 50 Hz." },
+      { line: 6, text: "Read back the real frequency, in whole hertz. It shows what the parameters did." },
+    ],
+    code: ["// The program asks; the drive's parameters decide.", `RUNG 1: ${RUN_CMD}`, "RUNG 2: XIC(Run_Cmd) OTE(Drive_Run)", "RUNG 3: MOV(Speed_Pot, Speed_Ref)", "RUNG 4: XIC(Drive_Running) OTE(Run_Lamp)", "RUNG 5: DIV(Motor_Hz, 10, Actual_Hz)"],
+    specs: [
+      { label: "P0305", value: "Rated current 7.5 A" },
+      { label: "P1080 / P1082", value: "15 Hz / 40 Hz" },
+      { label: "P1120 / P1121", value: "10 s / 10 s" },
+      { label: "Level", value: "Intermediate" },
+    ],
+  },
+
+  "p-vsd-bus": {
+    difficulty: "advanced",
+    checkpoint: {
+      steps: [(m, i) => Boolean(m.Run_Lamp) && Number(i.Drive_NIST) > 1000, (_m, i) => (Number(i.Drive_ZSW) & 8) !== 0, (m, i) => (Number(i.Drive_ZSW) & 8) === 0 && Boolean(m.Run_Lamp)],
+      message: "ran the drive over PROFINET with a control word, caught its fault in the status word and acknowledged it",
+    },
+    summary:
+      "On a modern plant the PLC talks to the drive over a network instead of wires. With PROFINET standard telegram 1, the PLC sends a control word (STW1) and a speed setpoint, and the drive sends back a status word (ZSW1) and its actual speed. One cable replaces every terminal, and the PLC can read far more than three relays could tell it.",
+    facts: [
+      { icon: "press", text: "On the drive's keypad set P0700 to fieldbus. Then tap Start: STW1 becomes 16#047F and the drive runs." },
+      { icon: "info", text: "Speeds use 16384 for 100 %. The program scales the pot into that, and NIST back into hertz." },
+      { icon: "bolt", text: "Jam the fan. ZSW1 bit 3 turns on. Clear the jam and press Reset: STW1 bit 7 acknowledges the fault." },
+    ],
+    io: [VD.start, VD.stop, VD.reset, VD.pot, VD.stw, VD.nsoll, VD.zsw, VD.nist, VD.runLamp, VD.faultLamp],
+    steps: [
+      { line: 2, text: "Run seals in unless ZSW1 bit 3 says the drive has a fault." },
+      { line: 3, text: "16#047E (1150): switched on and enabled, but not running." },
+      { line: 4, text: "16#047F (1151): bit 0 on as well, so the drive runs." },
+      { line: 5, text: "16#04FE (1278): bit 7 on acknowledges a fault." },
+      { line: 6, text: "Scale 0 to 27648 into 0 to 16384, rounding." },
+      { line: 7, text: "Scale the actual speed back to hertz." },
+      { line: 8, text: "ZSW1 bit 2: operation enabled, the motor is running." },
+      { line: 9, text: "ZSW1 bit 3: fault present." },
+    ],
+    code: [
+      "// PROFINET telegram 1: control word out, status word in.",
+      "RUNG 1: (XIC(Start_PB) OR XIC(Run_Cmd)) AND XIC(Stop_PB) AND XIO(Drive_ZSW.3) OTE(Run_Cmd)",
+      "RUNG 2: MOV(1150, Drive_STW)",
+      "RUNG 3: XIC(Run_Cmd) MOV(1151, Drive_STW)",
+      "RUNG 4: XIC(Drive_ZSW.3) XIC(Reset_PB) MOV(1278, Drive_STW)",
+      "RUNG 5: MUL(Speed_Pot, 16384, T_N) ADD(T_N, 13824, T_N) DIV(T_N, 27648, Drive_NSOLL)",
+      "RUNG 6: MUL(Drive_NIST, 50, T_H) ADD(T_H, 8192, T_H) DIV(T_H, 16384, Actual_Hz)",
+      "RUNG 7: XIC(Drive_ZSW.2) OTE(Run_Lamp)",
+      "RUNG 8: XIC(Drive_ZSW.3) OTE(Fault_Lamp)",
+    ],
+    specs: [
+      { label: "Network", value: "PROFINET, telegram 1" },
+      { label: "Out", value: "STW1 + speed setpoint" },
+      { label: "In", value: "ZSW1 + actual speed" },
+      { label: "Level", value: "Advanced" },
+    ],
+  },
+};
