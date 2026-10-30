@@ -10,6 +10,7 @@ import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import { useRig, useSim } from "@/store/sim";
 import { RigScene } from "@/components/rigs/RigScene";
 import { markerScreen } from "./annotationBus";
+import { RigSound } from "./RigSound";
 
 const HOME_TARGET = new THREE.Vector3(-0.1, 0.7, 0.2);
 const HOME_THETA = 0.62;
@@ -238,7 +239,7 @@ function Effects({ fx }: { fx: string }) {
   if (fx === "none") return null;
   return (
     <EffectComposer multisampling={0} enableNormalPass={false}>
-      {fx === "noao" || narrow ? <></> : <N8AO halfRes aoRadius={0.75} intensity={1.8} distanceFalloff={0.5} quality="medium" color="#1c2026" />}
+      {fx === "noao" || narrow ? <></> : <N8AO halfRes={false} aoRadius={0.75} intensity={1.8} distanceFalloff={0.5} quality="medium" color="#1c2026" />}
       <Bloom mipmapBlur luminanceThreshold={3.5} luminanceSmoothing={0.1} intensity={0.5} radius={0.45} />
       <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
       <SMAA />
@@ -268,9 +269,12 @@ function ManualDriver() {
 export default function Scene({ framing = "page", manual = false }: { framing?: Framing; manual?: boolean }) {
   const fx = fxMode();
   return (
+    <>
+    <RigSound />
     <Canvas
       frameloop={manual ? "never" : "always"}
-      dpr={[1, 1.6]}
+      // Full sharpness on wide screens; phones stop at 1.5 to stay smooth.
+      dpr={[1, typeof window !== "undefined" && window.innerWidth < 700 ? 1.5 : 2]}
       camera={{ fov: VFOV, near: 0.5, far: 300, position: [16, 14, 20] }}
       gl={{ antialias: false, alpha: true, powerPreference: "high-performance", toneMapping: THREE.NoToneMapping }}
       onCreated={({ gl }) => {
@@ -288,8 +292,9 @@ export default function Scene({ framing = "page", manual = false }: { framing?: 
       <directionalLight position={[-6, 11, 7]} intensity={0.85} color="#fffaf2" />
       <directionalLight position={[8, 4, -6]} intensity={0.18} color="#e8f0ff" />
       <CurrentRig />
-      <ContactShadows position={[0, -0.25, 0]} scale={[17, 13]} blur={2.4} opacity={0.32} far={3} resolution={512} color="#2a2f36" />
+      <ContactShadows position={[0, -0.25, 0]} scale={[17, 13]} blur={2.4} opacity={0.32} far={3} resolution={1024} color="#2a2f36" />
       <Effects fx={fx} />
     </Canvas>
+    </>
   );
 }

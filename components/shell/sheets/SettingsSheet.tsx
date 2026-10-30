@@ -8,7 +8,7 @@ const TOGGLES: { key: keyof Settings; label: string; hint: string }[] = [
   { key: "calloutLabels", label: "Callout labels", hint: "Name and spec beside the selected part" },
   { key: "floorGrid", label: "Floor grid", hint: "Reference grid under the rig" },
   { key: "turntable", label: "Turntable", hint: "Slowly rotate the rig" },
-  { key: "sound", label: "Sound", hint: "Clicks and motor hum, coming soon" },
+  { key: "sound", label: "Sound", hint: "Contactor clunk and motor hum" },
   { key: "reduceMotion", label: "Reduce motion", hint: "Snap instead of animate" },
 ];
 

@@ -49,12 +49,12 @@ export const vsd: RigDef = {
     { id: "fan", name: "Fan", kicker: "LOAD", spec: "AXIAL · 600 MM", description: "Fan power rises with the cube of speed, so a little slower saves a lot.", anchor: [4.6, 3.0, 1.0], explode: 0.9 },
   ],
   annotations: [
-    { n: 1, part: "start", title: "Pushbuttons", text: "Start, normally closed Stop and a fault Reset.", labs: ["P5", "P6"], more: 0, side: "left", icon: "pushbuttons" },
-    { n: 2, part: "pot", title: "Speed pot", text: "The operator's speed setting as 0 to 27648.", labs: ["P5"], more: 0, side: "left", icon: "plc" },
-    { n: 3, part: "plc", title: "Controller", text: "Scales the speed, sends run and reset, watches the drive's relays.", labs: ["P5", "P6"], more: 0, side: "left", icon: "plc" },
-    { n: 4, part: "drive", title: "Drive", text: "Ramps the frequency at 10 Hz per second towards the reference.", labs: ["P5", "P6"], more: 0, side: "right", icon: "plc" },
-    { n: 5, part: "motor", title: "Motor", text: "Speed and current follow the drive output.", labs: ["P5", "P6"], more: 0, side: "right", icon: "motor" },
-    { n: 6, part: "fan", title: "Fan", text: "Jam it to make the drive trip on overcurrent.", labs: ["P6"], more: 0, side: "right", icon: "motor" },
+    { n: 1, part: "start", title: "Pushbuttons", text: "Start, normally closed Stop and a fault Reset.", labs: ["P4.5", "P4.6"], more: 0, side: "left", icon: "pushbuttons" },
+    { n: 2, part: "pot", title: "Speed pot", text: "The operator's speed setting as 0 to 27648.", labs: ["P4.5"], more: 0, side: "left", icon: "plc" },
+    { n: 3, part: "plc", title: "Controller", text: "Scales the speed, sends run and reset, watches the drive's relays.", labs: ["P4.5", "P4.6"], more: 0, side: "left", icon: "plc" },
+    { n: 4, part: "drive", title: "Drive", text: "Ramps the frequency at 10 Hz per second towards the reference.", labs: ["P4.5", "P4.6"], more: 0, side: "right", icon: "plc" },
+    { n: 5, part: "motor", title: "Motor", text: "Speed and current follow the drive output.", labs: ["P4.5", "P4.6"], more: 0, side: "right", icon: "motor" },
+    { n: 6, part: "fan", title: "Fan", text: "Jam it to make the drive trip on overcurrent.", labs: ["P4.6"], more: 0, side: "right", icon: "motor" },
   ],
   initial: { startPressed: false, stopPressed: false, resetPressed: false, pot: 0.6, hz: 0, amps: 0, fault: 0, faultT: 0, resetPrev: false, faults: 0, fanAngle: 0, atSpeed: false, hzNorm: 0 },
   faults: [
