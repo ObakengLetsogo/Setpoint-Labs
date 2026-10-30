@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { lessons } from "@/data/lessons";
-import { QUIZZES } from ".";
+import { QUIZZES, quizFor } from ".";
 
 describe("quizzes", () => {
   it("every open lesson has ten valid questions", () => {
@@ -14,6 +14,14 @@ describe("quizzes", () => {
         expect(new Set(q.options).size, `${l.id}: ${q.q}`).toBe(q.options.length);
       }
     }
+  });
+
+  it("mixes the options so the right answer is not always first", () => {
+    const all = lessons.filter((x) => !x.locked).flatMap((l) => quizFor(l.id));
+    const first = all.filter((q) => q.answer === 0).length / all.length;
+    expect(first).toBeLessThan(0.4);
+    for (const l of lessons.filter((x) => !x.locked))
+      quizFor(l.id).forEach((q, i) => expect(q.options[q.answer], l.id).toBe(QUIZZES[l.id][i].options[QUIZZES[l.id][i].answer]));
   });
 
   it("has no quizzes for unknown lessons and no em dashes", () => {

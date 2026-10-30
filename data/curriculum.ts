@@ -81,6 +81,13 @@ export const CURRICULUM: Track[] = [
     ring: "#1f9d6b",
     chapters: [
       {
+        id: "plc-basics",
+        stage: 1,
+        title: "What a PLC is",
+        blurb: "Why machines need controllers, and what is inside one",
+        lessons: [L("f-why", "Why machines need controllers", "contacts"), L("f-inside", "Inside the PLC: CPU, power and I/O", "lamp")],
+      },
+      {
         id: "reading-ladder",
         stage: 1,
         title: "Reading ladder",
@@ -92,6 +99,13 @@ export const CURRICULUM: Track[] = [
         ],
       },
       {
+        id: "data-tags",
+        stage: 1,
+        title: "Numbers, data and tags",
+        blurb: "Bits, words, data types, addresses and memory",
+        lessons: [L("f-bits", "Bits, bytes and words", "compare"), L("f-types", "Data types", "compare"), L("f-tags", "Tags, addresses and memory", "seal")],
+      },
+      {
         id: "motor-control",
         stage: 1,
         title: "Motor control",
@@ -101,6 +115,17 @@ export const CURRICULUM: Track[] = [
           L("f-latch", "Latch and unlatch", "latch"),
           L("f-jog", "Jog and run", "jog"),
           L("foundations-3", "Overload protection", "overload"),
+        ],
+      },
+      {
+        id: "field-devices",
+        stage: 1,
+        title: "Field devices",
+        blurb: "Buttons, sensors, relays, contactors and valves",
+        lessons: [
+          L("f-buttons", "Buttons, selector switches and limit switches", "contacts"),
+          L("f-sensors", "Proximity and photoelectric sensors", "conveyor", "conveyor"),
+          L("f-relays", "Relays, contactors and solenoid valves", "overload"),
         ],
       },
       {
@@ -154,15 +179,34 @@ export const CURRICULUM: Track[] = [
         ],
       },
       {
+        id: "electrical-safety",
+        stage: 2,
+        title: "Electrical safety at work",
+        blurb: "Isolation, protection devices, earthing and cables",
+        lessons: [
+          L("w-isolation", "Isolation, lockout and testing for dead", "estop"),
+          L("w-protection", "Protection devices and earthing", "overload"),
+          L("w-cables", "Cables, glands and wiring standards", "fault"),
+        ],
+      },
+      {
         id: "testing",
         stage: 2,
         title: "Testing and commissioning",
         blurb: "Meters, loop checks and sign-off",
         lessons: [
+          L("w-wiring-io", "Wiring PLC inputs and outputs", "lamp"),
           L("w-multimeter", "Testing with a multimeter", "fault"),
           L("w-loop-check", "I/O loop checks", "sequence"),
           L("w-commissioning", "Commissioning checklist", "safety"),
         ],
+      },
+      {
+        id: "software",
+        stage: 2,
+        title: "Software and changes",
+        blurb: "Projects, download, online monitoring, backups and versions",
+        lessons: [L("w-projects", "Projects, download and online monitoring", "sequence"), L("w-backups", "Backups, versions and change control", "safety")],
       },
     ],
   },

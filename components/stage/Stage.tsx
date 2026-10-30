@@ -51,8 +51,10 @@ const RING: Record<Tone, string> = {
   idle: "",
 };
 
-export function LabChip({ code }: { code: string }) {
-  const lesson = lessons.find((l) => l.chip === code);
+/** A lesson chip. Rigs list lessons by id, since codes like F1.4 shift when lessons are added. */
+export function LabChip({ code: id }: { code: string }) {
+  const lesson = lessons.find((l) => l.id === id);
+  const code = lesson?.chip ?? id;
   return (
     <span title={lesson?.title} className="inline-flex items-center gap-1 rounded-full border border-[#e3e5e8] bg-white py-[3px] pl-1 pr-2 font-mono text-[10.5px] font-semibold text-ink">
       {/* eslint-disable-next-line @next/next/no-img-element */}

@@ -32,6 +32,7 @@ export interface Annotation {
   part: string;
   title: string;
   text: string;
+  /** Lesson ids of the labs that use this part. */
   labs: string[];
   more: number;
   side: "left" | "right";

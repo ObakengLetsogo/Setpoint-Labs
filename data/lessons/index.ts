@@ -8,8 +8,9 @@ import { SEQUENCES } from "./sequences";
 import { WIRING } from "./wiring";
 import { ADVANCED } from "./advanced";
 import { PLATFORM_LESSONS } from "./platforms";
+import { FOUNDATION_NEW } from "./foundation-new";
 
-const CONTENT: Record<string, LessonContent> = { ...FOUNDATIONS, ...FOUNDATIONS_MORE, ...MACHINES, ...PROCESS, ...SEQUENCES, ...WIRING, ...ADVANCED, ...PLATFORM_LESSONS };
+const CONTENT: Record<string, LessonContent> = { ...FOUNDATIONS, ...FOUNDATIONS_MORE, ...MACHINES, ...PROCESS, ...SEQUENCES, ...WIRING, ...ADVANCED, ...PLATFORM_LESSONS, ...FOUNDATION_NEW };
 
 const PLANNED: LessonContent = {
   difficulty: "beginner",
