@@ -14,6 +14,7 @@ import { PidRig } from "./PidRig";
 import { InstrumentRig } from "./InstrumentRig";
 import { MccRig } from "./MccRig";
 import { SafetyRig } from "./SafetyRig";
+import { MineConveyorRig } from "./MineConveyorRig";
 
 export type RigSceneProps = { only?: RigPiece[] | string[] };
 
@@ -37,6 +38,7 @@ export const RIG_SCENES: Partial<Record<RigId, ComponentType<RigSceneProps>>> = 
   instruments: InstrumentRig as ComponentType<RigSceneProps>,
   mcc: MccRig as ComponentType<RigSceneProps>,
   safety: SafetyRig as ComponentType<RigSceneProps>,
+  mineconv: MineConveyorRig as ComponentType<RigSceneProps>,
 };
 
 export function RigScene({ id, only }: { id: RigId; only?: string[] }) {

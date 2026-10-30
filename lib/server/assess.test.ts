@@ -100,6 +100,28 @@ RUNG 8: XIC(F_Disc) OTU(F_Enable)
 RUNG 9: XIC(F_Enable) OTE(F_K1) OTE(F_K2)`,
     ],
   ],
+  mining: [
+    [
+      "ladder",
+      `RUNG 1: XIC(Start_PB) XIO(Trip) OTL(Seq_Run)
+RUNG 2: XIO(Stop_PB) OTU(Seq_Run)
+RUNG 3: XIC(Seq_Run) TON(Siren_T, 5000)
+RUNG 4: XIC(Seq_Run) XIO(Siren_T.DN) OTE(Siren)
+RUNG 5: XIC(Siren_T.DN) TOF(CV02_On, 15000)
+RUNG 6: XIC(CV02_On.DN) XIO(Trip) OTE(CV02_Run)
+RUNG 7: XIC(Siren_T.DN) XIC(Spd_02) TOF(CV01_On, 10000)
+RUNG 8: XIC(CV01_On.DN) XIC(Spd_02) XIO(Trip) OTE(CV01_Run)
+RUNG 9: XIC(Siren_T.DN) XIC(Spd_01) TOF(Cr_On, 5000)
+RUNG 10: XIC(Cr_On.DN) XIC(Spd_01) XIO(Trip) OTE(Crusher_Run)
+RUNG 11: XIC(Seq_Run) XIC(Siren_T.DN) XIC(Cr_FB) XIC(Spd_01) XIC(Spd_02) XIO(Trip) OTE(Feeder_Run)
+RUNG 12: XIC(CV02_Run) XIO(Spd_02) TON(Slip_T, 4000)
+RUNG 13: XIO(PW_01) OR XIO(PW_02) OR XIO(Sway_01) OR XIO(Sway_02) OR XIC(Chute_Blk) OR XIC(Slip_T.DN) OTL(Trip)
+RUNG 14: XIC(Trip) OTU(Seq_Run)
+RUNG 15: XIC(Reset_PB) XIC(PW_01) XIC(PW_02) XIC(Sway_01) XIC(Sway_02) XIO(Chute_Blk) OTU(Trip)
+RUNG 16: XIC(Feeder_Run) OTE(Run_Lamp)
+RUNG 17: XIC(Trip) OTE(Fault_Lamp)`,
+    ],
+  ],
   platforms: [
     [
       "ladder",

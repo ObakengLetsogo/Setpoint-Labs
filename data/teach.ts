@@ -6,6 +6,7 @@ import { TEACH_PROCESS } from "./teach-process";
 import { TEACH_SEQUENCES } from "./teach-sequences";
 import { TEACH_FOUNDATION_NEW } from "./teach-foundation-new";
 import { TEACH_PROFESSIONAL } from "./teach-professional";
+import { TEACH_MINING } from "./teach-mining";
 export interface TourScene {
   kicker: string;
   title: string;
@@ -182,4 +183,4 @@ const TEACH_FIRST: Record<string, LessonTeach> = {
   },
 };
 
-export const TEACH: Record<string, LessonTeach> = { ...TEACH_FIRST, ...TEACH_FOUNDATIONS, ...TEACH_MACHINES, ...TEACH_PROCESS, ...TEACH_SEQUENCES, ...TEACH_ADVANCED, ...TEACH_PLATFORMS, ...TEACH_FOUNDATION_NEW, ...TEACH_PROFESSIONAL };
+export const TEACH: Record<string, LessonTeach> = { ...TEACH_FIRST, ...TEACH_FOUNDATIONS, ...TEACH_MACHINES, ...TEACH_PROCESS, ...TEACH_SEQUENCES, ...TEACH_ADVANCED, ...TEACH_PLATFORMS, ...TEACH_FOUNDATION_NEW, ...TEACH_PROFESSIONAL, ...TEACH_MINING };

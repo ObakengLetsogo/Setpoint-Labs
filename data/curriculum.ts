@@ -20,7 +20,8 @@ export type RigId =
   | "pid"
   | "instruments"
   | "mcc"
-  | "safety";
+  | "safety"
+  | "mineconv";
 
 export interface LessonRef {
   id: string;
@@ -71,7 +72,7 @@ export const STAGES: Stage[] = [
   { n: 7, name: "Safety Systems", level: "P" },
   { n: 5, name: "Advanced Programming", level: "E" },
   { n: 6, name: "Plant Systems, DCS and Upgrades", level: "E", planned: true },
-  { n: 8, name: "Industry: Mining", level: "P", planned: true },
+  { n: 8, name: "Industry: Mining", level: "P" },
 ];
 
 const L = (id: string, title: string, icon: LessonIcon, rig: RigId = "motor-starter"): LessonRef => ({ id, title, icon, rig });
@@ -378,6 +379,38 @@ export const CURRICULUM: Track[] = [
           L("p-fplc-basics", "Safety PLC basics", "safety", "safety"),
           L("p-fplc-validate", "Validating safety functions", "fault", "safety"),
           L("p-sto", "Safe torque off and safe drives", "estop", "safety"),
+        ],
+      },
+    ],
+  },
+  {
+    id: "mining",
+    level: "P",
+    code: "P8",
+    name: "Industry: Mining",
+    blurb: "Conveyor chains, crusher feed, dewatering, ventilation and hoists, the way South African mines run them.",
+    ring: "#8a6a3c",
+    industry: { endorsement: "Mining" },
+    chapters: [
+      {
+        id: "mine-materials",
+        stage: 8,
+        title: "Crushing and conveying",
+        blurb: "Conveyor chains and crusher feed",
+        lessons: [
+          L("n-conveyor-chain", "Conveyor chains: start, stop and trips", "conveyor", "mineconv"),
+          L("n-crusher-feed", "Crusher feed control", "compare", "mineconv"),
+        ],
+      },
+      {
+        id: "mine-services",
+        stage: 8,
+        title: "Mine services",
+        blurb: "Water, air and the shaft",
+        lessons: [
+          L("n-dewatering", "Underground dewatering", "tank", "pumps"),
+          L("n-ventilation", "Main ventilation fans", "fault", "vsd"),
+          L("n-hoist", "Winders and hoists", "sequence", "lift"),
         ],
       },
     ],

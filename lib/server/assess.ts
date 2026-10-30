@@ -120,6 +120,21 @@ const SUITES: Record<string, Suite> = {
     ],
   },
 
+  mining: {
+    rest: { Start_PB: false, Stop_PB: true, Reset_PB: false, PW_01: true, PW_02: true, Sway_01: true, Sway_02: true, Spd_01: false, Spd_02: false, Chute_Blk: false },
+    tests: [
+      { name: "Start sounds the siren for at least 4 s before CV02 runs", steps: [tap("Start_PB"), { expect: { Siren: true, CV02_Run: false } }, { never: 3000, when: (m) => Boolean(m.CV02_Run), what: "CV02 running during the siren" }, { run: 3000 }, { expect: { CV02_Run: true, Siren: false } }] },
+      { name: "CV01 starts only once CV02 is proved at speed", steps: [tap("Start_PB"), { run: 7000 }, { expect: { CV02_Run: true, CV01_Run: false } }, { set: { Spd_02: true } }, { run: 400 }, { expect: { CV01_Run: true } }] },
+      { name: "A pulled wire on CV02 stops both belts", steps: [tap("Start_PB"), { set: { Spd_02: true } }, { run: 7000 }, { expect: { CV01_Run: true } }, { set: { PW_02: false } }, { run: 300 }, { expect: { CV01_Run: false, CV02_Run: false } }] },
+      { name: "A blocked chute stops CV01", steps: [tap("Start_PB"), { set: { Spd_02: true } }, { run: 7000 }, { expect: { CV01_Run: true } }, { set: { Chute_Blk: true } }, { run: 300 }, { expect: { CV01_Run: false } }] },
+      {
+        name: "After a trip, Start alone does nothing; Reset with the switch healthy, then Start, runs again",
+        steps: [tap("Start_PB"), { set: { Spd_02: true } }, { run: 7000 }, { expect: { CV02_Run: true } }, { set: { Sway_02: false } }, { run: 300 }, { set: { Sway_02: true } }, { run: 300 }, tap("Start_PB"), { run: 7000 }, { expect: { CV02_Run: false } }, tap("Reset_PB"), tap("Start_PB"), { run: 7000 }, { expect: { CV02_Run: true } }],
+      },
+      { name: "Stop lets the belts run on to empty, then stops them", steps: [tap("Start_PB"), { set: { Spd_02: true } }, { run: 7000 }, { expect: { CV01_Run: true } }, tap("Stop_PB"), { run: 3000 }, { expect: { CV01_Run: true, CV02_Run: true } }, { run: 20000 }, { expect: { CV01_Run: false, CV02_Run: false } }] },
+    ],
+  },
+
   platforms: {
     rest: { Start_PB: false, Stop_PB: false, Overload_OK: true, Aux_PB: false },
     tests: [

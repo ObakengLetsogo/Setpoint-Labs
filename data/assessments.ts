@@ -182,6 +182,28 @@ export const ASSESSMENTS: AssessmentBrief[] = [
     ],
     starter: STARTER(["Safety Systems assessment: the cell's safety program."]),
   },
+  {
+    trackId: "mining",
+    title: "Commission conveyors CV01 and CV02",
+    rig: "mineconv",
+    brief: "The mine's specification for the two conveyors from the crusher to the stockpile. Every line is a test.",
+    requirements: [
+      "Start sounds the siren for at least 4 s before CV02 runs, then the siren stops.",
+      "CV01 runs only while CV02 is proved at speed by Spd_02.",
+      "A pulled wire, a sway switch or a blocked chute stops CV01 and CV02 at once.",
+      "After a trip, Start alone does nothing. Reset clears the trip once every switch is healthy, then Start runs the belts again.",
+      "Stop lets both belts run on for at least 4 s to empty, then stops them within 20 s.",
+    ],
+    io: [
+      ["Start_PB, Stop_PB, Reset_PB", "I0.0 to I0.2. Stop is NC, 1 at rest"],
+      ["PW_01, PW_02", "I0.3, I0.4: pull-wires, 1 when healthy"],
+      ["Sway_01, Sway_02", "I0.5, I0.6: 1 when the belt runs true"],
+      ["Spd_01, Spd_02", "I0.7, I1.0: 1 at speed"],
+      ["Chute_Blk", "I1.1: 1 when blocked"],
+      ["Siren, CV02_Run, CV01_Run", "Q0.0 to Q0.2"],
+    ],
+    starter: STARTER(["Mining assessment: commission CV01 and CV02."]),
+  },
 ];
 
 export const assessmentFor = (trackId: string) => ASSESSMENTS.find((a) => a.trackId === trackId);

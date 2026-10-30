@@ -75,6 +75,8 @@ export const WRITTEN = new Set<string>([
   "p-fplc-basics",
   "p-fplc-validate",
   "p-sto",
+  "n-conveyor-chain",
+  "n-crusher-feed",
   "t-iec",
   "t-siemens",
   "t-rockwell",
