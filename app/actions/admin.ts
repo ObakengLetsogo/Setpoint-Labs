@@ -4,7 +4,7 @@ import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { invoices, memberships, organisations, users } from "@/db/schema";
-import { planById } from "@/config/plans";
+import { planById, priceFor } from "@/config/plans";
 import { requireRole } from "@/lib/server/auth";
 import { audit, grant, markInvoicePaid, revokeEntitlement } from "@/lib/server/billing";
 import { revokeCertificate } from "@/lib/server/certificates";
@@ -63,7 +63,7 @@ export async function createInvoice(_: FormState, form: FormData): Promise<FormS
   if (contact.role === "learner") await db.update(users).set({ role: p.data.kind === "employer" ? "employer_admin" : "institution_admin" }).where(eq(users.id, contact.id));
   const seats = plan.perSeat ? Math.max(plan.minSeats, p.data.seats) : p.data.seats;
   const number = `SPL-${new Date().getFullYear()}-${newId().slice(0, 6).toUpperCase()}`;
-  await db.insert(invoices).values({ id: newId(), number, organisationId: orgId, planId: plan.id, seats, amountCents: plan.perSeat ? plan.priceCents * seats : plan.priceCents });
+  await db.insert(invoices).values({ id: newId(), number, organisationId: orgId, planId: plan.id, seats, amountCents: priceFor(plan, seats) });
   await audit(me.id, "invoice.created", number, { organisation: p.data.organisation, seats });
   revalidatePath("/admin");
   return { ok: `Invoice ${number} raised for ${p.data.organisation}.` };

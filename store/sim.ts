@@ -64,6 +64,8 @@ export type ContentStatus = "loading" | "signin" | "upgrade" | "error";
 export interface Account {
   user: { name: string; email: string; verified: boolean; role: string; platform: string } | null;
   paid: boolean;
+  /** Ladder levels whose training is open: F, P, E. */
+  levels: ("F" | "P" | "E")[];
   until: string | null;
   inGrace: boolean;
   /** A class or organisation lock on the controller family. */

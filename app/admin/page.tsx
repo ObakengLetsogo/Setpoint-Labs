@@ -49,7 +49,7 @@ async function Admin() {
     db.select().from(enquiries).orderBy(desc(enquiries.createdAt)).limit(20),
     db.select({ c: certificates, email: users.email }).from(certificates).leftJoin(users, eq(users.id, certificates.userId)).orderBy(desc(certificates.issuedAt)).limit(20),
   ]);
-  const plans = PLANS.map((p) => ({ id: p.id, name: p.name }));
+  const plans = PLANS.filter((p) => p.listed).map((p) => ({ id: p.id, name: p.name }));
 
   return (
     <div className="flex flex-col gap-4">
@@ -129,7 +129,7 @@ async function Admin() {
       </Panel>
 
       <Panel title="Invoices">
-        <div className="border-b border-[#eef0f2] p-4"><InvoiceForm plans={PLANS.filter((p) => p.audience !== "learner").map((p) => ({ id: p.id, name: p.name }))} /></div>
+        <div className="border-b border-[#eef0f2] p-4"><InvoiceForm plans={PLANS.filter((p) => p.listed && p.audience !== "learner").map((p) => ({ id: p.id, name: p.name }))} /></div>
         <table className="w-full text-left">
           <tbody>
             {invs.map(({ i, org }) => (

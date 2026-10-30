@@ -2,12 +2,15 @@
 
 import { useActionState, useState } from "react";
 import { checkout } from "@/app/actions/billing";
-import { rand } from "@/config/plans";
+import { rand, seatDiscount } from "@/config/plans";
 import { accentButtonClass } from "./SiteShell";
 
-export function BuyButton({ planId, perSeat, minSeats, priceCents, organisation }: { planId: string; perSeat: boolean; minSeats: number; priceCents: number; organisation: boolean }) {
+export function BuyButton({ planId, perSeat, minSeats, priceCents, organisation, label = "Buy" }: { planId: string; perSeat: boolean; minSeats: number; priceCents: number; organisation: boolean; label?: string }) {
   const [state, run, pending] = useActionState(checkout, {});
   const [seats, setSeats] = useState(minSeats);
+  // Mirrors priceFor: the volume discount applies to company seats.
+  const discount = organisation ? seatDiscount(seats) : 0;
+  const total = Math.round(priceCents * seats * (1 - discount));
   return (
     <form action={run} className="mt-5 flex flex-col gap-3">
       <input type="hidden" name="plan" value={planId} />
@@ -27,8 +30,9 @@ export function BuyButton({ planId, perSeat, minSeats, priceCents, organisation 
           />
         </label>
       )}
+      {perSeat && discount > 0 && <p className="text-[12.5px] text-run">{Math.round(discount * 100)}% volume discount applied</p>}
       <button type="submit" disabled={pending} className={accentButtonClass}>
-        {pending ? "Opening checkout" : perSeat ? `Pay ${rand(priceCents * seats)}` : "Choose this plan"}
+        {pending ? "Opening checkout" : perSeat ? `Pay ${rand(total)}` : label}
       </button>
       {state.error && <p role="alert" className="text-[12.5px] text-[#9b2c2c]">{state.error}</p>}
     </form>

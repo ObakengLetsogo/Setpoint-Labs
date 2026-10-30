@@ -5,6 +5,8 @@ import type { LessonMeta } from "@/data/catalog";
 import type { ContentStatus } from "@/store/sim";
 import { useSim } from "@/store/sim";
 import { IconLock } from "@/components/ui/icons";
+import { LEVEL_NAMES } from "@/config/plans";
+import { levelOfLesson } from "@/data/access";
 
 /** Stands in for a lesson while its content loads, or explains how to unlock it. */
 export function LessonGate({ lesson, status }: { lesson: LessonMeta; status: ContentStatus | undefined }) {
@@ -22,6 +24,8 @@ export function LessonGate({ lesson, status }: { lesson: LessonMeta; status: Con
       </section>
     );
   const next = encodeURIComponent(`/#lesson`);
+  const level = levelOfLesson(lesson.id);
+  const levelName = level ? `Level ${"FPE".indexOf(level) + 1}: ${LEVEL_NAMES[level]}` : "the full course";
   return (
     <section id="lesson" className="rounded-2xl border border-[#e4e6e9] bg-white px-6 py-10 text-center">
       <span className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-[#fff1e8] text-[#d9591a]">
@@ -31,7 +35,7 @@ export function LessonGate({ lesson, status }: { lesson: LessonMeta; status: Con
       <p className="mt-2 text-[20px] font-semibold text-ink">{lesson.title}</p>
       <p className="mx-auto mt-2 max-w-[440px] text-[14px] leading-[1.6] text-[#4b5058]">
         {status === "signin" && "Sign in to open this lab. The first two Foundations chapters are free for everyone."}
-        {status === "upgrade" && "This lab is part of the full course. A Learner plan opens every track, machine, quiz and certificate."}
+        {status === "upgrade" && `This lab is part of ${levelName}. Buy that level, all three levels, or the monthly plan to open it.`}
         {status === "error" && "We could not load this lab. Check your connection and try again."}
       </p>
       <div className="mt-5 flex flex-wrap justify-center gap-2">

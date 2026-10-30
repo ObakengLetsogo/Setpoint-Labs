@@ -6,7 +6,8 @@ import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import { assessmentRuns, certificates, memberships, organisations, users } from "@/db/schema";
 import { CURRICULUM } from "@/data/curriculum";
 import { SITE_URL } from "@/lib/config";
-import { accessFor } from "./access";
+import { levelOfTrack } from "@/data/access";
+import { hasLevel } from "./access";
 import { runAssessment, type AssessmentResult } from "./assess";
 import { audit } from "./billing";
 import { db } from "./db";
@@ -29,7 +30,7 @@ export async function submitAssessment(user: { id: string; email: string; name: 
   const existing = (await db.select().from(certificates).where(and(eq(certificates.userId, user.id), eq(certificates.trackId, trackId), isNull(certificates.revokedAt))).limit(1))[0];
   if (existing) return { ...result, certificate: existing.code };
   if (!user.verified) return { ...result, note: "Passed. Confirm your email to receive the certificate." };
-  if (!(await accessFor(user.id)).paid) return { ...result, note: "Passed. Certificates come with a plan; choose one and submit again." };
+  if (!(await hasLevel(user.id, levelOfTrack(trackId)))) return { ...result, note: "Passed. Certificates come with this level's training; buy it and submit again." };
 
   // A learner on an institution seat gets that institution's name on the certificate.
   const org = (

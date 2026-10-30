@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { signOut } from "@/app/actions/auth";
 import { certificates, payments, progress } from "@/db/schema";
-import { planById, rand } from "@/config/plans";
+import { planById, rand, LEVEL_NAMES } from "@/config/plans";
 import { CURRICULUM } from "@/data/curriculum";
 import { accessFor } from "@/lib/server/access";
 import { requireUser } from "@/lib/server/auth";
@@ -53,11 +53,11 @@ async function Account() {
         <h2 className="text-[17px] font-semibold text-ink">Plan</h2>
         {access.paid ? (
           <p className="mt-2 text-[14px] leading-[1.6] text-[#3d434a]">
-            {access.planName}{access.via === "organisation" ? " through your organisation" : ""}. Every track is open until <b>{date(access.until)}</b>.
+            {access.planName}{access.via === "organisation" ? " through your organisation" : ""}. Open: <b>{access.levels.map((l) => LEVEL_NAMES[l]).join(", ")}</b>, until <b>{date(access.until)}</b>.
             {access.inGrace && " Your plan has ended; these are your grace days, so renew to keep going."}
           </p>
         ) : (
-          <p className="mt-2 text-[14px] leading-[1.6] text-[#3d434a]">Free. Foundations chapters 1 and 2 are open.</p>
+          <p className="mt-2 text-[14px] leading-[1.6] text-[#3d434a]">Free. Foundation chapters 1 and 2 are open.</p>
         )}
         <Link href="/pricing" className={`${ghostButtonClass} mt-4`}>{access.paid ? "Renew or change plan" : "See plans"}</Link>
       </section>

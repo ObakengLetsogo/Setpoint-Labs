@@ -1,3 +1,4 @@
+import type { Level } from "@/config/plans";
 import type { LessonIcon } from "./types";
 
 /** Machines a lesson can run on. Each one is a 3D rig with its own I/O and physics. */
@@ -33,6 +34,8 @@ export interface Track {
   id: string;
   /** Short code shown on lesson chips, e.g. F3. */
   code: string;
+  /** The ladder level whose training opens this track. */
+  level: Level;
   name: string;
   blurb: string;
   ring: string;
@@ -48,6 +51,7 @@ const L = (id: string, title: string, icon: LessonIcon, rig: RigId = "motor-star
 export const CURRICULUM: Track[] = [
   {
     id: "foundations",
+    level: "F",
     code: "F",
     name: "Foundations",
     blurb: "Ladder logic from the first contact to safe stop design, all on the motor starter bench.",
@@ -104,6 +108,7 @@ export const CURRICULUM: Track[] = [
   },
   {
     id: "machines",
+    level: "P",
     code: "M",
     name: "Machines",
     blurb: "Real machines: starters, conveyors, sorting, traffic lights, lifts and batching.",
@@ -143,6 +148,7 @@ export const CURRICULUM: Track[] = [
   },
   {
     id: "process",
+    level: "P",
     code: "P",
     name: "Process Control",
     blurb: "Level, pumps, analog signals, alarms and variable speed drives.",
@@ -172,6 +178,7 @@ export const CURRICULUM: Track[] = [
   },
   {
     id: "wiring",
+    level: "F",
     code: "W",
     name: "Wiring and Commissioning",
     blurb: "Read the drawings, wire the panel, prove every loop before power on.",
@@ -201,6 +208,7 @@ export const CURRICULUM: Track[] = [
   },
   {
     id: "advanced",
+    level: "E",
     code: "A",
     name: "Advanced",
     blurb: "Structured text, function blocks, networks, HMI and fault finding.",
@@ -227,6 +235,7 @@ export const CURRICULUM: Track[] = [
   },
   {
     id: "platforms",
+    level: "P",
     code: "T",
     name: "Platform tours",
     blurb: "The same logic on every major controller family.",

@@ -10,6 +10,7 @@ export async function GET() {
     {
       user: user ? { name: user.name, email: user.email, verified: user.verified, role: user.role, platform: user.platform } : null,
       paid: access.paid,
+      levels: access.levels,
       until: access.until,
       inGrace: access.inGrace,
       platformLock: user ? await platformLockFor(user.id) : null,

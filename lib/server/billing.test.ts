@@ -91,7 +91,7 @@ describe.skipIf(!url)("billing and access", () => {
 
   it("a failed payment grants nothing", async () => {
     const u = await makeUser();
-    const { paymentId } = await m.billing.startCheckout(u, "learner-year");
+    const { paymentId } = await m.billing.startCheckout(u, "level-f");
     await deliver(paymentId, "failed");
     expect((await m.access.accessFor(u.id)).paid).toBe(false);
     const p = await m.db.db.select().from(m.schema.payments).where(m.orm.eq(m.schema.payments.id, paymentId));
@@ -111,7 +111,7 @@ describe.skipIf(!url)("billing and access", () => {
 
   it("employer seats give the buyer and assigned staff access, and renewals reuse the organisation", async () => {
     const boss = await makeUser();
-    const { paymentId } = await m.billing.startCheckout(boss, "employer-seat-year", 10, "Acme Mining");
+    const { paymentId } = await m.billing.startCheckout(boss, "corp-f", 10, "Acme Mining");
     await deliver(paymentId, "paid");
     expect((await m.access.accessFor(boss.id)).via).toBe("organisation");
     const [mem] = await m.db.db.select().from(m.schema.memberships).where(m.orm.eq(m.schema.memberships.userId, boss.id));
@@ -120,9 +120,31 @@ describe.skipIf(!url)("billing and access", () => {
     expect((await m.access.accessFor(staff.id)).paid).toBe(false);
     expect(await m.billing.assignSeat(mem.organisationId, staff.id)).toBe(true);
     expect((await m.access.accessFor(staff.id)).paid).toBe(true);
-    const renewal = await m.billing.startCheckout(boss, "employer-seat-year", 10);
+    const renewal = await m.billing.startCheckout(boss, "corp-f", 10);
     const [p] = await m.db.db.select().from(m.schema.payments).where(m.orm.eq(m.schema.payments.id, renewal.paymentId));
     expect(p.organisationId).toBe(mem.organisationId);
+  });
+
+  it("a level opens only its own lessons, and a second level starts now", async () => {
+    const u = await makeUser();
+    const f = await m.billing.startCheckout(u, "level-f");
+    await deliver(f.paymentId, "paid");
+    expect((await m.access.accessFor(u.id)).levels).toEqual(["F"]);
+    expect(await m.access.canOpenLesson(u.id, "f-ton")).toBe(true);
+    expect(await m.access.canOpenLesson(u.id, "m-lift")).toBe(false);
+    const p = await m.billing.startCheckout(u, "level-p");
+    await deliver(p.paymentId, "paid");
+    expect((await m.access.accessFor(u.id)).levels).toEqual(["F", "P"]);
+    expect(await m.access.canOpenLesson(u.id, "m-lift")).toBe(true);
+    const ents = await m.db.db.select().from(m.schema.entitlements).where(m.orm.eq(m.schema.entitlements.userId, u.id)).orderBy(m.schema.entitlements.startsAt);
+    expect(ents[1].startsAt.getTime()).toBeLessThan(ents[0].endsAt.getTime());
+  });
+
+  it("charges company seats with the volume discount", async () => {
+    const boss = await makeUser();
+    const { paymentId } = await m.billing.startCheckout(boss, "corp-f", 20, "Big Mine");
+    const [p] = await m.db.db.select().from(m.schema.payments).where(m.orm.eq(m.schema.payments.id, paymentId));
+    expect(p.amountCents).toBe(Math.round(750000 * 20 * 0.9));
   });
 
   it("free lessons need no account", async () => {

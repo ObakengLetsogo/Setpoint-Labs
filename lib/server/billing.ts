@@ -1,7 +1,7 @@
 import "server-only";
 import { and, desc, eq, isNull, or } from "drizzle-orm";
 import { auditLog, entitlements, invoices, memberships, organisations, paymentEvents, payments, seats, subscriptions, users } from "@/db/schema";
-import { planById, rand, vatOf, VAT_NUMBER } from "@/config/plans";
+import { planById, priceFor, rand, vatOf, VAT_NUMBER } from "@/config/plans";
 import { SITE_URL } from "@/lib/config";
 import { db } from "./db";
 import { mails } from "./email";
@@ -27,7 +27,7 @@ export async function startCheckout(user: { id: string; email: string; verified:
   if (!plan || !plan.online) throw new CheckoutError("That plan cannot be bought online.");
   if (!user.verified) throw new CheckoutError("Confirm your email before paying.");
   const count = plan.perSeat ? Math.max(plan.minSeats, Math.floor(seatCount)) : 1;
-  const amountCents = plan.priceCents * count;
+  const amountCents = priceFor(plan, count);
 
   let organisationId: string | null = null;
   if (plan.audience !== "learner") {
@@ -63,8 +63,8 @@ export async function startCheckout(user: { id: string; email: string; verified:
 }
 
 /**
- * Grants or extends access for a paid plan. Renewals stack on the end of current access, so paying
- * early never loses days.
+ * Grants or extends access for a paid plan. A renewal of the same plan stacks on the end of current
+ * access, so paying early never loses days; a different plan, such as the next level, starts now.
  */
 export async function grant(opts: { userId: string | null; organisationId: string | null; planId: string; seats: number; source: "payment" | "invoice" | "admin"; months?: number; note?: string; actorId?: string | null }) {
   const plan = planById(opts.planId);
@@ -72,7 +72,7 @@ export async function grant(opts: { userId: string | null; organisationId: strin
   // DATETIME keeps whole seconds and rounds up, so start on the current second, never just after it.
   const now = new Date(Math.floor(Date.now() / 1000) * 1000);
   const holder = opts.organisationId ? eq(entitlements.organisationId, opts.organisationId) : eq(entitlements.userId, opts.userId!);
-  const current = await db.select().from(entitlements).where(and(holder, eq(entitlements.status, "active"))).orderBy(desc(entitlements.endsAt)).limit(1);
+  const current = await db.select().from(entitlements).where(and(holder, eq(entitlements.planId, opts.planId), eq(entitlements.status, "active"))).orderBy(desc(entitlements.endsAt)).limit(1);
   const startsAt = current[0] && current[0].endsAt > now ? current[0].endsAt : now;
   const endsAt = addMonths(startsAt, months);
   const id = newId();
@@ -147,7 +147,7 @@ export async function handlePaymentEvent(providerId: string, event: WebhookEvent
       const lines = [
         `Thank you. We received ${rand(payment.amountCents)} for ${plan?.name ?? payment.planId}${payment.seats > 1 ? `, ${payment.seats} seats` : ""}.`,
         `Access runs until ${g.endsAt.toISOString().slice(0, 10)}.`,
-        `Includes VAT of ${rand(vatOf(payment.amountCents))}.${VAT_NUMBER ? ` VAT number ${VAT_NUMBER}.` : ""}`,
+        VAT_NUMBER ? `Includes VAT of ${rand(vatOf(payment.amountCents))}. VAT number ${VAT_NUMBER}.` : "No VAT was charged: Setpoint Labs is not registered for VAT.",
         `Reference SPL-${payment.id.slice(0, 12).toUpperCase()}.`,
       ];
       await mails.receipt(user.email, lines);
