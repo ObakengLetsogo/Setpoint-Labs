@@ -31,7 +31,7 @@ export interface LessonRef {
 
 export interface Chapter {
   id: string;
-  /** The stage of the ladder this chapter teaches, 1 to 7. */
+  /** The stage of the ladder this chapter teaches: 1 to 7, or 8 and up for industry tracks. */
   stage: StageNumber;
   title: string;
   blurb: string;
@@ -48,9 +48,11 @@ export interface Track {
   blurb: string;
   ring: string;
   chapters: Chapter[];
+  /** An optional industry track: not needed for the level's exam, and it earns its own endorsement. */
+  industry?: { endorsement: string };
 }
 
-export type StageNumber = 1 | 2 | 3 | 4 | 5 | 6 | 7;
+export type StageNumber = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
 
 export interface Stage {
   n: StageNumber;
@@ -60,7 +62,7 @@ export interface Stage {
   planned?: boolean;
 }
 
-/** The seven stages of the ladder, as set in the Curriculum and Lecture Guide. */
+/** The stages of the ladder: seven from the Curriculum and Lecture Guide, then optional industry stages. */
 export const STAGES: Stage[] = [
   { n: 1, name: "Fundamentals and SCADA", level: "F" },
   { n: 2, name: "Installation and Commissioning", level: "F" },
@@ -69,6 +71,7 @@ export const STAGES: Stage[] = [
   { n: 7, name: "Safety Systems", level: "P" },
   { n: 5, name: "Advanced Programming", level: "E" },
   { n: 6, name: "Plant Systems, DCS and Upgrades", level: "E", planned: true },
+  { n: 8, name: "Industry: Mining", level: "P", planned: true },
 ];
 
 const L = (id: string, title: string, icon: LessonIcon, rig: RigId = "motor-starter"): LessonRef => ({ id, title, icon, rig });
@@ -456,3 +459,6 @@ export const LESSON_ORDER: LessonPlace[] = CURRICULUM.flatMap((track) => {
 });
 
 export const placeOf = (id: string) => LESSON_ORDER.find((p) => p.ref.id === id);
+
+/** The tracks a level's exam requires: its core tracks, not the optional industry ones. */
+export const coreTracks = (level: Level) => CURRICULUM.filter((t) => t.level === level && !t.industry);

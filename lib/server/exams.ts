@@ -2,7 +2,7 @@ import "server-only";
 import { and, desc, eq, gt, inArray, isNull } from "drizzle-orm";
 import { assessmentRuns, certificates, entitlements, examAttempts, examBookings, seats } from "@/db/schema";
 import { FREE_RESIT_AFTER_DAYS, LEVELS, PLANS, type Level } from "@/config/plans";
-import { CURRICULUM } from "@/data/curriculum";
+import { coreTracks } from "@/data/curriculum";
 import { QUIZZES } from "@/data/quizzes";
 import { bankQuestion, bankRef, EXAM_BANKS, topicShares } from "@/data/exam-bank";
 import { audit } from "./billing";
@@ -28,7 +28,7 @@ const DAY = 86_400_000;
 /** Answers sent this long after the deadline still count, to cover a slow connection. */
 const LATE_MS = 2 * 60_000;
 
-const levelTracks = (level: Level) => CURRICULUM.filter((t) => t.level === level).map((t) => t.id);
+const levelTracks = (level: Level) => coreTracks(level).map((t) => t.id);
 const levelIndex = (level: Level) => LEVELS.indexOf(level);
 export const levelCertId = (level: Level) => `level-${level}`;
 
@@ -40,7 +40,7 @@ export function questionBank(level: Level) {
   const bank = EXAM_BANKS[level];
   if (bank) return Object.entries(bank).flatMap(([topic, qs]) => qs.map((_, i) => bankRef(level, topic, i)));
   const ids: string[] = [];
-  for (const t of CURRICULUM.filter((x) => x.level === level))
+  for (const t of coreTracks(level))
     for (const c of t.chapters)
       for (const l of c.lessons)
         (QUIZZES[l.id] ?? []).forEach((q, i) => {
