@@ -4,13 +4,14 @@ import { assessmentRuns, certificates, entitlements, examAttempts, examBookings,
 import { FREE_RESIT_AFTER_DAYS, LEVELS, PLANS, type Level } from "@/config/plans";
 import { CURRICULUM } from "@/data/curriculum";
 import { QUIZZES } from "@/data/quizzes";
+import { bankQuestion, bankRef, EXAM_BANKS, topicShares } from "@/data/exam-bank";
 import { audit } from "./billing";
 import { db } from "./db";
 import { mails } from "./email";
 import { certificateCode, newId } from "./ids";
 
-// The theory part of a level exam is drawn at random from the quiz questions of that level's
-// lessons, with the options shuffled. The practical part is the level's track assessments, marked
+// The theory part of a level exam is drawn from the level's exam bank, spread evenly over its
+// topics, with the options shuffled. A level without a bank yet draws from its lesson quizzes. The practical part is the level's track assessments, marked
 // by hidden tests. Both need 70%. Answers never leave the server.
 
 export const EXAM_SPEC: Record<Level, { questions: number; minutes: number }> = {
@@ -34,8 +35,10 @@ export const levelCertId = (level: Level) => `level-${level}`;
 /** Questions that only make sense inside their lesson, such as "in this program", stay out of exams. */
 const NEEDS_LESSON = /this program|code card|this lesson|on the bench|this bench|\brung \d|in this (lab|scene|machine)|the sim\b|lamp in this|scene/i;
 
-/** Every quiz question of a level that stands on its own, as lessonId:index. */
+/** Every question a level's exam can use: bank refs, or quiz refs (lessonId:index) without a bank. */
 export function questionBank(level: Level) {
+  const bank = EXAM_BANKS[level];
+  if (bank) return Object.entries(bank).flatMap(([topic, qs]) => qs.map((_, i) => bankRef(level, topic, i)));
   const ids: string[] = [];
   for (const t of CURRICULUM.filter((x) => x.level === level))
     for (const c of t.chapters)
@@ -47,6 +50,7 @@ export function questionBank(level: Level) {
 }
 
 const question = (ref: string) => {
+  if (ref.startsWith("bank:")) return bankQuestion(ref);
   const [lessonId, i] = ref.split(":");
   return QUIZZES[lessonId]?.[Number(i)];
 };
@@ -61,6 +65,14 @@ function shuffle<T>(xs: T[]) {
 }
 
 type Paper = { ref: string; order: number[] }[];
+
+/** The questions for one paper: an even share from each bank topic, or a random draw from the quizzes. */
+export function drawPaper(level: Level, size: number) {
+  const bank = EXAM_BANKS[level];
+  if (!bank) return shuffle(questionBank(level)).slice(0, size);
+  const shares = topicShares(Object.fromEntries(Object.entries(bank).map(([t, qs]) => [t, qs.length])), size);
+  return shuffle(Object.entries(bank).flatMap(([topic, qs]) => shuffle(qs.map((_, i) => bankRef(level, topic, i))).slice(0, shares[topic])));
+}
 
 /** Exam credits for a level, from exam or resit payments, the bundle and employer vouchers, still valid. */
 async function creditsBought(userId: string, level: Level, now: Date) {
@@ -126,8 +138,7 @@ export async function startExam(userId: string, level: Level, now = new Date(), 
   if (CENTRE_LEVELS.includes(level) && !bookingId) throw new ExamError("This exam is written at an exam centre. Book a sitting below.");
   const kind = st.credits > 0 ? "credit" : "free_resit";
   const spec = EXAM_SPEC[level];
-  const paper: Paper = shuffle(questionBank(level))
-    .slice(0, spec.questions)
+  const paper: Paper = drawPaper(level, spec.questions)
     .map((ref) => ({ ref, order: shuffle(question(ref)!.options.map((_, i) => i)) }));
   const id = newId();
   const startedAt = new Date(Math.floor(now.getTime() / 1000) * 1000);

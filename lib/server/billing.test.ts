@@ -17,6 +17,7 @@ describe.skipIf(!url)("billing and access", () => {
     exams: typeof import("./exams");
     centres: typeof import("./centres");
     quizzes: typeof import("@/data/quizzes");
+    bank: typeof import("@/data/exam-bank");
   };
 
   beforeAll(async () => {
@@ -42,6 +43,7 @@ describe.skipIf(!url)("billing and access", () => {
       exams: await import("./exams"),
       centres: await import("./centres"),
       quizzes: await import("@/data/quizzes"),
+      bank: await import("@/data/exam-bank"),
     };
   });
 
@@ -191,6 +193,7 @@ describe.skipIf(!url)("billing and access", () => {
     async function correctAnswers(attemptId: string) {
       const [a] = await m.db.db.select().from(m.schema.examAttempts).where(m.orm.eq(m.schema.examAttempts.id, attemptId));
       return (a.paper as { ref: string; order: number[] }[]).map((p) => {
+        if (p.ref.startsWith("bank:")) return p.order.indexOf(m.bank.bankQuestion(p.ref)!.answer);
         const [lesson, i] = p.ref.split(":");
         return p.order.indexOf(m.quizzes.QUIZZES[lesson][Number(i)].answer);
       });
