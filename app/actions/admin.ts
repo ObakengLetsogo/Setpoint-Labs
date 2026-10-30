@@ -8,6 +8,7 @@ import { planById, priceFor } from "@/config/plans";
 import { requireRole } from "@/lib/server/auth";
 import { audit, grant, markInvoicePaid, revokeEntitlement } from "@/lib/server/billing";
 import { revokeCertificate } from "@/lib/server/certificates";
+import { createCentre } from "@/lib/server/centres";
 import { db } from "@/lib/server/db";
 import { newId } from "@/lib/server/ids";
 import type { FormState } from "./auth";
@@ -104,4 +105,15 @@ export async function saveVideoDetails(_: FormState, form: FormData): Promise<Fo
   await audit(me.id, published ? "video.published" : "video.saved", lessonId);
   revalidatePath("/admin/videos");
   return { ok: published ? "Saved and published." : "Saved. Not published yet." };
+}
+
+const Centre = z.object({ name: z.string().trim().min(2).max(160), area: z.string().trim().min(2).max(120), address: z.string().trim().min(4).max(255), code: z.string().trim().min(6, "Use a code of at least 6 characters.").max(40) });
+
+/** Adds a partner exam centre. The invigilator code is stored only as a hash; give it to the centre. */
+export async function addCentre(form: FormData) {
+  const me = await admin();
+  const p = Centre.safeParse(Object.fromEntries(form));
+  if (!p.success) return;
+  await createCentre(p.data, me.id);
+  revalidatePath("/admin");
 }

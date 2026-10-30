@@ -21,6 +21,7 @@ async function Attempt({ params }: { params: PageProps<"/exams/[attemptId]">["pa
       questions={a.questions}
       done={a.submitted ? { theoryPct: a.theoryPct ?? 0, practical: Boolean(a.practicalPassed), passed: Boolean(a.passed), late: false } : null}
       expert={a.level === "E"}
+      atCentre={a.atCentre}
     />
   );
 }

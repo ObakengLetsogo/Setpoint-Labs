@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { and, desc, eq, gt, sql } from "drizzle-orm";
 import { Suspense } from "react";
-import { payInvoice, revokeAccess, revokeCert } from "@/app/actions/admin";
-import { certificates, enquiries, entitlements, invoices, organisations, payments, subscriptions, users } from "@/db/schema";
+import { payInvoice, revokeAccess, revokeCert, addCentre } from "@/app/actions/admin";
+import { certificates, enquiries, entitlements, invoices, organisations, payments, subscriptions, users, examBookings, examCentres } from "@/db/schema";
 import { PLANS, planById, rand } from "@/config/plans";
 import { requireRole } from "@/lib/server/auth";
 import { db } from "@/lib/server/db";
@@ -31,7 +31,7 @@ async function Admin() {
   await requireRole(["platform_admin"], "/admin");
   const now = new Date();
   const monthAgo = new Date(now.getTime() - 30 * 86_400_000);
-  const [userCount, active, revenue, pays, ents, lapsed, invs, enq, certs] = await Promise.all([
+  const [userCount, active, revenue, pays, ents, lapsed, invs, enq, certs, centres, sittings] = await Promise.all([
     db.select({ n: sql<number>`COUNT(*)` }).from(users),
     db.select({ n: sql<number>`COUNT(*)` }).from(entitlements).where(and(eq(entitlements.status, "active"), gt(entitlements.endsAt, now))),
     db.select({ n: sql<number>`COALESCE(SUM(${payments.amountCents}), 0)` }).from(payments).where(and(eq(payments.status, "paid"), gt(payments.paidAt, monthAgo))),
@@ -48,6 +48,15 @@ async function Admin() {
     db.select({ i: invoices, org: organisations.name }).from(invoices).leftJoin(organisations, eq(organisations.id, invoices.organisationId)).orderBy(desc(invoices.createdAt)).limit(30),
     db.select().from(enquiries).orderBy(desc(enquiries.createdAt)).limit(20),
     db.select({ c: certificates, email: users.email }).from(certificates).leftJoin(users, eq(users.id, certificates.userId)).orderBy(desc(certificates.issuedAt)).limit(20),
+    db.select().from(examCentres).orderBy(examCentres.name),
+    db
+      .select({ b: examBookings, email: users.email, centre: examCentres.name })
+      .from(examBookings)
+      .leftJoin(users, eq(users.id, examBookings.userId))
+      .leftJoin(examCentres, eq(examCentres.id, examBookings.centreId))
+      .where(gt(examBookings.sessionAt, monthAgo))
+      .orderBy(examBookings.sessionAt)
+      .limit(60),
   ]);
   const plans = PLANS.filter((p) => p.listed).map((p) => ({ id: p.id, name: p.name }));
 
@@ -163,6 +172,44 @@ async function Admin() {
                 <td className={td}>{q.name}<br /><span className="text-muted-ink">{q.email}</span></td>
                 <td className={td}>{q.organisation}{q.seats ? ` · ${q.seats} seats` : ""}</td>
                 <td className={`${td} max-w-[360px] text-[#4b5058]`}>{q.message}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </Panel>
+
+      <Panel title="Exam centres" count={centres.length}>
+        <table className="w-full text-left">
+          <tbody>
+            {centres.map((c) => (
+              <tr key={c.id} className="border-t border-[#f1f2f4]">
+                <td className={td}>{c.name}</td>
+                <td className={td}>{c.area}</td>
+                <td className={`${td} text-[#4b5058]`}>{c.address}</td>
+                <td className={td}>{c.active ? "taking bookings" : "closed"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <form action={addCentre} className="grid gap-2 border-t border-[#eef0f2] p-4 sm:grid-cols-5">
+          <input name="name" required placeholder="Centre name" className="rounded-lg border border-[#dfe2e6] px-3 py-2 text-[13px]" />
+          <input name="area" required placeholder="Area, e.g. Randburg" className="rounded-lg border border-[#dfe2e6] px-3 py-2 text-[13px]" />
+          <input name="address" required placeholder="Street address" className="rounded-lg border border-[#dfe2e6] px-3 py-2 text-[13px]" />
+          <input name="code" required minLength={6} placeholder="Invigilator code" className="rounded-lg border border-[#dfe2e6] px-3 py-2 font-mono text-[13px]" />
+          <button type="submit" className="rounded-lg bg-ink px-3 py-2 text-[13px] font-semibold text-white">Add centre</button>
+        </form>
+      </Panel>
+
+      <Panel title="Exam sittings" count={sittings.length}>
+        <table className="w-full text-left">
+          <tbody>
+            {sittings.map(({ b, email, centre }) => (
+              <tr key={b.id} className="border-t border-[#f1f2f4]">
+                <td className={`${td} font-mono`}>{b.sessionAt.toISOString().slice(0, 16).replace("T", " ")} UTC</td>
+                <td className={td}>{centre}</td>
+                <td className={td}>{email}</td>
+                <td className={td}>Level {b.level}</td>
+                <td className={td}>{b.status}</td>
               </tr>
             ))}
           </tbody>

@@ -280,6 +280,32 @@ export const assessmentRuns = mysqlTable(
 
 // ── Level exams ─────────────────────────────────────────────────────────────
 
+export const examCentres = mysqlTable("exam_centres", {
+  id: id(),
+  name: varchar("name", { length: 160 }).notNull(),
+  area: varchar("area", { length: 120 }).notNull(),
+  address: varchar("address", { length: 255 }).notNull(),
+  /** Hash of the invigilator code the centre types in to open a sitting. */
+  codeHash: varchar("code_hash", { length: 255 }).notNull(),
+  active: boolean("active").notNull().default(true),
+  createdAt: created(),
+});
+
+export const examBookings = mysqlTable(
+  "exam_bookings",
+  {
+    id: id(),
+    userId: ref("user_id").notNull(),
+    level: char("level", { length: 1 }).notNull(),
+    centreId: ref("centre_id").notNull(),
+    sessionAt: datetime("session_at").notNull(),
+    status: mysqlEnum("status", ["booked", "cancelled", "sat", "no_show"]).notNull().default("booked"),
+    attemptId: ref("attempt_id"),
+    createdAt: created(),
+  },
+  (t) => [index("exam_bookings_user").on(t.userId), index("exam_bookings_centre").on(t.centreId, t.sessionAt)],
+);
+
 export const examAttempts = mysqlTable(
   "exam_attempts",
   {
@@ -298,6 +324,10 @@ export const examAttempts = mysqlTable(
     theoryPct: int("theory_pct"),
     practicalPassed: boolean("practical_passed"),
     passed: boolean("passed"),
+    /** Set when the attempt was opened by an invigilator at a centre. */
+    bookingId: ref("booking_id"),
+    /** Things the browser noticed during the sitting, such as leaving full screen. */
+    incidents: json("incidents"),
   },
   (t) => [index("exam_attempts_user").on(t.userId, t.level)],
 );

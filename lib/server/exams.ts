@@ -1,6 +1,6 @@
 import "server-only";
 import { and, desc, eq, gt, inArray, isNull } from "drizzle-orm";
-import { assessmentRuns, certificates, entitlements, examAttempts, seats } from "@/db/schema";
+import { assessmentRuns, certificates, entitlements, examAttempts, examBookings, seats } from "@/db/schema";
 import { FREE_RESIT_AFTER_DAYS, LEVELS, PLANS, type Level } from "@/config/plans";
 import { CURRICULUM } from "@/data/curriculum";
 import { QUIZZES } from "@/data/quizzes";
@@ -19,6 +19,10 @@ export const EXAM_SPEC: Record<Level, { questions: number; minutes: number }> = 
   E: { questions: 40, minutes: 120 },
 };
 export const PASS_PCT = 70;
+/** Professional and Expert exams are written at a partner exam centre, opened by its invigilator. */
+export const CENTRE_LEVELS: Level[] = ["P", "E"];
+/** A booking not opened within this long after its start counts as a missed sitting. */
+export const NO_SHOW_MS = 2 * 3_600_000;
 const DAY = 86_400_000;
 /** Answers sent this long after the deadline still count, to cover a slow connection. */
 const LATE_MS = 2 * 60_000;
@@ -92,7 +96,11 @@ export interface ExamStatus {
 export async function examStatus(userId: string, level: Level, now = new Date()): Promise<ExamStatus> {
   const attempts = await db.select().from(examAttempts).where(and(eq(examAttempts.userId, userId), eq(examAttempts.level, level))).orderBy(desc(examAttempts.startedAt));
   const passed = attempts.some((a) => a.passed);
-  const used = attempts.filter((a) => a.kind === "credit").length;
+  // A booked centre sitting that was missed uses up a credit, as an attempt would.
+  const missed = (await db.select({ id: examBookings.id, at: examBookings.sessionAt, status: examBookings.status }).from(examBookings).where(and(eq(examBookings.userId, userId), eq(examBookings.level, level)))).filter(
+    (b) => b.status === "no_show" || (b.status === "booked" && b.at.getTime() + NO_SHOW_MS < now.getTime()),
+  ).length;
+  const used = attempts.filter((a) => a.kind === "credit").length + missed;
   const credits = Math.max(0, (await creditsBought(userId, level, now)) - used);
   const open = attempts.find((a) => !a.submittedAt && a.deadlineAt.getTime() + LATE_MS > now.getTime());
 
@@ -112,9 +120,10 @@ export async function examStatus(userId: string, level: Level, now = new Date())
 
 export class ExamError extends Error {}
 
-export async function startExam(userId: string, level: Level, now = new Date()) {
+export async function startExam(userId: string, level: Level, now = new Date(), bookingId: string | null = null) {
   const st = await examStatus(userId, level, now);
   if (!st.canStart) throw new ExamError(st.blocked ?? "This exam cannot start.");
+  if (CENTRE_LEVELS.includes(level) && !bookingId) throw new ExamError("This exam is written at an exam centre. Book a sitting below.");
   const kind = st.credits > 0 ? "credit" : "free_resit";
   const spec = EXAM_SPEC[level];
   const paper: Paper = shuffle(questionBank(level))
@@ -122,7 +131,7 @@ export async function startExam(userId: string, level: Level, now = new Date()) 
     .map((ref) => ({ ref, order: shuffle(question(ref)!.options.map((_, i) => i)) }));
   const id = newId();
   const startedAt = new Date(Math.floor(now.getTime() / 1000) * 1000);
-  await db.insert(examAttempts).values({ id, userId, level, kind, paper, startedAt, deadlineAt: new Date(startedAt.getTime() + spec.minutes * 60_000) });
+  await db.insert(examAttempts).values({ id, userId, level, kind, paper, startedAt, deadlineAt: new Date(startedAt.getTime() + spec.minutes * 60_000), bookingId });
   await audit(userId, "exam.started", id, { level, kind });
   return id;
 }
@@ -140,6 +149,7 @@ export async function attemptForLearner(userId: string, attemptId: string) {
     theoryPct: a.theoryPct,
     practicalPassed: a.practicalPassed,
     passed: a.passed,
+    atCentre: Boolean(a.bookingId),
     questions: paper.map((p) => {
       const q = question(p.ref)!;
       return { q: q.q, options: p.order.map((i) => q.options[i]) };
@@ -193,4 +203,13 @@ async function issueLevelCertificate(user: { id: string; email: string; name: st
     }
   }
   throw new Error("could not allocate a certificate code");
+}
+
+/** Notes something the browser saw during a sitting, such as leaving full screen. Kept for the assessor. */
+export async function logIncident(userId: string, attemptId: string, what: string, now = new Date()) {
+  const a = (await db.select().from(examAttempts).where(and(eq(examAttempts.id, attemptId), eq(examAttempts.userId, userId), isNull(examAttempts.submittedAt))).limit(1))[0];
+  if (!a) return;
+  const list = (a.incidents as { at: string; what: string }[] | null) ?? [];
+  if (list.length >= 100) return;
+  await db.update(examAttempts).set({ incidents: [...list, { at: now.toISOString(), what: what.slice(0, 80) }] }).where(eq(examAttempts.id, a.id));
 }

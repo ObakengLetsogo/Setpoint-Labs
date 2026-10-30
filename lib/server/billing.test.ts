@@ -15,6 +15,7 @@ describe.skipIf(!url)("billing and access", () => {
     orm: typeof import("drizzle-orm");
     ids: typeof import("./ids");
     exams: typeof import("./exams");
+    centres: typeof import("./centres");
     quizzes: typeof import("@/data/quizzes");
   };
 
@@ -39,6 +40,7 @@ describe.skipIf(!url)("billing and access", () => {
       orm: await import("drizzle-orm"),
       ids: await import("./ids"),
       exams: await import("./exams"),
+      centres: await import("./centres"),
       quizzes: await import("@/data/quizzes"),
     };
   });
@@ -241,6 +243,43 @@ describe.skipIf(!url)("billing and access", () => {
       const id = await m.exams.startExam(u.id, "F");
       const r = await m.exams.submitExam({ ...u, name: "Late" }, id, await correctAnswers(id), new Date(now().getTime() + 63 * 60_000));
       expect(r).toMatchObject({ late: true, theoryPct: 0, passed: false });
+    });
+    it("professional exams are booked at a centre and opened only with the invigilator code", async () => {
+      const u = await makeUser();
+      const user = { ...u, name: "Lerato" };
+      await buyExam(u.id, "F");
+      await passPractical(u.id, ["foundations", "wiring"]);
+      const f = await m.exams.startExam(u.id, "F");
+      await m.exams.submitExam(user, f, await correctAnswers(f));
+      await buyExam(u.id, "P");
+      await expect(m.exams.startExam(u.id, "P")).rejects.toThrow(/exam centre/);
+
+      const admin = await makeUser();
+      const centre = await m.centres.createCentre({ name: "Village Tech", area: "Marshalltown", address: "1 Main St", code: "INV-2027" }, admin.id);
+      const [slot] = await m.centres.sessionsAt(centre);
+      const booking = await m.centres.bookSitting(u.id, "P", centre, slot.at);
+      await expect(m.centres.bookSitting(u.id, "P", centre, slot.at)).rejects.toThrow(/already have a sitting/);
+      await expect(m.centres.openSitting(u.id, booking, "INV-2027")).rejects.toThrow(/only be opened at the centre/);
+      const atCentre = new Date(slot.at.getTime() + 5 * 60_000);
+      await expect(m.centres.openSitting(u.id, booking, "wrong", atCentre)).rejects.toThrow(/not right/);
+      const attempt = await m.centres.openSitting(u.id, booking, "INV-2027", atCentre);
+      expect((await m.exams.attemptForLearner(u.id, attempt))!.atCentre).toBe(true);
+      await m.exams.logIncident(u.id, attempt, "left full screen", atCentre);
+      const [row] = await m.db.db.select().from(m.schema.examAttempts).where(m.orm.eq(m.schema.examAttempts.id, attempt));
+      expect(row.incidents).toHaveLength(1);
+    });
+
+    it("a missed sitting uses the credit, and changes close 48 hours before", async () => {
+      const u = await makeUser();
+      const admin = await makeUser();
+      await buyExam(u.id, "F");
+      const centre = await m.centres.createCentre({ name: "Randburg Test Centre", area: "Randburg", address: "2 Oak Ave", code: "RAND-2027" }, admin.id);
+      const slots = await m.centres.sessionsAt(centre);
+      const late = slots.find((x) => x.at.getTime() - Date.now() > 3 * 86_400_000)!;
+      const b = await m.centres.bookSitting(u.id, "F", centre, late.at);
+      await expect(m.centres.cancelSitting(u.id, b, new Date(late.at.getTime() - 86_400_000))).rejects.toThrow(/48 hours/);
+      const after = new Date(late.at.getTime() + 3 * 3_600_000);
+      expect((await m.exams.examStatus(u.id, "F", after)).credits).toBe(0);
     });
   });
 
