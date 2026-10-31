@@ -21,7 +21,10 @@ export type RigId =
   | "instruments"
   | "mcc"
   | "safety"
-  | "mineconv";
+  | "mineconv"
+  | "dewater"
+  | "ventfan"
+  | "hoist";
 
 export interface LessonRef {
   id: string;
@@ -408,9 +411,9 @@ export const CURRICULUM: Track[] = [
         title: "Mine services",
         blurb: "Water, air and the shaft",
         lessons: [
-          L("n-dewatering", "Underground dewatering", "tank", "pumps"),
-          L("n-ventilation", "Main ventilation fans", "fault", "vsd"),
-          L("n-hoist", "Winders and hoists", "sequence", "lift"),
+          L("n-dewatering", "Underground dewatering", "tank", "dewater"),
+          L("n-ventilation", "Main ventilation fans", "fault", "ventfan"),
+          L("n-hoist", "Winders and hoists", "sequence", "hoist"),
         ],
       },
     ],

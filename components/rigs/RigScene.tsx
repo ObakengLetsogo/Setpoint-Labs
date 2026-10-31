@@ -39,6 +39,9 @@ export const RIG_SCENES: Partial<Record<RigId, ComponentType<RigSceneProps>>> = 
   mcc: MccRig as ComponentType<RigSceneProps>,
   safety: SafetyRig as ComponentType<RigSceneProps>,
   mineconv: MineConveyorRig as ComponentType<RigSceneProps>,
+  dewater: PumpsRig as ComponentType<RigSceneProps>,
+  ventfan: VsdRig as ComponentType<RigSceneProps>,
+  hoist: LiftRig as ComponentType<RigSceneProps>,
 };
 
 export function RigScene({ id, only }: { id: RigId; only?: string[] }) {
