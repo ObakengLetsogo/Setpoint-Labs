@@ -82,6 +82,23 @@ function rng(seed: number) {
 
 describe("every lesson behaves the same in ladder and in translated ST", () => {
   for (const lesson of lessons.filter((l) => !l.locked)) {
+    if (lesson.stOnly) {
+      // No ladder to compare with: run the structured text on its machine and prove it never faults.
+      it(`${lesson.id} runs on its machine`, () => {
+        const rig = rigFor(lesson.rig);
+        const prog = parseST(lesson.st!.join("\n"));
+        const holds = rig.controls.filter((c) => c.kind === "hold").map((c) => (c.kind === "hold" ? c.key : ""));
+        let p = { ...rig.initial };
+        let m: Memory = {};
+        const rand = rng(11);
+        for (let i = 0; i < 600; i++) {
+          if (i % 7 === 0) for (const k of holds) p = { ...p, [k]: rand() < 0.25 };
+          m = runST(prog, { ...m, ...rig.readInputs(p, {}, lesson.rigOptions ?? {}) }, 100).memory;
+          p = rig.step(p, {}, m, 100);
+        }
+      });
+      continue;
+    }
     const ladder = parseProgram(lesson.code.join("\n"));
     const versions: [string, string][] = [["translated", ladderToST(ladder)]];
     if (lesson.st) versions.push(["hand written", lesson.st.join("\n")]);

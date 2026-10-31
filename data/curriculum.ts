@@ -456,7 +456,18 @@ export const CURRICULUM: Track[] = [
         stage: 5,
         title: "Programming",
         blurb: "Beyond ladder",
-        lessons: [L("a-structured-text", "Structured text", "sequence"), L("a-function-blocks", "Function blocks", "sequence")],
+        lessons: [L("a-structured-text", "Structured text", "sequence"), L("a-function-blocks", "Function blocks", "sequence"), L("e-structure", "Program structure and standards", "sequence", "conveyor")],
+      },
+      {
+        id: "data-testing",
+        stage: 5,
+        title: "Data and testing",
+        blurb: "Arrays, recipes and testing before site",
+        lessons: [
+          L("e-arrays", "Arrays, structures and indirect addressing", "counter", "conveyor"),
+          L("e-recipes", "Recipes and data logging", "sequence", "mixer"),
+          L("e-testing", "Testing code before site", "interlock", "reversing"),
+        ],
       },
       {
         id: "systems",
@@ -467,6 +478,7 @@ export const CURRICULUM: Track[] = [
           L("a-comms", "Industrial networks", "sequence", "vsd"),
           L("a-hmi", "HMI and SCADA basics", "lamp", "tank"),
           L("a-fault-finding", "Fault finding", "fault"),
+          L("e-diagnostics", "Diagnostics", "fault", "pumps"),
           L("a-documentation", "Documentation and handover", "safety"),
         ],
       },

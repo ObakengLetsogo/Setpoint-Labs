@@ -89,8 +89,13 @@ export const WRITTEN = new Set<string>([
   "t-delta",
   "a-structured-text",
   "a-function-blocks",
+  "e-structure",
+  "e-arrays",
+  "e-recipes",
+  "e-testing",
   "a-comms",
   "a-hmi",
   "a-fault-finding",
+  "e-diagnostics",
   "a-documentation"
 ]);

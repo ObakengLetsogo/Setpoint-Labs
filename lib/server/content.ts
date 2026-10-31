@@ -15,6 +15,7 @@ export function wireBundle(id: string): WireBundle | null {
     summary: l.summary,
     code: l.code,
     st: l.st,
+    stOnly: l.stOnly,
     rigOptions: l.rigOptions,
     checkpoint: l.checkpoint ? { steps: l.checkpoint.steps.map((f) => f.toString()), message: l.checkpoint.message } : undefined,
     teach,

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, type ReactNode } from "react";
-import { defaultST, useSim } from "@/store/sim";
+import { bundleOf, defaultST, useSim } from "@/store/sim";
 import { LadderDiagram } from "@/components/ladder/LadderDiagram";
 import { ScanMonitor } from "@/components/monitor/ScanMonitor";
 import { IconButton, Segmented } from "@/components/ui/controls";
@@ -155,6 +155,8 @@ export function CodeCard() {
   const error = useSim((s) => s.error);
   const source = useSim((s) => (s.codeLang === "st" ? (s.stSources[s.lessonId] ?? defaultST(s.lessonId)) : (s.sources[s.lessonId] ?? "")));
   const shownError = lang === "st" ? stError : error;
+  // Lessons written only in structured text have no ladder version to switch to.
+  const stOnly = useSim((s) => Boolean(s.contentStatus[s.lessonId] && bundleOf(s.lessonId)?.stOnly));
 
   async function copy() {
     try {
@@ -187,15 +189,19 @@ export function CodeCard() {
       </header>
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#eceef0] px-3.5 pb-2.5">
         <div className="flex flex-wrap items-center gap-2">
-          <Segmented
-            size="sm"
-            value={lang}
-            onChange={setCodeLang}
-            options={[
-              { value: "ladder", label: "Ladder" },
-              { value: "st", label: "Structured text" },
-            ]}
-          />
+          {stOnly ? (
+            <span className="font-mono text-[11px] uppercase tracking-[0.12em] text-muted-ink">Structured text</span>
+          ) : (
+            <Segmented
+              size="sm"
+              value={lang}
+              onChange={setCodeLang}
+              options={[
+                { value: "ladder", label: "Ladder" },
+                { value: "st", label: "Structured text" },
+              ]}
+            />
+          )}
           {lang === "ladder" && (
             <Segmented
               size="sm"

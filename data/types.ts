@@ -69,6 +69,8 @@ export interface LessonContent {
   code: string[];
   /** A hand written structured text version. The lesson then opens in structured text. */
   st?: string[];
+  /** Written for structured text only (arrays, loops): there is no ladder version to compare. */
+  stOnly?: boolean;
   specs: SpecItem[];
 }
 
@@ -94,5 +96,6 @@ export interface Lesson {
   steps: ExampleStep[];
   code: string[];
   st?: string[];
+  stOnly?: boolean;
   specs: SpecItem[];
 }

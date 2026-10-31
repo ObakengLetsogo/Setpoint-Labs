@@ -16,6 +16,8 @@ export interface LessonBundle {
   summary: string;
   code: string[];
   st?: string[];
+  /** Written only in structured text: there is no ladder version. */
+  stOnly?: boolean;
   rigOptions?: RigOptions;
   checkpoint?: { steps: CheckpointStep[]; message: string };
   teach: LessonTeach;

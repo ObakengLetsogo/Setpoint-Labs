@@ -38,7 +38,8 @@ describe("platform translations", () => {
 
   for (const platform of PLATFORMS) {
     it(`translates every open lesson for ${platform.name}`, () => {
-      for (const l of lessons.filter((x) => !x.locked)) {
+      // Lessons written only in structured text have no ladder to translate.
+      for (const l of lessons.filter((x) => !x.locked && !x.stOnly)) {
         const t = translateProgram(platform.id, parseProgram(l.code.join("\n")), rigFor(l.rig).tags);
         const text = t.lines.join("\n");
         expect(text, l.id).not.toMatch(/undefined|NaN|\[object/);
