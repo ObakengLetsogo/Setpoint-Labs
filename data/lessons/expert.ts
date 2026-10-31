@@ -831,3 +831,290 @@ export const EXPERT_PLANT: Record<string, LessonContent> = {
     ],
   },
 };
+
+const LG = {
+  start: io("I0.0", "Start_PB", "#2e9e5b", "Start", "Was I 32.0"),
+  stop: io("I0.1", "Stop_PB", "#d64545", "Stop, NC", "Was I 32.1"),
+  guard: io("I0.2", "Guard_OK", "#c9a227", "Guard", "1 when closed; was I 32.2"),
+  oldM: io("I0.3", "Old_Motor", "#6b6f76", "Old PLC motor output", "Read back"),
+  oldL: io("I0.4", "Old_Lamp", "#6b6f76", "Old PLC lamp output", "Read back"),
+  oldH: io("I0.5", "Old_Healthy", "#6b6f76", "Old PLC run relay", "1 while it runs"),
+  cut: io("IW64", "Cutover", "#2457a6", "Changeover switch", "0 old, 1 shadow, 2 new"),
+  mis: io("TEST", "Mismatches", "#d64545", "Shadow test set", "Disagreements counted"),
+  fb: io("I0.6", "Motor_FB", "#2457a6", "Motor feedback", "Contactor auxiliary"),
+  motor: io("Q0.0", "Motor_Run", "#2457a6", "New PLC motor output", "Drives only in position 2"),
+  lamp: io("Q0.1", "Run_Lamp", "#2e9e5b", "New PLC lamp", "Green"),
+};
+
+/** The old program, converted: including the rule nobody had written down. */
+const CONVERTED = [
+  "RUNG 1: XIC(Guard_OK) TON(Guard_T, 5000)",
+  "RUNG 2: (XIC(Start_PB) XIC(Guard_T.DN) OR XIC(Run_Seal)) AND XIC(Stop_PB) AND XIC(Guard_OK) OTE(Run_Seal)",
+];
+
+export const EXPERT_UPGRADES: Record<string, LessonContent> = {
+  "e-upg-why": {
+    difficulty: "advanced",
+    checkpoint: { steps: [(m) => Number(m.Failures) >= 1, (m) => Number(m.Down_S) >= 10 && Number(m.Lost_Rand) >= 200], message: "measured what an unsupported PLC's failures cost, the start of a business case" },
+    summary:
+      "Many South African plants still run PLCs from the 1990s: Siemens S5, Allen Bradley PLC-5 and SLC 500. They worked for decades, but spares are scarce, the software needs old computers, and few people can still support them. Plants upgrade when the risk of a long stoppage costs more than the upgrade. This program builds the evidence: how often the old PLC fails, how long the plant is down, and what that costs.",
+    facts: [
+      { icon: "bolt", text: "Make the old PLC's CPU fail. The conveyor stops, and Failures counts 1." },
+      { icon: "watch", text: "Down_S counts the seconds the plant is down, and Lost_Rand the cost at R20 a second, R72 000 an hour." },
+      { icon: "info", text: "Compare that with a quote for the upgrade: that is the business case." },
+    ],
+    io: [LG.oldH, LG.cut, LG.lamp],
+    steps: [
+      { line: 2, text: "Each time the old CPU stops is one failure." },
+      { line: 3, text: "Count each second it is down." },
+      { line: 5, text: "Turn downtime into money: here R20 a second of lost production." },
+    ],
+    code: [
+      "// The business case: what do the old PLC's failures cost?",
+      "RUNG 1: XIO(Old_Healthy) ONS(F_OS) ADD(Failures, 1, Failures)",
+      "RUNG 2: XIO(Old_Healthy) XIO(Sec_T.DN) TON(Sec_T, 1000)",
+      "RUNG 3: XIC(Sec_T.DN) ADD(Down_S, 1, Down_S)",
+      "RUNG 4: MUL(Down_S, 20, Lost_Rand)",
+      "RUNG 5: XIC(Old_Healthy) OTE(Run_Lamp)",
+    ],
+    specs: [
+      { label: "Old platforms", value: "S5, PLC-5, SLC 500" },
+      { label: "Risks", value: "Spares, software, skills" },
+      { label: "Case", value: "Downtime cost vs upgrade" },
+      { label: "Level", value: "Expert" },
+    ],
+  },
+
+  "e-upg-audit": {
+    difficulty: "advanced",
+    checkpoint: { steps: [(m) => Number(m.Old_Starts) >= 1, (m) => Number(m.Refused) >= 1], message: "watched the old PLC and found a start it refused for a reason nobody had written down" },
+    summary:
+      "Before touching an old system, back it up and audit it. Upload the program if you can; photograph the panels; list every I/O point with its old address. Then watch the machine run, because the drawings and the operators never tell the whole story. Here the new PLC is wired to read the old one's outputs, and this program logs what the old PLC does, including any time it refuses to start when everything looks healthy.",
+    facts: [
+      { icon: "press", text: "Hold Start: the old PLC runs the motor. Old_Starts counts it." },
+      { icon: "bolt", text: "Stop, open the guard, close it, and hold Start at once. Nothing happens: Refused counts 1." },
+      { icon: "info", text: "Wait 5 s after closing the guard and it starts. A hidden rule: write it in the audit report." },
+    ],
+    io: [LG.start, LG.stop, LG.guard, LG.oldM, LG.oldL],
+    steps: [
+      { line: 2, text: "Count every start the old PLC makes." },
+      { line: 3, text: "Start held for 0.4 s with the guard closed and Stop healthy, but the old motor stays off: a refusal." },
+      { line: 4, text: "Count each refusal once." },
+    ],
+    code: [
+      "// Audit: log what the old PLC really does.",
+      "RUNG 1: XIC(Old_Motor) ONS(M_OS) ADD(Old_Starts, 1, Old_Starts)",
+      "RUNG 2: XIC(Start_PB) XIC(Guard_OK) XIC(Stop_PB) XIO(Old_Motor) TON(Ref_T, 400)",
+      "RUNG 3: XIC(Ref_T.DN) ONS(R_OS) ADD(Refused, 1, Refused)",
+    ],
+    specs: [
+      { label: "First", value: "Back up everything" },
+      { label: "Then", value: "I/O list, photos, observe" },
+      { label: "Found", value: "A 5 s guard delay" },
+      { label: "Level", value: "Expert" },
+    ],
+  },
+
+  "e-upg-map": {
+    difficulty: "advanced",
+    checkpoint: { steps: [(m, i) => Number(i.Cutover) === 1 && Boolean(i.Old_Motor) && Boolean(m.Motor_Run), (m, i) => Number(i.Cutover) === 1 && Number(i.Mismatches) === 0 && Number(m.Shadow_S) >= 30], message: "converted the old program to new tags and proved it matched the old PLC for 30 s in shadow" },
+    summary:
+      "Converting code is mostly careful mapping: each old address becomes a new tag, each old instruction a new one, and every quirk must come across. The old S5 program looked like this in STL: A I 32.0, O Q 32.0, A I 32.1, A I 32.2, = Q 32.0, with a timer on I 32.2 that nobody had documented. Here it is in new ladder with names, including the guard delay the audit found. In shadow mode the new PLC runs it alongside the old one, and a test set counts every disagreement.",
+    facts: [
+      { icon: "press", text: "Set the changeover to 1, shadow. Start and stop the machine a few times: Mismatches stays 0." },
+      { icon: "bolt", text: "Delete XIC(Guard_T.DN) from rung 2 and test a start right after closing the guard: a mismatch." },
+      { icon: "info", text: "The TIA Portal migration tool and Rockwell's PLC-5 converter do the first pass. Engineers check every line." },
+    ],
+    io: [LG.start, LG.stop, LG.guard, LG.oldM, LG.cut, LG.mis, LG.motor, LG.lamp],
+    steps: [
+      { line: 2, text: "The guard delay the audit found, now written down and named." },
+      { line: 3, text: "The old seal-in, from I 32.0, Q 32.0, I 32.1 and I 32.2, now with names." },
+      { line: 4, text: "The new motor output: connected only once the changeover reaches 2." },
+      { line: 7, text: "Count the seconds spent shadowing, as test evidence." },
+    ],
+    code: [
+      "// The old S5 program, mapped to new tags. Was: A I32.0 / O Q32.0 / A I32.1 / A I32.2 / = Q32.0",
+      ...CONVERTED,
+      "RUNG 3: XIC(Run_Seal) OTE(Motor_Run)",
+      "RUNG 4: XIC(Motor_Run) TON(Lamp_T, 3000)",
+      "RUNG 5: XIC(Lamp_T.DN) OTE(Run_Lamp)",
+      "RUNG 6: EQU(Cutover, 1) XIO(Sh_T.DN) TON(Sh_T, 1000)",
+      "RUNG 7: XIC(Sh_T.DN) ADD(Shadow_S, 1, Shadow_S)",
+    ],
+    specs: [
+      { label: "Old", value: "S5 STL, absolute addresses" },
+      { label: "New", value: "Named tags, ladder" },
+      { label: "Proof", value: "Shadow, 0 mismatches" },
+      { label: "Level", value: "Expert" },
+    ],
+  },
+
+  "e-upg-plan": {
+    difficulty: "advanced",
+    checkpoint: { steps: [(m, i) => Number(m.Coverage) === 4 && Number(i.Mismatches) === 0 && Number(i.Cutover) === 1], message: "covered all four test cases in shadow with no mismatches: the cutover plan's proof" },
+    summary:
+      "A cutover is planned like a project of its own: when (a shutdown, a weekend), who does what, how long each step takes, how you prove it works, and how you go back to the old system if it does not. The proof is a test list, and the program can keep score. Here it ticks off each case seen in shadow mode: a start, a stop, a guard trip and a refused start inside the 5 s window. With all four covered and no mismatches, the plan's test stage is complete.",
+    facts: [
+      { icon: "press", text: "Set the changeover to 1. Run a start and a stop." },
+      { icon: "bolt", text: "Start again, then open the guard while running. Close it and hold Start at once." },
+      { icon: "watch", text: "Coverage reaches 4, with Mismatches still 0." },
+    ],
+    io: [LG.start, LG.stop, LG.guard, LG.oldM, LG.cut, LG.mis, LG.motor],
+    steps: [
+      { line: 5, text: "Case 1: the motor started." },
+      { line: 6, text: "Case 2: Stop pressed while running." },
+      { line: 7, text: "Case 3: the guard opened while running." },
+      { line: 8, text: "Case 4: Start inside the 5 s guard delay." },
+      { line: 10, text: "Coverage adds up the cases seen." },
+    ],
+    code: [
+      "// The cutover test list, scored by the program while it shadows the old PLC.",
+      ...CONVERTED,
+      "RUNG 3: XIC(Run_Seal) OTE(Motor_Run)",
+      "RUNG 4: XIC(Old_Motor) EQU(Cutover, 1) OTL(C_Start)",
+      "RUNG 5: XIC(Old_Motor) XIO(Stop_PB) EQU(Cutover, 1) OTL(C_Stop)",
+      "RUNG 6: XIC(Old_Motor) XIO(Guard_OK) EQU(Cutover, 1) OTL(C_Guard)",
+      "RUNG 7: XIC(Start_PB) XIC(Guard_OK) XIO(Guard_T.DN) EQU(Cutover, 1) OTL(C_Refuse)",
+      "RUNG 8: MOV(0, Coverage)",
+      "RUNG 9: XIC(C_Start) ADD(Coverage, 1, Coverage)",
+      "RUNG 10: XIC(C_Stop) ADD(Coverage, 1, Coverage)",
+      "RUNG 11: XIC(C_Guard) ADD(Coverage, 1, Coverage)",
+      "RUNG 12: XIC(C_Refuse) ADD(Coverage, 1, Coverage)",
+    ],
+    specs: [
+      { label: "Plan", value: "When, who, how long, rollback" },
+      { label: "Tests", value: "4 cases in shadow" },
+      { label: "Pass", value: "All covered, 0 mismatches" },
+      { label: "Level", value: "Expert" },
+    ],
+  },
+
+  "e-upg-cutover": {
+    difficulty: "advanced",
+    checkpoint: {
+      steps: [(m) => Boolean(m.Ready), (m, i) => Number(i.Cutover) === 2 && Boolean(m.Motor_Run) && Boolean(i.Motor_FB), (_m, i, f) => Boolean(f.oldFail) && Number(i.Cutover) === 2 && Boolean(i.Motor_FB)],
+      message: "proved the new PLC, cut over to it, and kept the plant running when the old PLC was switched off",
+    },
+    summary:
+      "Cutover day: the new PLC has shadowed the old one with no mismatches; the changeover moves to the new PLC; the plant is commissioned and handed over. The new program protects itself: it will not drive the motor unless it has been proved in shadow for 20 s without a mismatch. Once it is running, the old PLC can be switched off for good, and the plant does not notice.",
+    facts: [
+      { icon: "press", text: "Set the changeover to 1 and let it shadow for 20 s with no mismatches: Ready." },
+      { icon: "press", text: "Move the changeover to 2 and press Start. The new PLC runs the motor." },
+      { icon: "bolt", text: "Fail the old PLC's CPU, as if it were switched off. The motor keeps running: handover." },
+    ],
+    io: [LG.start, LG.stop, LG.guard, LG.cut, LG.mis, LG.fb, LG.motor, LG.lamp],
+    steps: [
+      { line: 2, text: "The converted logic, unchanged." },
+      { line: 4, text: "Proof: 20 s in shadow with no mismatches." },
+      { line: 5, text: "Latch Ready: the new PLC has earned the right to drive." },
+      { line: 6, text: "In position 2 the motor is only driven once Ready." },
+    ],
+    code: [
+      "// Cutover: prove, then take over, then hand over.",
+      ...CONVERTED,
+      "RUNG 3: EQU(Cutover, 1) EQU(Mismatches, 0) TON(Proof_T, 20000)",
+      "RUNG 4: XIC(Proof_T.DN) OTL(Ready)",
+      "RUNG 5: XIC(Run_Seal) AND (NEQ(Cutover, 2) OR XIC(Ready)) OTE(Motor_Run)",
+      "RUNG 6: XIC(Motor_FB) OTE(Run_Lamp)",
+    ],
+    specs: [
+      { label: "Gate", value: "20 s shadow, 0 mismatches" },
+      { label: "Rollback", value: "Changeover back to 0" },
+      { label: "Handover", value: "Old PLC off, plant runs" },
+      { label: "Level", value: "Expert" },
+    ],
+  },
+};
+
+export const EXPERT_PROJECTS: Record<string, LessonContent> = {
+  "e-fat-sat": {
+    difficulty: "advanced",
+    checkpoint: { steps: [(m) => Number(m.Test) >= 3, (m) => Number(m.Test) === 5], message: "ran an acceptance test script through start, stop, E-stop, jam and recovery" },
+    summary:
+      "A project starts from a specification: what the system must do, written so it can be tested. The factory acceptance test (FAT) proves it before it leaves the workshop, with the customer watching; the site acceptance test (SAT) proves it again once installed. Each test has a number, an action, an expected result and a signature. This program carries its own test script: it moves to the next test only when the expected result has really happened.",
+    facts: [
+      { icon: "press", text: "T1: tap Start. The belt runs, and Test moves to 1." },
+      { icon: "press", text: "T2: press Stop. T3: start again and press the E-stop. Each passes only if the belt really stopped." },
+      { icon: "bolt", text: "T4: start again and jam the exit. T5: clear the jam and start. Test reaches 5: every test passed." },
+    ],
+    io: [CV.start, CV.stop, CV.estop, CV.exit, CV.belt, CV.lamp, CV.jam],
+    steps: [
+      { line: 2, text: "The machine itself: the belt runs unless stopped, E-stopped or jammed." },
+      { line: 3, text: "A jam is the exit eye blocked for 4 s." },
+      { line: 6, text: "The test script starts here. Each test checks its own expected result." },
+      { line: 10, text: "The last test: after a jam, the machine recovers." },
+    ],
+    code: [
+      "// A conveyor with its acceptance test script built in.",
+      "RUNG 1: (XIC(Start_PB) OR XIC(Belt_Run)) AND XIC(Stop_PB) AND XIC(EStop_OK) AND XIO(Jam) OTE(Belt_Run)",
+      "RUNG 2: XIC(PE_Exit) TON(Jam_T, 4000)",
+      "RUNG 3: XIC(Jam_T.DN) OTL(Jam)",
+      "RUNG 4: XIC(Start_PB) OTU(Jam)",
+      "RUNG 5: EQU(Test, 0) XIC(Belt_Run) MOV(1, Test)",
+      "RUNG 6: EQU(Test, 1) XIO(Stop_PB) XIO(Belt_Run) MOV(2, Test)",
+      "RUNG 7: EQU(Test, 2) XIO(EStop_OK) XIO(Belt_Run) MOV(3, Test)",
+      "RUNG 8: EQU(Test, 3) XIC(Jam) XIO(Belt_Run) MOV(4, Test)",
+      "RUNG 9: EQU(Test, 4) XIC(Belt_Run) XIO(Jam) MOV(5, Test)",
+      "RUNG 10: XIC(Belt_Run) OTE(Run_Lamp)",
+      "RUNG 11: XIC(Jam) OTE(Jam_Lamp)",
+    ],
+    specs: [
+      { label: "Spec", value: "Testable requirements" },
+      { label: "FAT", value: "In the workshop" },
+      { label: "SAT", value: "On site" },
+      { label: "Level", value: "Expert" },
+    ],
+  },
+
+  "e-quoting": {
+    difficulty: "advanced",
+    stOnly: true,
+    checkpoint: { steps: [(m) => Number(m.Quote) > 0, (m) => Number(m.IO_Count) >= 20 && Number(m.Quote) > 0], message: "built a quote from I/O count, hours and rates, then re-quoted a bigger scope" },
+    summary:
+      "Automation work is usually estimated from the I/O count: each input and output means design, wiring, testing and documentation hours. Add fixed tasks like the FAT and commissioning, multiply by rates, add hardware, then add a contingency for what the site will surprise you with. Under-quote and the job loses money; over-quote and you lose the job. This calculator works it through, with each line of the estimate in an array.",
+    facts: [
+      { icon: "watch", text: "Read Hours[1] to Hours[6] and Quote: 12 I/O points gives the first estimate." },
+      { icon: "press", text: "Change IO_Count on line 9 to 24 and run: the estimate scales with the scope." },
+      { icon: "info", text: "Contingency is 15 % here. Old plants with no drawings deserve more." },
+    ],
+    io: [],
+    steps: [
+      { line: 3, text: "Each line of the estimate, in hours." },
+      { line: 9, text: "The scope: how many I/O points." },
+      { line: 11, text: "Per point hours scale with the I/O count; fixed tasks do not." },
+      { line: 18, text: "Add up the hours with a loop." },
+      { line: 20, text: "Labour plus hardware, plus contingency." },
+    ],
+    code: ST_ONLY("This estimating calculator"),
+    st: [
+      "// Estimating an automation job from its I/O count.",
+      "VAR",
+      "  Hours : ARRAY[1..6] OF INT;",
+      "END_VAR",
+      "",
+      "// R per hour, and hardware in rand.",
+      "Rate := 850;",
+      "Hardware := 45000;",
+      "IO_Count := 12;",
+      "",
+      "Hours[1] := IO_Count * 2;  // design and drawings",
+      "Hours[2] := IO_Count * 1;  // panel wiring and loop checks",
+      "Hours[3] := IO_Count * 2;  // programming",
+      "Hours[4] := 16;            // FAT",
+      "Hours[5] := 24;            // commissioning and SAT",
+      "Hours[6] := 8;             // documentation and training",
+      "",
+      "Total_Hours := 0;",
+      "FOR i := 1 TO 6 DO Total_Hours := Total_Hours + Hours[i]; END_FOR;",
+      "Cost := Total_Hours * Rate + Hardware;",
+      "Contingency := Cost * 15 / 100;",
+      "Quote := Cost + Contingency;",
+    ],
+    specs: [
+      { label: "Basis", value: "I/O count" },
+      { label: "Rate", value: "R850 an hour" },
+      { label: "Contingency", value: "15 %" },
+      { label: "Level", value: "Expert" },
+    ],
+  },
+};

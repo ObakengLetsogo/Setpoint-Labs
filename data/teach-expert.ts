@@ -358,4 +358,173 @@ export const TEACH_EXPERT: Record<string, LessonTeach> = {
     ],
     words: [{ term: "Historian", meaning: "A database for process values over time." }, { term: "Deadband", meaning: "The change needed before a new value is stored." }, { term: "Compression", meaning: "Storing fewer values without losing the shape of the data." }],
   },
+
+  "e-upg-why": {
+    goal: "Build the business case for upgrading an old control system from evidence, not opinion.",
+    learn: ["obsolescence", "spares and skills risk", "downtime cost", "the business case", "timing an upgrade"],
+    wires: [1, 6],
+    steps: [
+      "Switch the PLC to RUN. Start the conveyor on the old PLC.",
+      "Fail the old PLC's CPU. The conveyor stops; Failures counts 1.",
+      "Watch Down_S and Lost_Rand climb.",
+      "Clear the fault. Note what 10 minutes of downtime would cost: R12 000.",
+      "Compare a year of failures with an upgrade quote: that is the case for the plant manager.",
+    ],
+    between: BETWEEN,
+    tour: [
+      { kicker: "Scene 1 of 2 · Evidence", title: "How often, how long", lines: [2, 4], lead: "Failures and seconds down, counted automatically.", body: "Plant managers fund upgrades on numbers: failures a year, hours lost, spares that cannot be bought.", handsTo: ["Failures", "Down_S"] },
+      { kicker: "Scene 2 of 2 · Cost", title: "Downtime in rand", lines: [5, 5], lead: "R20 a second is R72 000 an hour of lost production.", body: "One long stoppage while hunting for an S5 card on the second-hand market can pay for the whole upgrade.", precise: "Siemens ended S5 support years ago; Rockwell lists PLC-5 and SLC 500 as discontinued.", handsTo: ["Lost_Rand"] },
+    ],
+    story: [
+      { t: "running", text: "The old PLC still works, for now." },
+      { t: "failure", text: "CPU fails; the conveyor stops." },
+      { t: "cost", text: "Every second counted in rand." },
+    ],
+    words: [{ term: "Obsolescence", meaning: "When a product is no longer made or supported." }, { term: "Business case", meaning: "The argument, in money and risk, for spending on a project." }, { term: "Downtime", meaning: "Time the plant cannot produce." }],
+  },
+
+  "e-upg-audit": {
+    goal: "Audit an old system before changing it: back up, list, observe, and find what nobody wrote down.",
+    learn: ["backups first", "I/O lists", "observing behaviour", "hidden logic", "the audit report"],
+    wires: [1, 2, 3, 4, 5],
+    steps: [
+      "Switch the PLC to RUN. Hold Start: the old PLC runs the motor. Old_Starts counts it.",
+      "Stop. Open the guard, close it, and at once hold Start.",
+      "Nothing happens: Refused counts 1.",
+      "Wait 5 s and try again: it starts.",
+      "Write the finding: the old program will not start within 5 s of the guard closing.",
+    ],
+    between: ["Back up the old program, and keep two copies, before anything else.", ...BETWEEN.slice(0, 2)],
+    tour: [
+      { kicker: "Scene 1 of 2 · Watch", title: "What the old PLC does", lines: [2, 2], lead: "Every start the old PLC makes is counted.", body: "Run the new PLC as a recorder first: it reads the same inputs and the old outputs.", handsTo: ["Old_Starts"] },
+      { kicker: "Scene 2 of 2 · Surprises", title: "Healthy, but refused", lines: [3, 4], lead: "Start held, guard closed, Stop healthy, but no motor.", body: "Old programs hold years of undocumented fixes. Each one you miss becomes a surprise on cutover day.", precise: "If the old program cannot be uploaded, the audit is all you have: photos, I/O lists, and observed behaviour.", handsTo: ["Refused"] },
+    ],
+    story: [
+      { t: "backup", text: "Upload and store the old program." },
+      { t: "observe", text: "Log what the old PLC does." },
+      { t: "finding", text: "A 5 s guard delay nobody wrote down." },
+    ],
+    words: [{ term: "Audit", meaning: "A careful record of an existing system before changing it." }, { term: "I/O list", meaning: "Every input and output with its address and purpose." }, { term: "As-found", meaning: "How the system really was before you touched it." }],
+  },
+
+  "e-upg-map": {
+    goal: "Convert an old program to a new platform: map every address, keep every behaviour, and prove it in shadow.",
+    learn: ["address mapping", "instruction conversion", "naming tags", "keeping quirks", "shadow testing"],
+    wires: [1, 2, 3, 4, 5, 7],
+    steps: [
+      "Set the changeover to 1, shadow. Switch the PLC to RUN.",
+      "Start and stop a few times; open and close the guard; try a start inside the 5 s.",
+      "Mismatches stays at 0 while Shadow_S counts up.",
+      "Delete XIC(Guard_T.DN) from rung 2 and repeat: a mismatch.",
+      "Put it back. Write the mapping table: old address, new tag, purpose.",
+    ],
+    between: BETWEEN,
+    tour: [
+      { kicker: "Scene 1 of 3 · Mapping", title: "Addresses become names", lines: [1, 3], lead: "I 32.0 becomes Start_PB; Q 32.0 becomes Motor_Run.", body: "A mapping table, old address to new tag, is the backbone of every migration.", handsTo: ["Start_PB", "Motor_Run"] },
+      { kicker: "Scene 2 of 3 · Quirks", title: "Keep the hidden rule", lines: [2, 2], lead: "The guard delay the audit found, now named and commented.", body: "Convert behaviour, not just instructions. If a quirk is wrong, change it later, deliberately, with the plant's agreement.", handsTo: ["Guard_T"] },
+      { kicker: "Scene 3 of 3 · Shadow", title: "Prove it side by side", lines: [6, 7], lead: "The new PLC runs, unconnected, while the old one drives.", body: "Every disagreement is counted. Zero over a full set of cases is the evidence for cutover.", precise: "TIA Portal can migrate S7-300/400 projects; S5 code usually needs a converter and careful manual checking.", handsTo: ["Mismatches", "Shadow_S"] },
+    ],
+    story: [
+      { t: "old", text: "A I32.0, O Q32.0, A I32.1, A I32.2, = Q32.0." },
+      { t: "new", text: "Named ladder, with the guard delay." },
+      { t: "shadow", text: "No mismatches over 30 s of tests." },
+    ],
+    words: [{ term: "Mapping table", meaning: "A list linking each old address to its new tag." }, { term: "Shadow mode", meaning: "Running the new system alongside the old, compared but not connected." }, { term: "STL", meaning: "Statement list: the old text language of S5 and S7." }],
+  },
+
+  "e-upg-plan": {
+    goal: "Plan a cutover: the test list, the timing, the people and the way back.",
+    learn: ["cutover plans", "test coverage", "rollback", "shutdown windows", "evidence"],
+    wires: [1, 2, 3, 4, 7],
+    steps: [
+      "Set the changeover to 1. Switch the PLC to RUN.",
+      "Run a start and a stop: Coverage 2.",
+      "Start, open the guard while running: 3.",
+      "Close the guard and hold Start at once: 4.",
+      "Check Mismatches is still 0. The test stage of the plan is done.",
+    ],
+    between: BETWEEN,
+    tour: [
+      { kicker: "Scene 1 of 2 · Cases", title: "What must be proved", lines: [5, 8], lead: "Four cases, each latched once seen.", body: "A real plan lists every function, every interlock and every alarm, and who will witness each.", handsTo: ["C_Start", "C_Refuse"] },
+      { kicker: "Scene 2 of 2 · Score", title: "Coverage", lines: [9, 13], lead: "The program keeps the score.", body: "With full coverage and no mismatches, the plan moves to the cutover window, with a written rollback to the old PLC.", precise: "Plan the cutover inside a planned shutdown, with the old program, old cards and spare time held in reserve.", handsTo: ["Coverage"] },
+    ],
+    story: [
+      { t: "plan", text: "When, who, how long, how to go back." },
+      { t: "test", text: "Four cases in shadow." },
+      { t: "ready", text: "Coverage 4, mismatches 0." },
+    ],
+    words: [{ term: "Cutover", meaning: "The moment the new system takes over from the old." }, { term: "Rollback", meaning: "Going back to the old system if the new one fails." }, { term: "Coverage", meaning: "How much of what must be tested has been tested." }],
+  },
+
+  "e-upg-cutover": {
+    goal: "Cut over safely: gate the new PLC on proof, take over, commission, and hand over.",
+    learn: ["proof gates", "taking control", "commissioning", "decommissioning", "handover"],
+    wires: [1, 2, 3, 7],
+    steps: [
+      "Set the changeover to 1 and switch the PLC to RUN. Wait 20 s: Ready.",
+      "Move the changeover to 2 and press Start: the new PLC drives the motor.",
+      "Fail the old PLC: the plant does not notice.",
+      "Try it again without waiting for Ready: the new PLC refuses to drive.",
+      "Hand over: the mapping table, the new program, the test records and a trained operator.",
+    ],
+    between: BETWEEN,
+    tour: [
+      { kicker: "Scene 1 of 2 · Gate", title: "Earn the right to drive", lines: [4, 5], lead: "20 s of shadow with no mismatches latches Ready.", body: "The new PLC protects the plant from a cutover made too soon.", handsTo: ["Ready"] },
+      { kicker: "Scene 2 of 2 · Take over", title: "Position 2", lines: [6, 7], lead: "In position 2 the new PLC drives, once Ready.", body: "Switch the old PLC off and watch: if nothing changes, the cutover is complete.", precise: "Handover packs: as-built drawings, I/O list, program backups, test records, training records and the warranty terms.", handsTo: ["Motor_Run"] },
+    ],
+    story: [
+      { t: "proved", text: "20 s shadow, no mismatches: Ready." },
+      { t: "cutover", text: "Changeover to 2: new PLC drives." },
+      { t: "handover", text: "Old PLC off; plant runs." },
+    ],
+    words: [{ term: "Commissioning", meaning: "Proving the system works on site before handover." }, { term: "Decommissioning", meaning: "Safely removing the old system." }, { term: "Handover", meaning: "Passing the working system and its documents to the owner." }],
+  },
+
+  "e-fat-sat": {
+    goal: "Write testable specifications and prove a system with FAT and SAT, step by step.",
+    learn: ["functional specifications", "test scripts", "FAT", "SAT", "punch lists"],
+    wires: [1, 2, 3, 4, 6, 7],
+    steps: [
+      "Switch the PLC to RUN. T1: tap Start. Test becomes 1.",
+      "T2: press Stop. T3: start, then E-stop. Each passes only if the belt stopped.",
+      "T4: start and jam the exit eye: after 4 s the belt stops, Jam on.",
+      "T5: clear the jam and tap Start. Test reaches 5.",
+      "Write a test sheet: number, action, expected result, pass or fail, signature.",
+    ],
+    between: BETWEEN,
+    tour: [
+      { kicker: "Scene 1 of 2 · Spec", title: "Write it so it can be tested", lines: [2, 5], lead: "Every behaviour here was a line in the specification.", body: "\"The belt shall stop within 1 s of the E-stop\" can be tested; \"the belt shall be safe\" cannot.", handsTo: ["Belt_Run", "Jam"] },
+      { kicker: "Scene 2 of 2 · Script", title: "Only real results count", lines: [6, 10], lead: "Test only moves on when the expected result happened.", body: "FAT in the workshop, SAT again on site. Anything that fails goes on the punch list until fixed and retested.", precise: "IEC 62381 describes FAT, SAT and site integration tests for process automation.", handsTo: ["Test"] },
+    ],
+    story: [
+      { t: "T1-T3", text: "Start, stop, E-stop." },
+      { t: "T4", text: "Jam detected and stopped." },
+      { t: "T5", text: "Recovered. All passed." },
+    ],
+    words: [{ term: "FAT", meaning: "Factory acceptance test, before shipping." }, { term: "SAT", meaning: "Site acceptance test, after installation." }, { term: "Punch list", meaning: "The list of items still to fix before acceptance." }],
+  },
+
+  "e-quoting": {
+    goal: "Estimate an automation job from its scope, so the quote is neither a loss nor a lost bid.",
+    learn: ["I/O based estimating", "fixed and variable tasks", "rates", "contingency", "scope changes"],
+    wires: [1],
+    steps: [
+      "Switch the PLC to RUN. Read Total_Hours and Quote for 12 I/O.",
+      "Change IO_Count to 24 and run again.",
+      "Hours that scale with I/O doubled; FAT, commissioning and documentation did not.",
+      "Change the contingency to 25 % for an old plant with no drawings.",
+      "Write the assumptions that go with the quote: what is included, and what is not.",
+    ],
+    between: BETWEEN,
+    tour: [
+      { kicker: "Scene 1 of 2 · Scope", title: "Count the I/O", lines: [9, 16], lead: "Design, wiring and programming hours scale with the I/O count.", body: "FAT, commissioning and documentation are closer to fixed for a job of this size.", handsTo: ["IO_Count", "Hours[1]"] },
+      { kicker: "Scene 2 of 2 · Price", title: "Labour, hardware, contingency", lines: [18, 22], lead: "Hours times rate, plus hardware, plus 15 %.", body: "Contingency pays for what the site will surprise you with. Scope changes later are quoted as variations.", precise: "Always state exclusions: civil work, cabling outside the panel, client delays, and travel.", handsTo: ["Quote"] },
+    ],
+    story: [
+      { t: "12 I/O", text: "First estimate." },
+      { t: "24 I/O", text: "Per point hours double; fixed tasks stay." },
+      { t: "risk", text: "More contingency for unknown old plants." },
+    ],
+    words: [{ term: "Estimate", meaning: "A calculated forecast of hours and cost." }, { term: "Contingency", meaning: "A reserve for unknowns, as a share of the cost." }, { term: "Variation", meaning: "A priced change to the agreed scope." }],
+  },
 };

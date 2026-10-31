@@ -147,3 +147,79 @@ describe("Expert plant systems lessons", () => {
     expect(Number(mem.Avg)).toBeGreaterThanOrEqual(Number(mem.Lo));
   });
 });
+
+import { EXPERT_PROJECTS as J, EXPERT_UPGRADES as U } from "@/data/lessons/expert";
+import { legacy } from "./legacy";
+
+function playL(rig: RigDef, lesson: (typeof U)[string], act: (t: number, p: PhysicalState, f: FaultState) => void, secs: number, code?: string[]) {
+  const st = lesson.stOnly ? parseST(lesson.st!.join("\n")) : null;
+  const ld = lesson.stOnly ? null : parseProgram((code ?? lesson.code).join("\n"));
+  let p: PhysicalState = { ...rig.initial };
+  const f: FaultState = {};
+  let mem: Memory = {};
+  let reached = 0;
+  for (let k = 0; k < secs * 10; k++) {
+    act(k / 10, p, f);
+    const inputs = rig.readInputs(p, f, {});
+    mem = st ? runST(st, { ...mem, ...inputs }, 100).memory : scan(ld!, { ...mem, ...inputs }, 100).memory;
+    p = rig.step(p, f, mem, 100);
+    if (reached < lesson.checkpoint!.steps.length && lesson.checkpoint!.steps[reached](mem, inputs, f)) reached++;
+  }
+  return { reached, mem, p };
+}
+const hold = (t: number, s: number, d = 1) => t >= s && t < s + d;
+
+describe("Expert upgrade and project lessons", () => {
+  it("e-upg-why counts failures, downtime and its cost", () => {
+    expect(playL(legacy, U["e-upg-why"], (t, p, f) => {
+      p.startPressed = hold(t, 6);
+      f.oldFail = t > 9;
+    }, 20).reached).toBe(2);
+  });
+  it("e-upg-audit finds the hidden guard delay", () => {
+    expect(playL(legacy, U["e-upg-audit"], (t, p) => {
+      p.startPressed = hold(t, 6) || hold(t, 14);
+      p.stopPressed = hold(t, 9);
+      p.guardOpen = t > 11 && t < 13.5;
+    }, 20).reached).toBe(2);
+  });
+  const scenario = (t: number, p: PhysicalState) => {
+    p.cutover = 1;
+    p.startPressed = hold(t, 6) || hold(t, 14) || hold(t, 22.5) || hold(t, 29);
+    p.stopPressed = hold(t, 10);
+    p.guardOpen = t > 18 && t < 22;
+  };
+  it("e-upg-map matches the old PLC in shadow, with the hidden rule", () => {
+    const { reached, p } = playL(legacy, U["e-upg-map"], scenario, 50);
+    expect(reached).toBe(2);
+    expect(p.mismatches).toBe(0);
+  });
+  it("e-upg-map without the hidden rule shows a mismatch", () => {
+    const code = U["e-upg-map"].code.map((l) => l.replace("XIC(Start_PB) XIC(Guard_T.DN)", "XIC(Start_PB)"));
+    expect(Number(playL(legacy, U["e-upg-map"], scenario, 50, code).p.mismatches)).toBeGreaterThan(0);
+  });
+  it("e-upg-plan covers all four cases with no mismatches", () => {
+    expect(playL(legacy, U["e-upg-plan"], scenario, 50).reached).toBe(1);
+  });
+  it("e-upg-cutover: prove, cut over, hand over", () => {
+    expect(playL(legacy, U["e-upg-cutover"], (t, p, f) => {
+      p.cutover = t < 25 ? 1 : 2;
+      p.startPressed = hold(t, 26);
+      f.oldFail = t > 32;
+    }, 40).reached).toBe(3);
+  });
+  it("e-fat-sat runs its test script to the end", () => {
+    expect(playL(conveyor, J["e-fat-sat"], (t, p, f) => {
+      p.startPressed = hold(t, 1, 0.5) || hold(t, 6, 0.5) || hold(t, 12, 0.5) || hold(t, 25, 0.5);
+      p.stopPressed = hold(t, 3, 0.5);
+      p.estopPressed = t > 8 && t < 10;
+      f.jam = t > 13 && t < 22;
+    }, 30).reached).toBe(2);
+  });
+  it("e-quoting calculates a quote", () => {
+    const st = J["e-quoting"].st!.join("\n").replace("IO_Count := 12;", "IO_Count := 24;");
+    const m = runST(parseST(st), {}, 100).memory;
+    expect(Number(m.Quote)).toBeGreaterThan(0);
+    expect(m.IO_Count).toBe(24);
+  });
+});
