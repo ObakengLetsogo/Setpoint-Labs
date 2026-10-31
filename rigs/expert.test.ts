@@ -83,3 +83,67 @@ describe("Expert programming lessons", () => {
     expect(mem["Ev[1]"]).toBe(2);
   });
 });
+
+import { EXPERT_PLANT as P } from "@/data/lessons/expert";
+import { parseProgram } from "@/engine/ladder";
+import { scan } from "@/engine/scan";
+import { plantNet } from "./plantnet";
+
+function playP(rig: RigDef, id: string, act: (t: number, p: PhysicalState, f: FaultState) => void, secs: number) {
+  const l = P[id];
+  const st = l.stOnly ? parseST(l.st!.join("\n")) : null;
+  const ld = l.stOnly ? null : parseProgram(l.code.join("\n"));
+  let p: PhysicalState = { ...rig.initial };
+  const f: FaultState = {};
+  let mem: Memory = {};
+  let reached = 0;
+  for (let k = 0; k < secs * 10; k++) {
+    act(k / 10, p, f);
+    const inputs = rig.readInputs(p, f, {});
+    mem = st ? runST(st, { ...mem, ...inputs }, 100).memory : scan(ld!, { ...mem, ...inputs }, 100).memory;
+    p = rig.step(p, f, mem, 100);
+    if (reached < l.checkpoint!.steps.length && l.checkpoint!.steps[reached](mem, inputs, f)) reached++;
+  }
+  return { reached, mem, p };
+}
+
+describe("Expert plant systems lessons", () => {
+  it("e-architecture: local control with supervision and counts", () => {
+    expect(playP(plantNet, "e-architecture", (t, p) => {
+      p.scadaStart = tap(t, 1);
+    }, 90).reached).toBe(2);
+  });
+  it("e-dcs: one template for both pumps", () => {
+    expect(playP(pumps, "e-dcs", (t, p, f) => {
+      p.startPressed = tap(t, 1);
+      f.p1Trip = t > 8;
+    }, 60).reached).toBe(3);
+  });
+  it("e-batch: hold and restart finishes the batch", () => {
+    const { reached, mem } = playP(mixer, "e-batch", (t, p) => {
+      p.startPressed = tap(t, 1) || tap(t, 9);
+      p.stopPressed = tap(t, 5);
+    }, 40);
+    expect(reached).toBe(2);
+    expect(mem.Held).toBe(false);
+  });
+  it("e-alarm-mgmt: priorities, horn, suppression, acknowledgement", () => {
+    expect(playP(pumps, "e-alarm-mgmt", (t, p, f) => {
+      p.startPressed = tap(t, 1);
+      f.p1Trip = t > 3;
+      f.p2Trip = t > 3;
+      p.inflow = 1;
+      p.ackPressed = tap(t, 20);
+    }, 30).reached).toBe(3);
+  });
+  it("e-historian: samples, compresses and summarises", () => {
+    const { reached, mem } = playP(pumps, "e-historian", (t, p) => {
+      p.startPressed = tap(t, 1);
+      p.stopPressed = tap(t, 40);
+      if (t > 40) p.inflow = 0;
+    }, 120);
+    expect(reached).toBe(2);
+    expect(Number(mem.Hi)).toBeGreaterThanOrEqual(Number(mem.Avg));
+    expect(Number(mem.Avg)).toBeGreaterThanOrEqual(Number(mem.Lo));
+  });
+});

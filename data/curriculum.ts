@@ -25,7 +25,8 @@ export type RigId =
   | "dewater"
   | "ventfan"
   | "hoist"
-  | "plantnet";
+  | "plantnet"
+  | "legacy";
 
 export interface LessonRef {
   id: string;
@@ -75,7 +76,7 @@ export const STAGES: Stage[] = [
   { n: 4, name: "Motor Management and Drives", level: "P" },
   { n: 7, name: "Safety Systems", level: "P" },
   { n: 5, name: "Advanced Programming", level: "E" },
-  { n: 6, name: "Plant Systems, DCS and Upgrades", level: "E", planned: true },
+  { n: 6, name: "Plant Systems, DCS and Upgrades", level: "E" },
   { n: 8, name: "Industry: Mining", level: "P" },
 ];
 
@@ -383,6 +384,52 @@ export const CURRICULUM: Track[] = [
           L("p-fplc-basics", "Safety PLC basics", "safety", "safety"),
           L("p-fplc-validate", "Validating safety functions", "fault", "safety"),
           L("p-sto", "Safe torque off and safe drives", "estop", "safety"),
+        ],
+      },
+    ],
+  },
+  {
+    id: "plant",
+    level: "E",
+    code: "E6",
+    name: "Plant Systems, DCS and Upgrades",
+    blurb: "Architecture, DCS, batch, alarms, historians, projects and migrating old systems.",
+    ring: "#7c3aed",
+    chapters: [
+      {
+        id: "plant-systems",
+        stage: 6,
+        title: "Plant systems",
+        blurb: "From one machine to a whole plant",
+        lessons: [
+          L("e-architecture", "From machine to plant: control architecture", "sequence", "plantnet"),
+          L("e-dcs", "DCS concepts", "tank", "pumps"),
+          L("e-batch", "Batch control and recipes", "sequence", "mixer"),
+          L("e-alarm-mgmt", "Alarm management for plants", "lamp", "pumps"),
+          L("e-historian", "Historians and reporting", "compare", "pumps"),
+        ],
+      },
+      {
+        id: "projects",
+        stage: 6,
+        title: "Running automation projects",
+        blurb: "Specifications, testing and quoting",
+        lessons: [
+          L("e-fat-sat", "Specifications, FAT and SAT", "safety", "conveyor"),
+          L("e-quoting", "Quoting and planning automation work", "counter", "conveyor"),
+        ],
+      },
+      {
+        id: "upgrades",
+        stage: 6,
+        title: "Upgrades and migration",
+        blurb: "Moving old plants to new controllers",
+        lessons: [
+          L("e-upg-why", "Why and when plants upgrade", "fault", "legacy"),
+          L("e-upg-audit", "Audit and back up the old system", "safety", "legacy"),
+          L("e-upg-map", "Mapping I/O and converting code", "compare", "legacy"),
+          L("e-upg-plan", "Planning and testing the cutover", "sequence", "legacy"),
+          L("e-upg-cutover", "Cutover, commissioning and handover", "interlock", "legacy"),
         ],
       },
     ],

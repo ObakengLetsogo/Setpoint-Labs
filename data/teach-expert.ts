@@ -232,4 +232,130 @@ export const TEACH_EXPERT: Record<string, LessonTeach> = {
     ],
     words: [{ term: "Remote access", meaning: "Connecting to plant systems from outside the site." }, { term: "Jump server", meaning: "A controlled computer that remote users must go through." }, { term: "MFA", meaning: "Multi-factor authentication: more than a password." }],
   },
+
+  "e-architecture": {
+    goal: "Place each part of a plant's control in the right layer, and keep the plant running when the upper layers fail.",
+    learn: ["the Purdue model", "levels 0 to 4", "local control first", "safe defaults", "data for the business"],
+    wires: [1, 2, 3, 4, 6, 7],
+    steps: [
+      "Switch the PLC to RUN. Press the SCADA start command: Level 2 starts Level 1.",
+      "Move the SCADA setpoint to 50 %: accepted. Try 10 %: below the limit, ignored.",
+      "Watch Starts and Run_Secs: the figures Levels 3 and 4 ask for.",
+      "Cut the fibre from the networked station's popover. Level 1 still controls locally on what it knows.",
+      "List, for this station, what lives at each level: field, control, supervision, site, business.",
+    ],
+    between: BETWEEN,
+    tour: [
+      { kicker: "Scene 1 of 3 · Level 1", title: "Control stands alone", lines: [2, 8], lead: "The pump is run by the PLC itself.", body: "If SCADA, the historian and the business systems all disappeared, this logic would carry on.", handsTo: ["Pump_Run"] },
+      { kicker: "Scene 2 of 3 · Level 2", title: "Supervise within limits", lines: [3, 4], lead: "SCADA's setpoint is accepted between 20 and 95 %.", body: "Without a value, the PLC uses its own safe default.", handsTo: ["Fill_SP"] },
+      { kicker: "Scene 3 of 3 · Levels 3 and 4", title: "Information flows up", lines: [9, 11], lead: "Starts and running time, ready for a historian.", body: "Maintenance plans from running hours; the business reports pumped volume and energy.", precise: "IEC 62264 (ISA-95) defines the interface between control and business systems; Purdue zones also shape network security.", handsTo: ["Starts", "Run_Secs"] },
+    ],
+    story: [
+      { t: "Level 0", text: "Pump, level transmitter." },
+      { t: "Level 1", text: "The PLC runs the station." },
+      { t: "Level 2", text: "SCADA gives the setpoint." },
+      { t: "Levels 3-4", text: "Starts and hours for reports." },
+    ],
+    words: [{ term: "Purdue model", meaning: "A layered view of plant systems, from field devices to business systems." }, { term: "ISA-95", meaning: "The standard for linking control systems with business systems." }, { term: "MES", meaning: "Manufacturing execution system: runs production at site level." }],
+  },
+
+  "e-dcs": {
+    goal: "Think like a DCS: one tested template per device type, used for every device.",
+    learn: ["DCS and PLC", "device templates", "data per device", "configuration over code", "consistency"],
+    wires: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+    steps: [
+      "Switch the PLC to RUN, tap Start. Pump 1 runs on demand.",
+      "Trip pump 1. Fail[1] latches and pump 2 runs.",
+      "Watch Hours[2] count while it runs.",
+      "Clear the trip and press ACK: Fail[1] clears.",
+      "Change the arrays to [1..3] and the loop to 1 TO 3: the template itself stays as it is.",
+    ],
+    between: BETWEEN,
+    tour: [
+      { kicker: "Scene 1 of 3 · Data", title: "One row per device", lines: [3, 7], lead: "Each array holds one value per pump.", body: "In a DCS this is the configuration of each control module.", handsTo: ["Fail[1]"] },
+      { kicker: "Scene 2 of 3 · Template", title: "Write once", lines: [21, 26], lead: "The same five lines run for every pump.", body: "Test the template once, thoroughly; every device then behaves the same.", handsTo: ["Out[1]", "Out[2]"] },
+      { kicker: "Scene 3 of 3 · Scale", title: "A thousand motors", lines: [28, 29], lead: "Only the mapping to real I/O is per device.", body: "This is how a DCS stays consistent across a refinery or a smelter.", precise: "Siemens PCS 7, ABB 800xA, Emerson DeltaV and Honeywell Experion all build on libraries of device and loop templates.", handsTo: ["P1_Run"] },
+    ],
+    story: [
+      { t: "normal", text: "Pump 1 duty." },
+      { t: "trip", text: "Template marks it failed; pump 2 runs." },
+      { t: "hours", text: "Counted the same way for both." },
+    ],
+    words: [{ term: "DCS", meaning: "Distributed control system: plant-wide control built from standard modules." }, { term: "Control module", meaning: "One device's logic and data, built from a template." }, { term: "Typical", meaning: "A standard, tested design reused for every similar device." }],
+  },
+
+  "e-batch": {
+    goal: "Run a batch in ISA-88 phases, and hold and restart it without losing it.",
+    learn: ["ISA-88", "procedures and phases", "hold and restart", "safe held states", "batch records"],
+    wires: [1, 2, 3, 4, 5, 6, 7, 8],
+    steps: [
+      "Switch the PLC to RUN and tap Start. Watch Phase and Secs.",
+      "Press Stop during phase 2. Held: everything stops, and Secs stops counting.",
+      "Tap Start: the batch carries on in phase 2 from where it stopped.",
+      "Let it finish: Batches counts 1.",
+      "Add a phase: a second mix after a rest, by adding a row to PT and a step.",
+    ],
+    between: BETWEEN,
+    tour: [
+      { kicker: "Scene 1 of 3 · Phases", title: "Small reusable jobs", lines: [17, 21], lead: "Fill, fill, mix, drain: each a phase.", body: "ISA-88 builds recipes from phases, so the same equipment makes many products.", handsTo: ["Phase"] },
+      { kicker: "Scene 2 of 3 · Hold", title: "Stop, but keep it", lines: [12, 15], lead: "Held stops everything but remembers the phase and its time.", body: "Aborting a batch can waste thousands of rand of ingredients. Holding keeps the choice open.", handsTo: ["Held", "Secs"] },
+      { kicker: "Scene 3 of 3 · Safe", title: "Outputs off while held", lines: [23, 28], lead: "Run is false while held, so every output is off.", body: "Each phase's held state must be safe; for some, safe means keeping the agitator running.", precise: "ISA-88 phase states also include stopping, aborting, pausing and complete.", handsTo: ["Run"] },
+    ],
+    story: [
+      { t: "running", text: "Phase 2, 2 s done." },
+      { t: "held", text: "Stop pressed: all off, time frozen." },
+      { t: "restarted", text: "Phase 2 resumes; the batch completes." },
+    ],
+    words: [{ term: "Phase", meaning: "The smallest batch job, like fill or mix." }, { term: "Held", meaning: "Paused in a safe state, ready to restart." }, { term: "ISA-88", meaning: "The standard for batch control." }],
+  },
+
+  "e-alarm-mgmt": {
+    goal: "Manage alarms the way ISA-18.2 asks: priorities, acknowledgement, horn for the urgent, suppression of consequences.",
+    learn: ["alarm floods", "priorities", "acknowledgement", "audible alarms", "state based suppression"],
+    wires: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+    steps: [
+      "Switch the PLC to RUN, tap Start. Trip both pumps: Unacked becomes 2, no horn.",
+      "Raise the inflow. The lag float alarm is held back once the high-high comes in.",
+      "High-high: priority 1, the horn sounds.",
+      "Press ACK: horn off, lamp steady.",
+      "Clear the trips. As the water falls, the alarms clear.",
+    ],
+    between: BETWEEN,
+    tour: [
+      { kicker: "Scene 1 of 3 · Priority", title: "Not all alarms are equal", lines: [15, 15], lead: "1 urgent, 2 important, 3 advisory.", body: "Each alarm needs a defined operator action. If there is none, it should not be an alarm.", handsTo: ["Prio[1]"] },
+      { kicker: "Scene 2 of 3 · Suppression", title: "Do not repeat the cause", lines: [20, 20], lead: "High level is hidden while high-high is active.", body: "Consequential alarms add noise exactly when the operator is busiest.", handsTo: ["Act[4]"] },
+      { kicker: "Scene 3 of 3 · Acknowledge", title: "Seen, not solved", lines: [23, 36], lead: "Flashing until acknowledged, steady after.", body: "The horn is kept for priority 1, so it always means act now.", precise: "EEMUA 191 suggests an operator should get no more than about one alarm every 10 minutes in steady operation.", handsTo: ["Unacked", "Horn"] },
+    ],
+    story: [
+      { t: "trips", text: "Two priority 2 alarms, flashing." },
+      { t: "high-high", text: "Priority 1: the horn." },
+      { t: "ACK", text: "Horn off, lamp steady." },
+    ],
+    words: [{ term: "Alarm flood", meaning: "More alarms than an operator can handle, often 10 or more in 10 minutes." }, { term: "Suppression", meaning: "Hiding an alarm that adds nothing while another is active." }, { term: "Shelving", meaning: "An operator hiding a nuisance alarm for a limited time, with a record." }, { term: "ISA-18.2", meaning: "The standard for alarm management in the process industries." }],
+  },
+
+  "e-historian": {
+    goal: "Store process history efficiently and turn it into reports.",
+    learn: ["historians", "sampling", "deadband compression", "summaries", "reports and records"],
+    wires: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+    steps: [
+      "Switch the PLC to RUN, tap Start. Samples counts every 5 s.",
+      "While the level moves, Logged keeps up with Samples.",
+      "Stop the pumps and set the inflow to 0. The level stops moving; Logged stops.",
+      "Read Hi, Lo and Avg: a summary of what was stored.",
+      "Change the deadband from 2 to 5 and compare how much is logged.",
+    ],
+    between: BETWEEN,
+    tour: [
+      { kicker: "Scene 1 of 3 · Sample", title: "Every 5 s", lines: [13, 16], lead: "A sample is taken on a fixed period.", body: "Historians sample fast processes faster and slow ones slower.", handsTo: ["Samples"] },
+      { kicker: "Scene 2 of 3 · Compress", title: "Only real changes", lines: [17, 22], lead: "Store a value only when it has moved by more than 2 %.", body: "A level that sits still all night needs one value, not 8640.", handsTo: ["Logged", "Hist[0]"] },
+      { kicker: "Scene 3 of 3 · Report", title: "Low, high, average", lines: [25, 32], lead: "A loop summarises what is stored.", body: "Shift reports, daily totals and regulator returns are summaries like these.", precise: "AVEVA PI, Canary and Ignition historians use similar deadband and swinging-door compression.", handsTo: ["Hi", "Lo", "Avg"] },
+    ],
+    story: [
+      { t: "moving", text: "Most samples logged." },
+      { t: "still", text: "Samples continue; logging stops." },
+      { t: "report", text: "Low, high and average of what was kept." },
+    ],
+    words: [{ term: "Historian", meaning: "A database for process values over time." }, { term: "Deadband", meaning: "The change needed before a new value is stored." }, { term: "Compression", meaning: "Storing fewer values without losing the shape of the data." }],
+  },
 };

@@ -122,6 +122,48 @@ RUNG 16: XIC(Feeder_Run) OTE(Run_Lamp)
 RUNG 17: XIC(Trip) OTE(Fault_Lamp)`,
     ],
   ],
+  plant: [
+    [
+      "st",
+      `// Alarm management: priorities, acknowledgement, horn, suppression.
+VAR
+  Act : ARRAY[1..4] OF BOOL;
+  Was : ARRAY[1..4] OF BOOL;
+  Unack : ARRAY[1..4] OF BOOL;
+  Prio : ARRAY[1..4] OF INT;
+  Flash : TON;
+END_VAR
+
+Auto := (Start_PB OR Auto) AND Stop_PB;
+IF LS_Lead THEN Dem := TRUE; END_IF;
+IF NOT LS_Low THEN Dem := FALSE; END_IF;
+P1_Run := Auto AND Dem AND P1_OK;
+P2_Run := Auto AND (LS_Lag OR Dem AND NOT P1_OK) AND P2_OK;
+Prio[1] := 1; Prio[2] := 2; Prio[3] := 2; Prio[4] := 3;
+
+Act[1] := LS_HighHigh;
+Act[2] := NOT P1_OK;
+Act[3] := NOT P2_OK;
+Act[4] := LS_Lag AND NOT LS_HighHigh;
+
+Active := 0; Unacked := 0; Horn_Need := FALSE;
+FOR i := 1 TO 4 DO
+  IF Act[i] AND NOT Was[i] THEN Unack[i] := TRUE; END_IF;
+  Was[i] := Act[i];
+  IF Ack_PB THEN Unack[i] := FALSE; END_IF;
+  IF Act[i] THEN Active := Active + 1; END_IF;
+  IF Unack[i] THEN Unacked := Unacked + 1; END_IF;
+  IF Unack[i] AND Prio[i] = 1 THEN Horn_Need := TRUE; END_IF;
+END_FOR;
+
+Flash(IN := NOT Flash.Q, PT := T#500ms);
+IF Flash.Q THEN Blink := NOT Blink; END_IF;
+Horn := Horn_Need;
+
+Alarm_Lamp := Active > 0 AND (Blink OR Unacked = 0);
+High_Alarm := Act[4];`,
+    ],
+  ],
   platforms: [
     [
       "ladder",

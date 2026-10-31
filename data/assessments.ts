@@ -204,6 +204,28 @@ export const ASSESSMENTS: AssessmentBrief[] = [
     ],
     starter: STARTER(["Mining assessment: commission CV01 and CV02."]),
   },
+  {
+    trackId: "plant",
+    title: "Alarm handling for the pump station",
+    rig: "pumps",
+    brief: "Write the pump station's alarm handling to the site's alarm philosophy. Every line is a test. Structured text is the easiest way in.",
+    requirements: [
+      "High-high level (LS_HighHigh) is priority 1: it sounds the Horn until Ack_PB is pressed.",
+      "A pump trip (P1_OK or P2_OK going to 0) is priority 2: it never sounds the Horn on its own.",
+      "A new alarm makes Alarm_Lamp flash; once every active alarm is acknowledged the lamp is steady.",
+      "High_Alarm is on while LS_Lag is covered, except while LS_HighHigh is: then it is suppressed.",
+      "When every cause has cleared, Alarm_Lamp goes out.",
+    ],
+    io: [
+      ["LS_Lag, LS_HighHigh", "I0.4, I0.5: 1 when covered"],
+      ["P1_OK, P2_OK", "I0.6, I0.7: 1 when healthy"],
+      ["Ack_PB", "I1.0: acknowledge"],
+      ["Horn", "Q0.2"],
+      ["Alarm_Lamp", "Q0.3"],
+      ["High_Alarm", "Internal: the suppressible high level alarm"],
+    ],
+    starter: STARTER(["Plant systems assessment: alarm handling for the pump station."]),
+  },
 ];
 
 export const assessmentFor = (trackId: string) => ASSESSMENTS.find((a) => a.trackId === trackId);

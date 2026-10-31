@@ -135,6 +135,17 @@ const SUITES: Record<string, Suite> = {
     ],
   },
 
+  plant: {
+    rest: { Start_PB: false, Stop_PB: true, LS_Low: true, LS_Lead: false, LS_Lag: false, LS_HighHigh: false, P1_OK: true, P2_OK: true, Ack_PB: false },
+    tests: [
+      { name: "High-high sounds the horn until acknowledged", steps: [{ set: { LS_HighHigh: true } }, { run: 400 }, { expect: { Horn: true } }, tap("Ack_PB"), { expect: { Horn: false } }] },
+      { name: "A pump trip does not sound the horn; high-high does", steps: [{ set: { P1_OK: false } }, { never: 2000, when: (m) => Boolean(m.Horn), what: "Horn on for a priority 2 alarm" }, { set: { LS_HighHigh: true } }, { run: 400 }, { expect: { Horn: true } }] },
+      { name: "A new alarm flashes the lamp, and it goes steady once acknowledged", steps: [{ set: { P1_OK: false } }, { flashes: ["Alarm_Lamp", 4000, 2, 6] }, tap("Ack_PB"), { never: 2000, when: (m) => !m.Alarm_Lamp, what: "Alarm_Lamp off while an acknowledged alarm is active" }] },
+      { name: "The high level alarm is suppressed during high-high", steps: [{ set: { LS_Lag: true } }, { run: 400 }, { expect: { High_Alarm: true } }, { set: { LS_HighHigh: true } }, { run: 400 }, { expect: { High_Alarm: false } }] },
+      { name: "Alarms clear when their cause clears", steps: [{ set: { P1_OK: false } }, { run: 400 }, tap("Ack_PB"), { expect: { Alarm_Lamp: true } }, { set: { P1_OK: true } }, { run: 1500 }, { expect: { Alarm_Lamp: false } }] },
+    ],
+  },
+
   platforms: {
     rest: { Start_PB: false, Stop_PB: false, Overload_OK: true, Aux_PB: false },
     tests: [
