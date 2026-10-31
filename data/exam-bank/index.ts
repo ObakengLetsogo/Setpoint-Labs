@@ -3,9 +3,11 @@ import type { QuizQuestion } from "../quizzes/types";
 import { BANK_F } from "./foundation";
 import { BANK_P_A } from "./professional-a";
 import { BANK_P_B } from "./professional-b";
+import { BANK_E_A } from "./expert-a";
+import { BANK_E_B } from "./expert-b";
 
 /** Exam questions for each level, grouped by topic. A level without a bank falls back to its lesson quizzes. */
-export const EXAM_BANKS: Partial<Record<Level, Record<string, QuizQuestion[]>>> = { F: BANK_F, P: { ...BANK_P_A, ...BANK_P_B } };
+export const EXAM_BANKS: Partial<Record<Level, Record<string, QuizQuestion[]>>> = { F: BANK_F, P: { ...BANK_P_A, ...BANK_P_B }, E: { ...BANK_E_A, ...BANK_E_B } };
 
 /** Ref for a bank question: "bank:<level>:<topic>:<index>". */
 export const bankRef = (level: Level, topic: string, i: number) => `bank:${level}:${topic}:${i}`;
