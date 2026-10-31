@@ -113,3 +113,35 @@ describe("every lesson behaves the same in ladder and in translated ST", () => {
     });
   }
 });
+
+describe("arrays and loops", () => {
+  const run1 = (src: string, mem: Record<string, number | boolean> = {}) => runST(parseST(src), mem, 100).memory;
+  it("declares an array, writes it in a FOR loop and sums it", () => {
+    const m = run1(`VAR A : ARRAY[0..4] OF INT; END_VAR
+FOR i := 0 TO 4 DO A[i] := i * 10; END_FOR;
+Total := 0;
+FOR i := 0 TO 4 DO Total := Total + A[i]; END_FOR;`);
+    expect(m["A[3]"]).toBe(30);
+    expect(m.Total).toBe(100);
+  });
+  it("counts down with BY and leaves early with EXIT", () => {
+    const m = run1(`Found := -1;
+FOR i := 10 TO 0 BY -2 DO
+  IF i < 5 THEN Found := i; EXIT; END_IF;
+END_FOR;`);
+    expect(m.Found).toBe(4);
+  });
+  it("runs WHILE until its condition fails", () => {
+    expect(run1("n := 0; WHILE n < 7 DO n := n + 1; END_WHILE;").n).toBe(7);
+  });
+  it("faults on an index out of range, like a real PLC", () => {
+    expect(() => run1("VAR A : ARRAY[1..3] OF INT; END_VAR\nA[4] := 1;")).toThrow(/outside A\[1\.\.3\]/);
+  });
+  it("faults on a loop that never ends", () => {
+    expect(() => run1("WHILE TRUE DO x := 1; END_WHILE;")).toThrow(/more than/);
+  });
+  it("reads an array element by a computed index", () => {
+    const m = run1("VAR R : ARRAY[1..3] OF INT; END_VAR\nR[1] := 5; R[2] := 7; R[3] := 9;\nSel := 2;\nOut := R[Sel + 1];");
+    expect(m.Out).toBe(9);
+  });
+});

@@ -200,7 +200,16 @@ const simStore: StateCreator<SimState> = (set, get) => {
     let result: { memory: Memory; trace: RungTrace[] };
     let codeTags: string[];
     if (codeLang === "st") {
-      const r = runST(stProgram!, { ...memory, ...inputs }, dtMs);
+      let r: ReturnType<typeof runST>;
+      try {
+        r = runST(stProgram!, { ...memory, ...inputs }, dtMs);
+      } catch (e) {
+        // A runtime fault, such as an index out of range: stop, as a real CPU would.
+        if (!(e instanceof StError)) throw e;
+        set({ running: false, stError: e });
+        pushLog(e.message, "error");
+        return;
+      }
       result = { memory: r.memory, trace: [] };
       codeTags = stTags(stProgram!);
       set({ stLines: r.lines });
@@ -240,7 +249,11 @@ const simStore: StateCreator<SimState> = (set, get) => {
     const { program, memory, codeLang, stProgram } = get();
     if (codeLang === "st") {
       if (!stProgram) return set({ stLines: {} });
-      set({ stLines: runST(stProgram, { ...memory, ...inputsNow() }, 0).lines });
+      try {
+        set({ stLines: runST(stProgram, { ...memory, ...inputsNow() }, 0).lines });
+      } catch {
+        // A runtime fault shows when the program runs.
+      }
       return;
     }
     if (!program) return set({ trace: [] });

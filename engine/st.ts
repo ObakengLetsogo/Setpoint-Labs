@@ -21,7 +21,11 @@ type Tok = { t: "id" | "num" | "op" | "kw"; v: string; line: number };
 const KEYWORDS = new Set([
   "IF", "THEN", "ELSIF", "ELSE", "END_IF", "CASE", "OF", "END_CASE", "VAR", "END_VAR", "VAR_INPUT", "VAR_OUTPUT",
   "AND", "OR", "XOR", "NOT", "MOD", "TRUE", "FALSE",
+  "FOR", "TO", "BY", "DO", "END_FOR", "WHILE", "END_WHILE", "EXIT", "ARRAY",
 ]);
+
+/** Most loop passes allowed in one scan before the program is stopped, as a real CPU's cycle watchdog would. */
+export const MAX_LOOP_PASSES = 10000;
 
 export type FbType = "TON" | "TOF" | "CTU" | "CTD" | "R_TRIG" | "F_TRIG" | "PID";
 const FB_TYPES = new Set<string>(["TON", "TOF", "CTU", "CTD", "R_TRIG", "F_TRIG", "PID"]);
@@ -75,7 +79,7 @@ function tokenize(src: string): Tok[] {
       i += id[0].length;
       continue;
     }
-    const op = /^(:=|<>|<=|>=|[=<>+\-*/():;,])/.exec(src.slice(i));
+    const op = /^(:=|<>|<=|>=|\.\.|[=<>+\-*/():;,[\]])/.exec(src.slice(i));
     if (op) {
       out.push({ t: "op", v: op[0], line });
       i += op[0].length;
@@ -90,18 +94,24 @@ export type Expr =
   | { k: "num"; v: number }
   | { k: "bool"; v: boolean }
   | { k: "var"; name: string }
+  | { k: "idx"; name: string; i: Expr }
   | { k: "not"; e: Expr }
   | { k: "neg"; e: Expr }
   | { k: "bin"; op: string; a: Expr; b: Expr };
 
 export type Stmt =
-  | { k: "assign"; line: number; name: string; e: Expr }
+  | { k: "assign"; line: number; name: string; e: Expr; i?: Expr }
+  | { k: "for"; line: number; v: string; from: Expr; to: Expr; by: Expr | null; body: Stmt[] }
+  | { k: "while"; line: number; cond: Expr; body: Stmt[] }
+  | { k: "exit"; line: number }
   | { k: "if"; line: number; arms: { line: number; cond: Expr; body: Stmt[] }[]; otherwise: Stmt[] | null; elseLine: number | null }
   | { k: "case"; line: number; e: Expr; arms: { line: number; labels: number[]; body: Stmt[] }[]; otherwise: Stmt[] | null }
   | { k: "call"; line: number; name: string; args: Record<string, Expr> };
 
 export interface StProgram {
   fbs: Record<string, FbType>;
+  /** Declared arrays and their bounds. Element n of A is stored as "A[n]". */
+  arrays: Record<string, [number, number]>;
   body: Stmt[];
   lines: number[];
 }
@@ -110,6 +120,7 @@ export function parseST(src: string): StProgram {
   const toks = tokenize(src);
   let p = 0;
   const fbs: Record<string, FbType> = {};
+  const arrays: Record<string, [number, number]> = {};
   const lines = new Set<number>();
   const peek = () => toks[p];
   const lastLine = () => toks[toks.length - 1]?.line ?? 1;
@@ -139,6 +150,12 @@ export function parseST(src: string): StProgram {
     }
     if (tok.t === "id") {
       p++;
+      if (is("op", "[")) {
+        p++;
+        const i = expr();
+        take("op", "]", '"]"');
+        return { k: "idx", name: tok.v, i };
+      }
       return { k: "var", name: tok.v };
     }
     if (tok.t === "op" && tok.v === "(") {
@@ -243,9 +260,53 @@ export function parseST(src: string): StProgram {
       optionalSemi();
       return { k: "case", line: tok.line, e, arms, otherwise };
     }
+    if (tok.t === "kw" && tok.v === "FOR") {
+      p++;
+      lines.add(tok.line);
+      const v = take("id", undefined, "a loop variable").v;
+      take("op", ":=", '":="');
+      const from = expr();
+      take("kw", "TO", "TO");
+      const to = expr();
+      let by: Expr | null = null;
+      if (is("kw", "BY")) {
+        p++;
+        by = expr();
+      }
+      take("kw", "DO", "DO");
+      const body = block(["END_FOR"]);
+      take("kw", "END_FOR", "END_FOR");
+      optionalSemi();
+      return { k: "for", line: tok.line, v, from, to, by, body };
+    }
+    if (tok.t === "kw" && tok.v === "WHILE") {
+      p++;
+      lines.add(tok.line);
+      const cond = expr();
+      take("kw", "DO", "DO");
+      const body = block(["END_WHILE"]);
+      take("kw", "END_WHILE", "END_WHILE");
+      optionalSemi();
+      return { k: "while", line: tok.line, cond, body };
+    }
+    if (tok.t === "kw" && tok.v === "EXIT") {
+      p++;
+      lines.add(tok.line);
+      take("op", ";", '";" after EXIT');
+      return { k: "exit", line: tok.line };
+    }
     if (tok.t === "id") {
       p++;
       lines.add(tok.line);
+      if (is("op", "[")) {
+        p++;
+        const i = expr();
+        take("op", "]", '"]"');
+        take("op", ":=", '":="');
+        const e = expr();
+        take("op", ";", '";" at the end of the statement');
+        return { k: "assign", line: tok.line, name: tok.v, e, i };
+      }
       if (is("op", ":=")) {
         p++;
         const e = expr();
@@ -308,6 +369,22 @@ export function parseST(src: string): StProgram {
     while (!is("kw", "END_VAR")) {
       const name = take("id", undefined, "a variable name");
       take("op", ":", '":"');
+      if (is("kw", "ARRAY")) {
+        p++;
+        take("op", "[", '"["');
+        const neg = (sign: boolean) => (sign ? -1 : 1);
+        const loNeg = is("op", "-") ? (p++, true) : false;
+        const lo = neg(loNeg) * Number(take("num", undefined, "the lower bound").v);
+        take("op", "..", '".."');
+        const hiNeg = is("op", "-") ? (p++, true) : false;
+        const hi = neg(hiNeg) * Number(take("num", undefined, "the upper bound").v);
+        take("op", "]", '"]"');
+        if (hi < lo) throw new StError(name.line, `ARRAY[${lo}..${hi}] has its bounds the wrong way round.`);
+        arrays[name.v] = [lo, hi];
+        while (peek() && !is("op", ";")) p++;
+        take("op", ";", '";"');
+        continue;
+      }
       const type = take("id", undefined, "a type");
       const upper = type.v.toUpperCase();
       if (FB_TYPES.has(upper)) fbs[name.v] = upper as FbType;
@@ -318,7 +395,7 @@ export function parseST(src: string): StProgram {
   }
   const body = block([]);
   if (p < toks.length) throw new StError(toks[p].line, `Unexpected "${toks[p].v}".`);
-  return { fbs, body, lines: [...lines].sort((a, b) => a - b) };
+  return { fbs, arrays, body, lines: [...lines].sort((a, b) => a - b) };
 }
 
 /* -------------------------------------------------------------- execution */
@@ -368,6 +445,8 @@ export function runST(prog: StProgram, input: Memory, dtMs: number): StResult {
         return e.v;
       case "var":
         return read(e.name);
+      case "idx":
+        return mem[element(e.name, ev(e.i), lineNow)] ?? 0;
       case "not":
         return !bool(ev(e.e));
       case "neg":
@@ -472,12 +551,57 @@ export function runST(prog: StProgram, input: Memory, dtMs: number): StResult {
     }
   }
 
+  let lineNow = 0;
+  let passes = 0;
+  /** The memory key of an array element, after checking the index is inside the declared bounds. */
+  function element(name: string, index: boolean | number, line: number) {
+    const b = prog.arrays[name];
+    if (!b) throw new StError(line, `${name} is not declared as an ARRAY.`);
+    const i = Math.trunc(num(index));
+    if (i < b[0] || i > b[1]) throw new StError(line, `Index ${i} is outside ${name}[${b[0]}..${b[1]}]. A real PLC would fault here.`);
+    return `${name}[${i}]`;
+  }
+  const loopPass = (line: number) => {
+    if (++passes > MAX_LOOP_PASSES) throw new StError(line, `This loop ran more than ${MAX_LOOP_PASSES} times in one scan. A real PLC would stop on its cycle watchdog.`);
+  };
+  class Exit {}
+
   function exec(list: Stmt[]) {
     for (const s of list) {
+      lineNow = s.line;
       if (s.k === "assign") {
         const v = ev(s.e);
-        mem[resolveName(s.name, prog.fbs)] = v;
+        if (s.i) mem[element(s.name, ev(s.i), s.line)] = v;
+        else mem[resolveName(s.name, prog.fbs)] = v;
         lines[s.line] = { ran: true, value: v };
+      } else if (s.k === "for") {
+        const from = num(ev(s.from));
+        const to = num(ev(s.to));
+        const by = s.by ? num(ev(s.by)) : 1;
+        if (by === 0) throw new StError(s.line, "A FOR loop with BY 0 never ends.");
+        lines[s.line] = { ran: true, value: from };
+        try {
+          for (let v = from; by > 0 ? v <= to : v >= to; v += by) {
+            loopPass(s.line);
+            mem[s.v] = v;
+            exec(s.body);
+          }
+        } catch (e) {
+          if (!(e instanceof Exit)) throw e;
+        }
+      } else if (s.k === "while") {
+        try {
+          while (bool(ev(s.cond))) {
+            loopPass(s.line);
+            lines[s.line] = { ran: true, value: true };
+            exec(s.body);
+          }
+        } catch (e) {
+          if (!(e instanceof Exit)) throw e;
+        }
+      } else if (s.k === "exit") {
+        lines[s.line] = { ran: true };
+        throw new Exit();
       } else if (s.k === "call") {
         call(s.name, prog.fbs[s.name], s.args);
         lines[s.line] = { ran: true, value: Boolean(mem[`${s.name}.DN`] ?? mem[`${s.name}.Q`]) };
@@ -517,6 +641,7 @@ export function stTags(prog: StProgram): string[] {
   const out = new Set<string>();
   const walkE = (e: Expr) => {
     if (e.k === "var") out.add(resolveName(e.name, prog.fbs));
+    else if (e.k === "idx") walkE(e.i);
     else if (e.k === "not" || e.k === "neg") walkE(e.e);
     else if (e.k === "bin") {
       walkE(e.a);
@@ -526,8 +651,17 @@ export function stTags(prog: StProgram): string[] {
   const walk = (list: Stmt[]) => {
     for (const s of list) {
       if (s.k === "assign") {
-        out.add(resolveName(s.name, prog.fbs));
+        if (s.i) walkE(s.i);
+        else out.add(resolveName(s.name, prog.fbs));
         walkE(s.e);
+      } else if (s.k === "for") {
+        out.add(s.v);
+        walkE(s.from);
+        walkE(s.to);
+        walk(s.body);
+      } else if (s.k === "while") {
+        walkE(s.cond);
+        walk(s.body);
       } else if (s.k === "call") Object.values(s.args).forEach(walkE);
       else if (s.k === "if") {
         s.arms.forEach((a) => {
@@ -543,5 +677,6 @@ export function stTags(prog: StProgram): string[] {
     }
   };
   walk(prog.body);
+  for (const [name, [lo, hi]] of Object.entries(prog.arrays)) if (hi - lo < 32) for (let k = lo; k <= hi; k++) out.add(`${name}[${k}]`);
   return [...out];
 }
