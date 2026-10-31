@@ -94,8 +94,12 @@ export const WRITTEN = new Set<string>([
   "e-recipes",
   "e-testing",
   "a-comms",
+  "e-remote-io",
   "a-hmi",
   "a-fault-finding",
   "e-diagnostics",
-  "a-documentation"
+  "a-documentation",
+  "e-opcua",
+  "e-cyber",
+  "e-remote-access"
 ]);

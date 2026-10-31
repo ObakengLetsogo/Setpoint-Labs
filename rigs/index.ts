@@ -13,6 +13,7 @@ import { mcc } from "./mcc";
 import { safety } from "./safety";
 import { mineConveyor } from "./mineconv";
 import { dewater, ventFan, winder } from "./minesvc";
+import { plantNet } from "./plantnet";
 import type { RigDef } from "./types";
 
 /** Every rig that is built. A lesson on a rig missing here stays planned. */
@@ -39,6 +40,7 @@ export const RIGS: Partial<Record<RigId, RigDef>> = {
   dewater,
   ventfan: ventFan,
   hoist: winder,
+  plantnet: plantNet,
 };
 
 export const rigFor = (id: RigId | undefined): RigDef => (id && RIGS[id]) || motorStarter;

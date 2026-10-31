@@ -342,3 +342,181 @@ export const EXPERT_PROGRAMMING: Record<string, LessonContent> = {
     ],
   },
 };
+
+const NET = {
+  start: io("I0.0", "Start_PB", "#2e9e5b", "Local auto start", "Momentary"),
+  stop: io("I0.1", "Stop_PB", "#d64545", "Local stop", "NC, 1 at rest"),
+  fb: io("I0.2", "Pump_FB", "#2457a6", "Pump feedback", "Contactor auxiliary"),
+  key: io("I0.3", "Key_Allow", "#c9a227", "Remote access key switch", "1 when allowed"),
+  level: io("RIO2", "Res_Level", "#6b4fa0", "Reservoir level, over the network", "0 to 27648"),
+  hb: io("RIO2", "Res_HB", "#0f766e", "Reservoir heartbeat", "+1 every second"),
+  ok: io("DIAG", "RIO2_OK", "#0f766e", "Gateway link status", "1 when it says the link is up"),
+  sp: io("OPC UA", "SCADA_SP", "#2457a6", "SCADA fill setpoint", "% written by SCADA"),
+  sStart: io("OPC UA", "SCADA_Start", "#2457a6", "SCADA start command", "Written by SCADA"),
+  req: io("VPN", "Remote_Req", "#6b6f76", "Vendor session request", "1 while requesting"),
+  pump: io("Q0.0", "Pump_Run", "#2457a6", "Booster pump", "Run"),
+  lamp: io("Q0.1", "Run_Lamp", "#2e9e5b", "Run lamp", "Green"),
+  comms: io("Q0.2", "Comms_Alarm", "#d64545", "Comms or security alarm", "Red"),
+  remote: io("Q0.3", "Remote_Lamp", "#e0a526", "Remote session lamp", "Amber"),
+};
+
+export const EXPERT_NETWORKS: Record<string, LessonContent> = {
+  "e-remote-io": {
+    difficulty: "advanced",
+    checkpoint: { steps: [(m) => Boolean(m.Pump_Run), (m, i, f) => Boolean(f.staleOK) && Boolean(i.RIO2_OK) && Boolean(m.Comms_Fault) && !m.Pump_Run], message: "caught stale remote data with a heartbeat, even though the network said the link was fine" },
+    summary:
+      "When a sensor is 5 km away on a network, the PLC only ever sees the last value that arrived. If the link fails, that value can freeze while the real level keeps changing, and a pump filling on a frozen reading overflows the reservoir. The network's own status bit helps, but gateways and converters can report OK while their data is stale. So the remote controller sends a heartbeat, a counter that changes every second. If it stops changing, the data cannot be trusted, whatever the status bit says.",
+    facts: [
+      { icon: "press", text: "Tap Start. The pump fills the reservoir between 50 % and 90 %." },
+      { icon: "bolt", text: "Cut the fibre: RIO2_OK drops and the pump stops at once." },
+      { icon: "bolt", text: "Now try the stale gateway: RIO2_OK stays on, but the heartbeat freezes. After 3 s, Comms_Fault stops the pump anyway." },
+    ],
+    io: [NET.start, NET.stop, NET.fb, NET.level, NET.hb, NET.ok, NET.pump, NET.lamp, NET.comms],
+    steps: [
+      { line: 3, text: "If the heartbeat has not changed since the last scan, time it." },
+      { line: 4, text: "Remember this scan's heartbeat for the next." },
+      { line: 5, text: "3 s with no change, or the link down, is a comms fault." },
+      { line: 6, text: "Fill below 50 %, only with good comms." },
+      { line: 7, text: "Stop at 90 %, or at once on a comms fault: fail safe." },
+    ],
+    code: [
+      "// Trust the heartbeat, not just the network status.",
+      "RUNG 1: (XIC(Start_PB) OR XIC(Auto)) AND XIC(Stop_PB) OTE(Auto)",
+      "RUNG 2: EQU(Res_HB, Last_HB) TON(HB_T, 3000)",
+      "RUNG 3: MOV(Res_HB, Last_HB)",
+      "RUNG 4: XIC(HB_T.DN) OR XIO(RIO2_OK) OTE(Comms_Fault)",
+      "RUNG 5: XIC(Auto) XIO(Comms_Fault) LES(Res_Level, 13824) OTL(Fill)",
+      "RUNG 6: GRT(Res_Level, 24883) OR XIO(Auto) OR XIC(Comms_Fault) OTU(Fill)",
+      "RUNG 7: XIC(Fill) OTE(Pump_Run)",
+      "RUNG 8: XIC(Comms_Fault) OTE(Comms_Alarm)",
+      "RUNG 9: XIC(Pump_FB) OTE(Run_Lamp)",
+    ],
+    specs: [
+      { label: "Link", value: "PROFINET over fibre, 5 km" },
+      { label: "Heartbeat", value: "+1 a second, 3 s timeout" },
+      { label: "On loss", value: "Stop the pump, alarm" },
+      { label: "Level", value: "Expert" },
+    ],
+  },
+
+  "e-opcua": {
+    difficulty: "advanced",
+    checkpoint: { steps: [(m) => Boolean(m.Pump_Run) && Number(m.Fill_SP) > 0, (m, i) => Number(i.SCADA_SP) > 100 && Boolean(m.SP_Reject) && Number(m.Fill_SP) <= 100], message: "ran the station from SCADA setpoints over OPC UA and rejected one out of range" },
+    summary:
+      "OPC UA is how modern SCADA, historians and MES systems read and write PLC tags, securely and with types and names, whatever the PLC's brand. MQTT does a similar job for cloud and IoT systems, publishing values to a broker. Either way, a value written from outside is a request, not a command: the PLC checks it is in range before using it, and keeps the last good value if it is not.",
+    facts: [
+      { icon: "press", text: "Tap the SCADA start command. The station fills to SCADA_SP, 70 %." },
+      { icon: "bolt", text: "Move the SCADA setpoint to 120 %. SP_Reject comes on and Fill_SP keeps its last good value." },
+      { icon: "info", text: "OPC_Level is the scaled level the PLC publishes for SCADA to read." },
+    ],
+    io: [NET.start, NET.stop, NET.fb, NET.level, NET.sp, NET.sStart, NET.pump, NET.lamp],
+    steps: [
+      { line: 2, text: "Auto from the pump house or from SCADA." },
+      { line: 3, text: "Only a setpoint between 0 and 100 % is copied in." },
+      { line: 4, text: "Anything else is rejected and flagged." },
+      { line: 5, text: "Turn the percent into raw counts to compare with the level." },
+      { line: 10, text: "Publish the level in percent for SCADA, MQTT or a historian." },
+    ],
+    code: [
+      "// Setpoints from SCADA over OPC UA: check before use.",
+      "RUNG 1: (XIC(Start_PB) OR XIC(SCADA_Start) OR XIC(Auto)) AND XIC(Stop_PB) OTE(Auto)",
+      "RUNG 2: GEQ(SCADA_SP, 0) LEQ(SCADA_SP, 100) MOV(SCADA_SP, Fill_SP)",
+      "RUNG 3: GRT(SCADA_SP, 100) OR LES(SCADA_SP, 0) OTE(SP_Reject)",
+      "RUNG 4: MUL(Fill_SP, 27648, T_SP) DIV(T_SP, 100, SP_Raw)",
+      "RUNG 5: SUB(SP_Raw, 2765, Start_Raw)",
+      "RUNG 6: XIC(Auto) LES(Res_Level, Start_Raw) OTL(Fill)",
+      "RUNG 7: GEQ(Res_Level, SP_Raw) OR XIO(Auto) OTU(Fill)",
+      "RUNG 8: XIC(Fill) OTE(Pump_Run)",
+      "RUNG 9: MUL(Res_Level, 100, T_L) DIV(T_L, 27648, OPC_Level)",
+      "RUNG 10: XIC(Pump_FB) OTE(Run_Lamp)",
+    ],
+    specs: [
+      { label: "Protocol", value: "OPC UA, MQTT" },
+      { label: "Writes", value: "Range checked" },
+      { label: "Publishes", value: "Level in %" },
+      { label: "Level", value: "Expert" },
+    ],
+  },
+
+  "e-cyber": {
+    difficulty: "advanced",
+    checkpoint: { steps: [(m, _i, f) => Boolean(f.rogue) && Boolean(m.Remote_Lock) && Number(m.Fill_SP) <= 100, (m, _i, f) => !f.rogue && !m.Remote_Lock], message: "locked out a rogue device writing to the PLC, then reset the lock on site" },
+    summary:
+      "Industrial networks were built to be trusted, and attackers know it. A device that can write tags can start pumps and change setpoints. Defence in depth means firewalls and zones on the network (IEC 62443), and also defences in the program itself: range checks, rate limits on commands, counting rejected writes, and locking out remote control until someone on site resets it. Here something on the network starts writing nonsense.",
+    facts: [
+      { icon: "bolt", text: "Turn on the rogue device. It writes 999 % and pulses start twice a second." },
+      { icon: "shield", text: "The program rejects the setpoint, accepts at most one start every 10 s, and after 3 rejected writes locks out remote control." },
+      { icon: "press", text: "Remove the rogue device, turn the key on site and press local Start: the lock and the count reset." },
+    ],
+    io: [NET.start, NET.stop, NET.key, NET.level, NET.sp, NET.sStart, NET.pump, NET.comms],
+    steps: [
+      { line: 2, text: "Each SCADA start is one request." },
+      { line: 3, text: "Accept it only if none came in the last 10 s, and remote control is not locked." },
+      { line: 4, text: "A request too soon after the last is rejected and counted." },
+      { line: 6, text: "An out of range setpoint is rejected and counted, once each time it appears." },
+      { line: 7, text: "Three rejects lock out remote control." },
+      { line: 11, text: "Only someone on site, with the key, can clear the lock." },
+    ],
+    code: [
+      "// Defend the PLC from bad writes: range, rate and lockout.",
+      "RUNG 1: XIC(SCADA_Start) ONS(SS_OS) OTE(Start_Req)",
+      "RUNG 2: XIC(Start_Req) XIO(Recent.DN) XIO(Remote_Lock) OTL(Auto)",
+      "RUNG 3: XIC(Start_Req) XIC(Recent.DN) ADD(Rejects, 1, Rejects)",
+      "RUNG 4: XIC(Start_Req) TOF(Recent, 10000)",
+      "RUNG 5: GRT(SCADA_SP, 100) ONS(Bad_OS) ADD(Rejects, 1, Rejects)",
+      "RUNG 6: GEQ(Rejects, 3) OTL(Remote_Lock)",
+      "RUNG 7: GEQ(SCADA_SP, 0) LEQ(SCADA_SP, 100) XIO(Remote_Lock) MOV(SCADA_SP, Fill_SP)",
+      "RUNG 8: XIC(Start_PB) OTL(Auto)",
+      "RUNG 9: XIO(Stop_PB) OTU(Auto)",
+      "RUNG 10: XIC(Key_Allow) XIC(Start_PB) OTU(Remote_Lock) MOV(0, Rejects)",
+      "RUNG 11: MUL(Fill_SP, 27648, T_SP) DIV(T_SP, 100, SP_Raw)",
+      "RUNG 12: XIC(Auto) LES(Res_Level, SP_Raw) OTE(Pump_Run)",
+      "RUNG 13: XIC(Remote_Lock) OTE(Comms_Alarm)",
+    ],
+    specs: [
+      { label: "Standard", value: "IEC 62443" },
+      { label: "In the PLC", value: "Range, rate, lockout" },
+      { label: "Reset", value: "On site, with a key" },
+      { label: "Level", value: "Expert" },
+    ],
+  },
+
+  "e-remote-access": {
+    difficulty: "advanced",
+    checkpoint: {
+      steps: [(m, i) => Boolean(i.Remote_Req) && !i.Key_Allow && !m.Session, (m) => Boolean(m.Session), (m, i) => !m.Session && Boolean(i.Key_Allow) && Boolean(i.Remote_Req) && Number(m.Sessions) >= 1],
+      message: "kept a vendor out until someone on site allowed it, then saw the session expire on its own",
+    },
+    summary:
+      "Vendors and engineers need remote access to fix problems quickly, but an always-open connection is how many plant attacks begin. Good practice: a session opens only when someone on site deliberately allows it, it lasts a fixed time, it is visible (a lamp, an alarm in SCADA) and it is logged. Here the vendor asks; the key switch in the control room decides; and the session closes itself after 30 s, standing in for 30 minutes.",
+    facts: [
+      { icon: "press", text: "Turn on the vendor's request. With the key off, nothing opens." },
+      { icon: "press", text: "Withdraw the request, turn the key on, and request again. The session opens and the amber lamp lights." },
+      { icon: "watch", text: "After 30 s the session closes by itself. A new one needs a new request." },
+    ],
+    io: [NET.key, NET.req, NET.remote],
+    steps: [
+      { line: 2, text: "A fresh request, with the key on, opens the session." },
+      { line: 3, text: "The session's clock." },
+      { line: 4, text: "It closes when the time is up, the key is turned off, or the request ends." },
+      { line: 5, text: "Everyone can see a session is open." },
+      { line: 6, text: "Count every session, for the access log." },
+    ],
+    code: [
+      "// Remote access: asked for, allowed on site, time limited, visible, logged.",
+      "RUNG 1: XIC(Remote_Req) ONS(Req_OS) XIC(Key_Allow) OTL(Session)",
+      "RUNG 2: XIC(Session) TON(Sess_T, 30000)",
+      "RUNG 3: XIC(Sess_T.DN) OR XIO(Key_Allow) OR XIO(Remote_Req) OTU(Session)",
+      "RUNG 4: XIC(Session) OTE(Remote_Lamp)",
+      "RUNG 5: XIC(Session) ONS(Sess_OS) ADD(Sessions, 1, Sessions)",
+      "RUNG 6: (XIC(Start_PB) OR XIC(Auto)) AND XIC(Stop_PB) OTE(Auto)",
+      "RUNG 7: XIC(Auto) LES(Res_Level, 24883) OTE(Pump_Run)",
+    ],
+    specs: [
+      { label: "Approval", value: "Key switch on site" },
+      { label: "Time limit", value: "30 s here, 30 min on site" },
+      { label: "Visible", value: "Lamp and log" },
+      { label: "Level", value: "Expert" },
+    ],
+  },
+};

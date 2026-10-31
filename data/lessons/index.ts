@@ -10,10 +10,10 @@ import { ADVANCED } from "./advanced";
 import { PLATFORM_LESSONS } from "./platforms";
 import { FOUNDATION_MACHINES, FOUNDATION_NEW } from "./foundation-new";
 import { MINING } from "./mining";
-import { EXPERT_PROGRAMMING } from "./expert";
+import { EXPERT_NETWORKS, EXPERT_PROGRAMMING } from "./expert";
 import { PRO_INSTRUMENTS, PRO_MACHINES, PRO_MOTORS, PRO_PID, PRO_SAFETY } from "./professional";
 
-const CONTENT: Record<string, LessonContent> = { ...FOUNDATIONS, ...FOUNDATIONS_MORE, ...MACHINES, ...PROCESS, ...SEQUENCES, ...WIRING, ...ADVANCED, ...PLATFORM_LESSONS, ...FOUNDATION_NEW, ...FOUNDATION_MACHINES, ...PRO_PID, ...PRO_INSTRUMENTS, ...PRO_MACHINES, ...PRO_MOTORS, ...PRO_SAFETY, ...MINING, ...EXPERT_PROGRAMMING };
+const CONTENT: Record<string, LessonContent> = { ...FOUNDATIONS, ...FOUNDATIONS_MORE, ...MACHINES, ...PROCESS, ...SEQUENCES, ...WIRING, ...ADVANCED, ...PLATFORM_LESSONS, ...FOUNDATION_NEW, ...FOUNDATION_MACHINES, ...PRO_PID, ...PRO_INSTRUMENTS, ...PRO_MACHINES, ...PRO_MOTORS, ...PRO_SAFETY, ...MINING, ...EXPERT_PROGRAMMING, ...EXPERT_NETWORKS };
 
 const PLANNED: LessonContent = {
   difficulty: "beginner",

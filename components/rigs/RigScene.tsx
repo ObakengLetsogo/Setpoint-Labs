@@ -15,6 +15,7 @@ import { InstrumentRig } from "./InstrumentRig";
 import { MccRig } from "./MccRig";
 import { SafetyRig } from "./SafetyRig";
 import { MineConveyorRig } from "./MineConveyorRig";
+import { PlantNetRig } from "./PlantNetRig";
 
 export type RigSceneProps = { only?: RigPiece[] | string[] };
 
@@ -42,6 +43,7 @@ export const RIG_SCENES: Partial<Record<RigId, ComponentType<RigSceneProps>>> = 
   dewater: PumpsRig as ComponentType<RigSceneProps>,
   ventfan: VsdRig as ComponentType<RigSceneProps>,
   hoist: LiftRig as ComponentType<RigSceneProps>,
+  plantnet: PlantNetRig as ComponentType<RigSceneProps>,
 };
 
 export function RigScene({ id, only }: { id: RigId; only?: string[] }) {

@@ -24,7 +24,8 @@ export type RigId =
   | "mineconv"
   | "dewater"
   | "ventfan"
-  | "hoist";
+  | "hoist"
+  | "plantnet";
 
 export interface LessonRef {
   id: string;
@@ -476,10 +477,22 @@ export const CURRICULUM: Track[] = [
         blurb: "Networks, screens and keeping plant running",
         lessons: [
           L("a-comms", "Industrial networks", "sequence", "vsd"),
+          L("e-remote-io", "Remote I/O, heartbeats and watchdogs", "fault", "plantnet"),
           L("a-hmi", "HMI and SCADA basics", "lamp", "tank"),
           L("a-fault-finding", "Fault finding", "fault"),
           L("e-diagnostics", "Diagnostics", "fault", "pumps"),
           L("a-documentation", "Documentation and handover", "safety"),
+        ],
+      },
+      {
+        id: "connectivity",
+        stage: 5,
+        title: "Connectivity and cyber security",
+        blurb: "OPC UA, MQTT, defence and remote access",
+        lessons: [
+          L("e-opcua", "OPC UA, MQTT and connected plants", "compare", "plantnet"),
+          L("e-cyber", "Industrial cyber security", "safety", "plantnet"),
+          L("e-remote-access", "Remote access done safely", "interlock", "plantnet"),
         ],
       },
     ],
