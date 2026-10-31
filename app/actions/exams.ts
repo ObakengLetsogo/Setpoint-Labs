@@ -6,6 +6,7 @@ import { LEVELS, type Level } from "@/config/plans";
 import { requireUser } from "@/lib/server/auth";
 import { bookSitting, cancelSitting, openSitting } from "@/lib/server/centres";
 import { ExamError, logIncident, startExam, submitExam } from "@/lib/server/exams";
+import { startEndorsement, submitEndorsement } from "@/lib/server/endorsements";
 import { limited } from "@/lib/server/rateLimit";
 
 export async function beginExam(form: FormData) {
@@ -83,4 +84,30 @@ export async function reportIncident(attemptId: string, what: string) {
   const user = await requireUser(`/exams/${attemptId}`);
   if (limited(`incident:${user.id}`, 200, 60 * 60 * 1000)) return;
   await logIncident(user.id, attemptId, what);
+}
+
+export async function beginEndorsement(form: FormData) {
+  const brand = String(form.get("brand"));
+  const user = await requireUser("/exams");
+  if (limited(`endorse:${user.id}`, 5, 60 * 60 * 1000)) redirect("/exams?error=busy");
+  let id: string;
+  try {
+    id = await startEndorsement(user.id, brand);
+  } catch (e) {
+    if (e instanceof ExamError) redirect(`/exams?error=${encodeURIComponent(e.message)}`);
+    throw e;
+  }
+  redirect(`/exams/e/${id}`);
+}
+
+export async function finishEndorsement(attemptId: string, answers: (number | null)[]): Promise<ExamResult> {
+  const user = await requireUser(`/exams/e/${attemptId}`);
+  try {
+    const r = await submitEndorsement(user, attemptId, answers.slice(0, 100).map((a) => (Number.isInteger(a) ? a : null)));
+    revalidatePath("/exams");
+    return { theoryPct: r.pct, practical: true, passed: r.passed, late: r.late };
+  } catch (e) {
+    if (e instanceof ExamError) return { error: e.message };
+    throw e;
+  }
 }

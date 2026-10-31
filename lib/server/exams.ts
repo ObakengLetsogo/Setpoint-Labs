@@ -1,14 +1,15 @@
 import "server-only";
 import { and, desc, eq, gt, inArray, isNull } from "drizzle-orm";
-import { assessmentRuns, certificates, entitlements, examAttempts, examBookings, seats } from "@/db/schema";
-import { FREE_RESIT_AFTER_DAYS, LEVELS, PLANS, type Level } from "@/config/plans";
-import { coreTracks } from "@/data/curriculum";
+import { assessmentRuns, certificates, endorsementAttempts, entitlements, examAttempts, examBookings, seats } from "@/db/schema";
+import { ENDORSEMENTS_NEEDED, FREE_RESIT_AFTER_DAYS, LEVELS, PLANS, type Level } from "@/config/plans";
+import { CURRICULUM, coreTracks } from "@/data/curriculum";
 import { QUIZZES } from "@/data/quizzes";
 import { bankQuestion, bankRef, EXAM_BANKS, topicShares } from "@/data/exam-bank";
 import { audit } from "./billing";
 import { db } from "./db";
 import { mails } from "./email";
 import { certificateCode, newId } from "./ids";
+import { issueCertificate } from "./certificates";
 
 // The theory part of a level exam is drawn from the level's exam bank, spread evenly over its
 // topics, with the options shuffled. A level without a bank yet draws from its lesson quizzes. The practical part is the level's track assessments, marked
@@ -103,6 +104,8 @@ export interface ExamStatus {
   /** An attempt that is still running. */
   openAttempt: string | null;
   lastPct: number | null;
+  /** Passed, but the certificate waits for something else, in plain words. */
+  waitingFor: string | null;
 }
 
 export async function examStatus(userId: string, level: Level, now = new Date()): Promise<ExamStatus> {
@@ -127,7 +130,13 @@ export async function examStatus(userId: string, level: Level, now = new Date())
   else if (open) blocked = "An attempt is in progress.";
   else if (prev && !(await examStatus(userId, prev, now)).passed) blocked = `Pass the ${prev === "F" ? "Foundation" : "Professional"} exam first.`;
   else if (!credits && !(freeResitFrom && freeResitFrom <= now)) blocked = freeResitFrom ? `Your free resit opens on ${freeResitFrom.toISOString().slice(0, 10)}, or buy a resit now.` : "Buy this exam to sit it.";
-  return { level, passed, credits, freeResitFrom, canStart: !blocked, blocked, openAttempt: open?.id ?? null, lastPct: last?.theoryPct ?? null };
+  let waitingFor: string | null = null;
+  if (passed && level !== "E") {
+    const need = ENDORSEMENTS_NEEDED[level];
+    const have = (await endorsementsPassed(userId)).length;
+    if (have < need) waitingFor = `Pass ${need === 1 ? "a platform endorsement" : `${need} platform endorsements`} to receive the certificate.`;
+  }
+  return { level, passed, credits, freeResitFrom, canStart: !blocked, blocked, openAttempt: open?.id ?? null, lastPct: last?.theoryPct ?? null, waitingFor };
 }
 
 export class ExamError extends Error {}
@@ -194,8 +203,34 @@ export async function submitExam(user: { id: string; email: string; name: string
   const passed = theoryPct >= PASS_PCT && practical && level !== "E";
   await db.update(examAttempts).set({ answers: given, submittedAt: now, theoryPct, practicalPassed: practical, passed }).where(eq(examAttempts.id, a.id));
   await audit(user.id, "exam.submitted", a.id, { level, theoryPct, practical, passed, late });
-  if (passed) await issueLevelCertificate(user, level);
+  if (passed) await issueLevelIfComplete(user, level);
   return { theoryPct, practical, passed, late };
+}
+
+/** Distinct brands whose platform endorsement exam this person has passed. */
+export async function endorsementsPassed(userId: string) {
+  const rows = await db.select({ brand: endorsementAttempts.brand }).from(endorsementAttempts).where(and(eq(endorsementAttempts.userId, userId), eq(endorsementAttempts.passed, true)));
+  return [...new Set(rows.map((r) => r.brand))];
+}
+
+/**
+ * Issues a level's certificate once its exam is passed and it has the platform endorsements it
+ * needs (Professional one, Expert two). With the Professional certificate come any industry
+ * endorsements whose practical assessment was already passed.
+ */
+export async function issueLevelIfComplete(user: { id: string; email: string; name: string }, level: Level) {
+  const passed = (await db.select({ id: examAttempts.id }).from(examAttempts).where(and(eq(examAttempts.userId, user.id), eq(examAttempts.level, level), eq(examAttempts.passed, true))).limit(1))[0];
+  if (!passed) return null;
+  if ((await endorsementsPassed(user.id)).length < ENDORSEMENTS_NEEDED[level]) return null;
+  const code = await issueLevelCertificate(user, level);
+  if (level === "P") {
+    const industry = CURRICULUM.filter((t) => t.industry).map((t) => t.id);
+    if (industry.length) {
+      const done = await db.select({ id: assessmentRuns.assessmentId }).from(assessmentRuns).where(and(eq(assessmentRuns.userId, user.id), inArray(assessmentRuns.assessmentId, industry), eq(assessmentRuns.passed, true)));
+      for (const t of new Set(done.map((d) => d.id))) await issueCertificate(user, t);
+    }
+  }
+  return code;
 }
 
 async function issueLevelCertificate(user: { id: string; email: string; name: string }, level: Level) {

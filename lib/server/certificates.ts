@@ -5,6 +5,7 @@ import { and, eq, isNull } from "drizzle-orm";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import { assessmentRuns, certificates, memberships, organisations, users } from "@/db/schema";
 import { CURRICULUM } from "@/data/curriculum";
+import { ENDORSE_BRANDS } from "@/config/plans";
 import { SITE_URL } from "@/lib/config";
 import { levelOfTrack } from "@/data/access";
 import { hasLevel } from "./access";
@@ -16,7 +17,36 @@ import { certificateCode, newId } from "./ids";
 
 const LEVEL_CERTS: Record<string, string> = { "level-F": "Level 1: Foundation", "level-P": "Level 2: Professional", "level-E": "Level 3: Expert" };
 export const isLevelCert = (trackId: string) => trackId in LEVEL_CERTS;
-export const trackName = (trackId: string) => LEVEL_CERTS[trackId] ?? CURRICULUM.find((t) => t.id === trackId)?.name ?? trackId;
+/** Platform endorsements are certificates with ids like endorse-siemens; industry endorsements use the industry track's id. */
+export const isEndorsement = (trackId: string) => trackId.startsWith("endorse-") || Boolean(CURRICULUM.find((t) => t.id === trackId)?.industry);
+export function trackName(trackId: string) {
+  if (LEVEL_CERTS[trackId]) return LEVEL_CERTS[trackId];
+  const brand = ENDORSE_BRANDS.find((b) => `endorse-${b.id}` === trackId);
+  if (brand) return `${brand.name} platform endorsement`;
+  const track = CURRICULUM.find((t) => t.id === trackId);
+  if (track?.industry) return `${track.industry.endorsement} industry endorsement`;
+  return track?.name ?? trackId;
+}
+
+/** Issues a certificate once per person and id. Returns its code, or the code already issued. */
+export async function issueCertificate(user: { id: string; email: string; name: string }, trackId: string, organisationId: string | null = null) {
+  const existing = (await db.select().from(certificates).where(and(eq(certificates.userId, user.id), eq(certificates.trackId, trackId), isNull(certificates.revokedAt))).limit(1))[0];
+  if (existing) return existing.code;
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const code = certificateCode();
+    try {
+      await db.insert(certificates).values({ id: newId(), code, userId: user.id, trackId, nameOnCertificate: user.name, organisationId });
+      await audit(user.id, "certificate.issued", code, { trackId });
+      await mails.certificate(user.email, trackName(trackId), code);
+      return code;
+    } catch (e) {
+      if ((e as { cause?: { code?: string } }).cause?.code !== "ER_DUP_ENTRY") throw e;
+      const again = (await db.select().from(certificates).where(and(eq(certificates.userId, user.id), eq(certificates.trackId, trackId))).limit(1))[0];
+      if (again) return again.code;
+    }
+  }
+  throw new Error("could not allocate a certificate code");
+}
 
 export type SubmitOutcome = AssessmentResult & { certificate?: string; note?: string };
 
@@ -33,6 +63,12 @@ export async function submitAssessment(user: { id: string; email: string; name: 
   if (existing) return { ...result, certificate: existing.code };
   if (!user.verified) return { ...result, note: "Passed. Confirm your email to receive the certificate." };
   if (!(await hasLevel(user.id, levelOfTrack(trackId)))) return { ...result, note: "Passed. Certificates come with this level's training; buy it and submit again." };
+  // An industry endorsement sits on top of the Professional certificate; it is issued with it.
+  const industry = CURRICULUM.find((t) => t.id === trackId)?.industry;
+  if (industry) {
+    const pro = (await db.select({ id: certificates.id }).from(certificates).where(and(eq(certificates.userId, user.id), eq(certificates.trackId, "level-P"), isNull(certificates.revokedAt))).limit(1))[0];
+    if (!pro) return { ...result, note: `Passed. The ${industry.endorsement} endorsement is issued with your Professional certificate.` };
+  }
 
   // A learner on an institution seat gets that institution's name on the certificate.
   const org = (
@@ -97,10 +133,11 @@ export async function certificatePdf(cert: NonNullable<Awaited<ReturnType<typeof
 
   const centre = (text: string, y: number, font = sans, size = 12, color = ink) => page.drawText(text, { x: (width - font.widthOfTextAtSize(text, size)) / 2, y, size, font, color });
   const level = isLevelCert(cert.trackId);
-  centre(level ? "CERTIFICATE OF COMPETENCE" : "CERTIFICATE OF COMPLETION", height - 160, bold, 12, orange);
+  const endorsement = isEndorsement(cert.trackId);
+  centre(level ? "CERTIFICATE OF COMPETENCE" : endorsement ? "ENDORSEMENT" : "CERTIFICATE OF COMPLETION", height - 160, bold, 12, orange);
   centre("This certifies that", height - 205, sans, 13, muted);
   centre(cert.nameOnCertificate, height - 260, serif, 40);
-  centre(level ? "has passed the theory and practical exam for" : "has completed the practical assessment for", height - 300, sans, 13, muted);
+  centre(level ? "has passed the theory and practical exam for" : cert.trackId.startsWith("endorse-") ? "has passed the platform endorsement exam for the" : endorsement ? "holds the Professional certificate and has passed the practical assessment for the" : "has completed the practical assessment for", height - 300, sans, 13, muted);
   centre(cert.track, height - 340, bold, 24);
   if (cert.issuer) centre(`through ${cert.issuer}`, height - 368, sans, 12, muted);
 

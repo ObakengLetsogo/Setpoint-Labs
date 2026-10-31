@@ -332,6 +332,25 @@ export const examAttempts = mysqlTable(
   (t) => [index("exam_attempts_user").on(t.userId, t.level)],
 );
 
+export const endorsementAttempts = mysqlTable(
+  "endorsement_attempts",
+  {
+    id: id(),
+    userId: ref("user_id").notNull(),
+    /** The brand, such as siemens. */
+    brand: varchar("brand", { length: 20 }).notNull(),
+    /** The drawn questions as bank indexes, with each question's option order. */
+    paper: json("paper").notNull(),
+    answers: json("answers"),
+    startedAt: datetime("started_at").notNull(),
+    deadlineAt: datetime("deadline_at").notNull(),
+    submittedAt: at("submitted_at"),
+    pct: int("pct"),
+    passed: boolean("passed"),
+  },
+  (t) => [index("endorsement_attempts_user").on(t.userId, t.brand)],
+);
+
 export const certificates = mysqlTable(
   "certificates",
   {

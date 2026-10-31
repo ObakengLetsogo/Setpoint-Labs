@@ -33,6 +33,18 @@ export interface PlanConfig {
 
 const ALL: Level[] = ["F", "P", "E"];
 const VOUCHER_MONTHS_CONST = 12;
+const ENDORSEMENT_CENTS_CONST = 75000;
+/** Brands with a platform endorsement exam. */
+export const ENDORSE_BRANDS = [
+  { id: "siemens", name: "Siemens" },
+  { id: "rockwell", name: "Allen Bradley" },
+  { id: "schneider", name: "Schneider Electric" },
+  { id: "mitsubishi", name: "Mitsubishi" },
+  { id: "omron", name: "Omron" },
+  { id: "delta", name: "Delta" },
+];
+/** Platform endorsements each level's certificate needs: Professional one, Expert a second. */
+export const ENDORSEMENTS_NEEDED: Record<Level, number> = { F: 0, P: 1, E: 2 };
 
 /** Level exams, resits and endorsements, the same price for individuals and employers. */
 export const EXAM_PRICES: Record<Level, number> = { F: 120000, P: 180000, E: 350000 };
@@ -195,6 +207,8 @@ export const PLANS: PlanConfig[] = [
     { id: `resit-${l}`, name: `${LEVEL_NAMES[l]} exam resit`, audience: "learner", priceCents: RESIT_CENTS, periodMonths: 12, perSeat: false, minSeats: 1, levels: [], exams: [l], blurb: "", features: [], online: true, listed: false },
     { id: `corp-exam-${l}`, name: `${LEVEL_NAMES[l]} exam vouchers`, audience: "employer", priceCents: EXAM_PRICES[l], periodMonths: VOUCHER_MONTHS_CONST, perSeat: true, minSeats: 1, levels: [], exams: [l], blurb: "Per learner, the same price as for individuals.", features: [], online: true, listed: false },
   ]),
+  // Platform endorsements: each payment is one attempt at that brand's endorsement exam.
+  ...ENDORSE_BRANDS.map((b): PlanConfig => ({ id: `endorse-${b.id}`, name: `${b.name} platform endorsement`, audience: "learner", priceCents: ENDORSEMENT_CENTS_CONST, periodMonths: 12, perSeat: false, minSeats: 1, levels: [], exams: [], blurb: "", features: [], online: true, listed: false })),
   // Retired plans, kept so earlier payments and entitlements still resolve.
   { id: "learner-year", name: "Learner, yearly (retired)", audience: "learner", priceCents: 149000, periodMonths: 12, perSeat: false, minSeats: 1, levels: ALL, exams: [], blurb: "", features: [], online: false, listed: false },
   { id: "employer-seat-year", name: "Employer seats (retired)", audience: "employer", priceCents: 90000, periodMonths: 12, perSeat: true, minSeats: 10, levels: ALL, exams: [], blurb: "", features: [], online: false, listed: false },
@@ -202,7 +216,7 @@ export const PLANS: PlanConfig[] = [
   { id: "institution-site-year", name: "Site licence (retired)", audience: "institution", priceCents: 4500000, periodMonths: 12, perSeat: false, minSeats: 1, levels: ALL, exams: [], blurb: "", features: [], online: false, listed: false },
 ];
 
-export const ENDORSEMENT_CENTS = 75000;
+export const ENDORSEMENT_CENTS = ENDORSEMENT_CENTS_CONST;
 /** A failed exam can be resat once for free, 14 days after the attempt. */
 export const FREE_RESIT_AFTER_DAYS = 14;
 /** Corporate and college vouchers stay valid this long. */

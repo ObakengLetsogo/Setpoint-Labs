@@ -29,6 +29,13 @@
       "when": 1793340073296,
       "tag": "0003_exam_centres",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "5",
+      "when": 1793479613090,
+      "tag": "0004_endorsements",
+      "breakpoints": true
     }
   ]
 }

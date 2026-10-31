@@ -32,3 +32,15 @@ describe("exam banks", () => {
     });
   }
 });
+
+describe("platform endorsement banks", async () => {
+  const { BRANDS, ENDORSE_BANKS, ENDORSE_SPEC } = await import("./endorsements");
+  for (const b of BRANDS) {
+    it(`${b.name} has enough well formed, unique questions`, () => {
+      const bank = ENDORSE_BANKS[b.id];
+      expect(bank.length).toBeGreaterThanOrEqual(ENDORSE_SPEC.questions + 5);
+      expect(new Set(bank.map((q) => q.q)).size).toBe(bank.length);
+      for (const q of bank) expect(new Set(q.options).size).toBe(4);
+    });
+  }
+});

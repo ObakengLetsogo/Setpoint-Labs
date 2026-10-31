@@ -18,6 +18,8 @@ describe.skipIf(!url)("billing and access", () => {
     centres: typeof import("./centres");
     quizzes: typeof import("@/data/quizzes");
     bank: typeof import("@/data/exam-bank");
+    endorse: typeof import("./endorsements");
+    eBank: typeof import("@/data/exam-bank/endorsements");
   };
 
   beforeAll(async () => {
@@ -44,6 +46,8 @@ describe.skipIf(!url)("billing and access", () => {
       centres: await import("./centres"),
       quizzes: await import("@/data/quizzes"),
       bank: await import("@/data/exam-bank"),
+      endorse: await import("./endorsements"),
+      eBank: await import("@/data/exam-bank/endorsements"),
     };
   });
 
@@ -270,6 +274,51 @@ describe.skipIf(!url)("billing and access", () => {
       await m.exams.logIncident(u.id, attempt, "left full screen", atCentre);
       const [row] = await m.db.db.select().from(m.schema.examAttempts).where(m.orm.eq(m.schema.examAttempts.id, attempt));
       expect(row.incidents).toHaveLength(1);
+    });
+
+    it("the Professional certificate waits for a platform endorsement, which also brings the Mining endorsement", async () => {
+      const u = await makeUser();
+      const user = { ...u, name: "Sipho" };
+      const certs = async () => (await m.db.db.select().from(m.schema.certificates).where(m.orm.eq(m.schema.certificates.userId, u.id))).map((c) => c.trackId).sort();
+      await buyExam(u.id, "F");
+      await passPractical(u.id, ["foundations", "wiring"]);
+      const f = await m.exams.startExam(u.id, "F");
+      await m.exams.submitExam(user, f, await correctAnswers(f));
+      await buyExam(u.id, "P");
+      await passPractical(u.id, ["machines", "process", "platforms", "safety-systems", "mining"]);
+      const admin = await makeUser();
+      const centre = await m.centres.createCentre({ name: "Durban Centre", area: "Berea", address: "3 Musgrave Rd", code: "DBN-2027" }, admin.id);
+      const [slot] = await m.centres.sessionsAt(centre);
+      const booking = await m.centres.bookSitting(u.id, "P", centre, slot.at);
+      const atCentre = new Date(slot.at.getTime() + 5 * 60_000);
+      const attempt = await m.centres.openSitting(u.id, booking, "DBN-2027", atCentre);
+      const r = await m.exams.submitExam(user, attempt, await correctAnswers(attempt), atCentre);
+      expect(r.passed).toBe(true);
+      expect(await certs()).toEqual(["level-F"]);
+      expect((await m.exams.examStatus(u.id, "P", atCentre)).waitingFor).toMatch(/platform endorsement/);
+
+      // No Professional training yet: the endorsement exam cannot start.
+      await m.billing.grant({ userId: u.id, organisationId: null, planId: "endorse-siemens", seats: 1, source: "payment" });
+      await expect(m.endorse.startEndorsement(u.id, "siemens")).rejects.toThrow(/Professional training/);
+      await m.billing.grant({ userId: u.id, organisationId: null, planId: "level-P", seats: 1, source: "payment" });
+      const e = await m.endorse.startEndorsement(u.id, "siemens");
+      const [row] = await m.db.db.select().from(m.schema.endorsementAttempts).where(m.orm.eq(m.schema.endorsementAttempts.id, e));
+      const bank = m.eBank.ENDORSE_BANKS.siemens;
+      const answers = (row.paper as { i: number; order: number[] }[]).map((p) => p.order.indexOf(bank[p.i].answer));
+      const out = await m.endorse.submitEndorsement(user, e, answers);
+      expect(out.passed).toBe(true);
+      expect(await certs()).toEqual(["endorse-siemens", "level-F", "level-P", "mining"]);
+      expect((await m.endorse.endorsementStatus(u.id, "siemens")).blocked).toBe("Already passed.");
+    });
+
+    it("a wrong endorsement paper fails and uses the attempt", async () => {
+      const u = await makeUser();
+      await m.billing.grant({ userId: u.id, organisationId: null, planId: "level-P", seats: 1, source: "payment" });
+      await m.billing.grant({ userId: u.id, organisationId: null, planId: "endorse-omron", seats: 1, source: "payment" });
+      const e = await m.endorse.startEndorsement(u.id, "omron");
+      const out = await m.endorse.submitEndorsement({ ...u, name: "T" }, e, []);
+      expect(out.passed).toBe(false);
+      expect((await m.endorse.endorsementStatus(u.id, "omron")).blocked).toMatch(/Buy/);
     });
 
     it("a missed sitting uses the credit, and changes close 48 hours before", async () => {

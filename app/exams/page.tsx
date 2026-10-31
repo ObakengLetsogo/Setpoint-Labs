@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { Suspense } from "react";
-import { beginExam, bookExam, cancelBooking, openAtCentre } from "@/app/actions/exams";
-import { EXAM_PRICES, LEVEL_NAMES, LEVELS, RESIT_CENTS, rand } from "@/config/plans";
+import { beginEndorsement, beginExam, bookExam, cancelBooking, openAtCentre } from "@/app/actions/exams";
+import { ENDORSE_BRANDS, ENDORSEMENT_CENTS, EXAM_PRICES, LEVEL_NAMES, LEVELS, RESIT_CENTS, rand } from "@/config/plans";
+import { ENDORSE_SPEC } from "@/data/exam-bank/endorsements";
+import { endorsementStatus } from "@/lib/server/endorsements";
 import { requireUser } from "@/lib/server/auth";
 import { CENTRE_LEVELS, EXAM_SPEC, NO_SHOW_MS, PASS_PCT, examStatus } from "@/lib/server/exams";
 import { activeCentres, bookingsFor, sessionsAt } from "@/lib/server/centres";
@@ -10,18 +12,23 @@ import { SiteShell, Skeleton, accentButtonClass, ghostButtonClass } from "@/comp
 
 export const metadata = { title: "Exams · Setpoint Labs" };
 
-const PRACTICAL = { F: "Fundamentals and Installation", P: "Machines, Process and Platforms", E: "Advanced Programming" } as const;
+const PRACTICAL = { F: "Fundamentals and Installation", P: "Machines, Process, Platforms and Safety Systems", E: "Advanced Programming and Plant Systems" } as const;
 
 async function load(userId: string) {
   const now = new Date();
-  const [all, centres, bookings] = await Promise.all([Promise.all(LEVELS.map((l) => examStatus(userId, l, now))), activeCentres(), bookingsFor(userId)]);
+  const [all, centres, bookings, endorse] = await Promise.all([
+    Promise.all(LEVELS.map((l) => examStatus(userId, l, now))),
+    activeCentres(),
+    bookingsFor(userId),
+    Promise.all(ENDORSE_BRANDS.map((b) => endorsementStatus(userId, b.id, now))),
+  ]);
   const sessions = await Promise.all(centres.map(async (c) => ({ centre: c, slots: await sessionsAt(c.id, now) })));
-  return { all, centres, bookings, sessions, now: now.getTime() };
+  return { all, centres, bookings, sessions, endorse, now: now.getTime() };
 }
 
 async function Exams({ error, booked: justBooked }: { error?: string; booked?: boolean }) {
   const user = await requireUser("/exams");
-  const { all, centres, bookings, sessions, now } = await load(user.id);
+  const { all, centres, bookings, sessions, endorse, now } = await load(user.id);
   const when = (d: Date) => d.toLocaleString("en-ZA", { timeZone: "Africa/Johannesburg", weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
   return (
     <div className="flex flex-col gap-4">
@@ -46,6 +53,7 @@ async function Exams({ error, booked: justBooked }: { error?: string; booked?: b
               Theory: {EXAM_SPEC[l].questions} questions in {EXAM_SPEC[l].minutes} minutes{CENTRE_LEVELS.includes(l) ? ", written at a partner exam centre" : ", online"}. Practical: the {PRACTICAL[l]} assessments.
               {l === "E" && " The Expert level also needs the final plant project and a 30 minute interview, signed off by an assessor."}
             </p>
+            {s.waitingFor && <p className="mt-2 rounded-xl bg-[#fff6e8] px-4 py-2.5 text-[13px] text-[#8a5a12]">Passed. {s.waitingFor}</p>}
             <p className="mt-1 text-[13px] text-muted-ink">Exam credits: {s.credits}{s.freeResitFrom ? ` · free resit from ${s.freeResitFrom.toISOString().slice(0, 10)}` : ""}</p>
             <div className="mt-4 flex flex-wrap items-start gap-3">
               {s.openAttempt && <Link href={`/exams/${s.openAttempt}`} className={accentButtonClass}>Continue the exam</Link>}
@@ -104,6 +112,33 @@ async function Exams({ error, booked: justBooked }: { error?: string; booked?: b
           </section>
         );
       })}
+      <section className="rounded-2xl border border-[#e4e6e9] bg-white p-6">
+        <h2 className="text-[18px] font-semibold text-ink">Platform endorsements</h2>
+        <p className="mt-2 text-[13.5px] leading-[1.6] text-[#4b5058]">
+          A {ENDORSE_SPEC.minutes} minute online exam on one brand&apos;s hardware, addressing and software, {ENDORSE_SPEC.questions} questions, {PASS_PCT}% to pass, {rand(ENDORSEMENT_CENTS)} each. The Professional certificate needs one endorsement and the Expert certificate a second. Prepare with that brand&apos;s platform tour in the labs.
+        </p>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {endorse.map((e) => (
+            <div key={e.brand} className="flex flex-col gap-2 rounded-xl border border-[#eef0f2] p-4">
+              <div className="flex items-baseline justify-between gap-2">
+                <p className="font-semibold text-ink">{e.name}</p>
+                <span className={`font-mono text-[10.5px] uppercase tracking-[0.14em] ${e.passed ? "text-run" : "text-muted-ink"}`}>{e.passed ? "Endorsed" : e.lastPct != null ? `Last ${e.lastPct}%` : "Not sat"}</span>
+              </div>
+              {e.openAttempt && <Link href={`/exams/e/${e.openAttempt}`} className={accentButtonClass}>Continue</Link>}
+              {e.canStart && (
+                <form action={beginEndorsement}>
+                  <input type="hidden" name="brand" value={e.brand} />
+                  <button type="submit" className={accentButtonClass}>Start now</button>
+                </form>
+              )}
+              {!e.passed && !e.openAttempt && !e.credits && !e.blocked?.includes("Professional") && (
+                <BuyButton planId={`endorse-${e.brand}`} perSeat={false} minSeats={1} priceCents={ENDORSEMENT_CENTS} organisation={false} label={`Buy, ${rand(ENDORSEMENT_CENTS)}`} />
+              )}
+              {e.blocked?.includes("Professional") && <p className="text-[12.5px] text-muted-ink">{e.blocked}</p>}
+            </div>
+          ))}
+        </div>
+      </section>
     </div>
   );
 }
