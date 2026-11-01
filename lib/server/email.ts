@@ -88,4 +88,8 @@ export const mails = {
     sendMail(to, `Booked: ${title}`, "Your practical day is booked", [`${title}, ${when}, at ${venue}. Lunch is included.`, "Bring closed shoes and your ID. You can cancel free until 7 days before the day."], { label: "See your bookings", url: `${SITE_URL}/practical` }),
   practicalCancelled: (to: string, title: string, when: string) =>
     sendMail(to, `Cancelled: ${title}`, "A practical day was cancelled", [`We had to cancel ${title} on ${when}. Your seat credit is back on your account so you can book another day.`, "We are sorry for the change of plan."], { label: "Book another day", url: `${SITE_URL}/practical` }),
+  certExpiring: (to: string, level: string, code: string, date: string, expired: boolean) =>
+    sendMail(to, expired ? `Your ${level} certificate has expired` : `Your ${level} certificate expires on ${date}`, expired ? "Certificate expired" : "Time to recertify", [expired ? `Your ${level} certificate ${code} expired on ${date}. Its verify page now shows it as expired.` : `Your ${level} certificate ${code} is valid until ${date}.`, "Renew it with a short recertification exam online: 20 questions in 30 minutes. Passing keeps your certificate code and adds 3 years."], { label: "Recertify", url: `${SITE_URL}/exams` }),
+  recertified: (to: string, level: string, code: string, date: string) =>
+    sendMail(to, `Your ${level} certificate is renewed`, "Recertified", [`You passed the recertification exam. Certificate ${code} is now valid until ${date}.`], { label: "See your certificate", url: `${SITE_URL}/verify/${code}` }),
 };

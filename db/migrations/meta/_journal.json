@@ -50,6 +50,13 @@
       "when": 1793503450706,
       "tag": "0006_practical_days",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "5",
+      "when": 1793503841881,
+      "tag": "0007_recertification",
+      "breakpoints": true
     }
   ]
 }

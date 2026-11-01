@@ -22,6 +22,8 @@ describe.skipIf(!url)("billing and access", () => {
     eBank: typeof import("@/data/exam-bank/endorsements");
     projects: typeof import("./projects");
     practical: typeof import("./practical");
+    recert: typeof import("./recert");
+    certs: typeof import("./certificates");
   };
 
   beforeAll(async () => {
@@ -52,6 +54,8 @@ describe.skipIf(!url)("billing and access", () => {
       eBank: await import("@/data/exam-bank/endorsements"),
       projects: await import("./projects"),
       practical: await import("./practical"),
+      recert: await import("./recert"),
+      certs: await import("./certificates"),
     };
   });
 
@@ -417,6 +421,44 @@ describe.skipIf(!url)("billing and access", () => {
       await expect(P.markAttendance(admin.id, b2, true, true, "")).rejects.toThrow(/on the day/);
       await P.markAttendance(admin.id, b2, true, true, "Wired DOL starter unaided", new Date(Date.now() + 30 * DAY));
       expect((await P.practicalSignOffs(u.id)).map((r) => r.stage)).toEqual([1]);
+    });
+
+    it("level certificates expire after 3 years and a recertification exam renews them", async () => {
+      const R = m.recert;
+      const u = { ...(await makeUser()), name: "Recert Learner" };
+      const code = await m.certs.issueCertificate(u, "level-F");
+      const [cert] = await m.db.db.select().from(m.schema.certificates).where(m.orm.eq(m.schema.certificates.code, code));
+      const DAY = 86_400_000;
+      expect(Math.round((cert.expiresAt!.getTime() - cert.issuedAt.getTime()) / DAY)).toBeGreaterThanOrEqual(365 * 3);
+      // Closed until 90 days before expiry.
+      expect((await R.recertStatuses(u.id))[0].blocked).toMatch(/opens 90 days/);
+      const ends = new Date(Math.floor((Date.now() + 60 * DAY) / 1000) * 1000);
+      await m.db.db.update(m.schema.certificates).set({ expiresAt: ends }).where(m.orm.eq(m.schema.certificates.code, code));
+      const soon = new Date();
+      // Reminders: 90 days out once, then nothing new until 30 days.
+      expect((await R.runExpiryReminders(soon)).sent).toBeGreaterThanOrEqual(1);
+      const again = await R.runExpiryReminders(soon);
+      const [c1] = await m.db.db.select().from(m.schema.certificates).where(m.orm.eq(m.schema.certificates.code, code));
+      expect(c1.remindedDays).toBe(90);
+      expect(again.sent).toBe(0);
+      await expect(R.startRecert(u.id, "F", soon)).rejects.toThrow(/Buy the recertification/);
+      const { paymentId } = await m.billing.startCheckout(u, "recert-F");
+      await deliver(paymentId, "paid");
+      // A wrong paper fails and uses the credit.
+      const a1 = await R.startRecert(u.id, "F", soon);
+      expect((await R.submitRecert(u, a1, [], soon)).passed).toBe(false);
+      expect((await R.recertStatuses(u.id, soon))[0].credits).toBe(0);
+      const p2 = await m.billing.startCheckout(u, "recert-F");
+      await deliver(p2.paymentId, "paid");
+      const a2 = await R.startRecert(u.id, "F", soon);
+      const [row] = await m.db.db.select().from(m.schema.recertAttempts).where(m.orm.eq(m.schema.recertAttempts.id, a2));
+      const right = (row.paper as { ref: string; order: number[] }[]).map((p) => p.order.indexOf(m.bank.bankQuestion(p.ref)!.answer));
+      const r = await R.submitRecert(u, a2, right, soon);
+      expect(r.passed).toBe(true);
+      expect(r.expiresAt!.getUTCFullYear()).toBe(ends.getUTCFullYear() + 3);
+      const [after] = await m.db.db.select().from(m.schema.certificates).where(m.orm.eq(m.schema.certificates.code, code));
+      expect(after.remindedDays).toBeNull();
+      expect((await R.recertStatuses(u.id, soon))[0].open).toBe(false);
     });
 
     it("employers give practical day seats, and a cancelled day returns the credit", async () => {

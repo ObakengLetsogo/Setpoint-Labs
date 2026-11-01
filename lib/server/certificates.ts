@@ -5,7 +5,13 @@ import { and, eq, isNull } from "drizzle-orm";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import { assessmentRuns, certificates, memberships, organisations, users } from "@/db/schema";
 import { CURRICULUM } from "@/data/curriculum";
-import { ENDORSE_BRANDS } from "@/config/plans";
+import { CERT_YEARS, ENDORSE_BRANDS } from "@/config/plans";
+
+export const addYears = (d: Date, n: number) => {
+  const x = new Date(d);
+  x.setUTCFullYear(x.getUTCFullYear() + n);
+  return x;
+};
 import { SITE_URL } from "@/lib/config";
 import { levelOfTrack } from "@/data/access";
 import { hasLevel } from "./access";
@@ -35,7 +41,9 @@ export async function issueCertificate(user: { id: string; email: string; name: 
   for (let attempt = 0; attempt < 5; attempt++) {
     const code = certificateCode();
     try {
-      await db.insert(certificates).values({ id: newId(), code, userId: user.id, trackId, nameOnCertificate: user.name, organisationId });
+      // Level certificates of competence last CERT_YEARS; endorsements and track certificates do not expire.
+      const expiresAt = /^level-[FPE]$/.test(trackId) ? addYears(new Date(), CERT_YEARS) : null;
+      await db.insert(certificates).values({ id: newId(), code, userId: user.id, trackId, nameOnCertificate: user.name, organisationId, expiresAt });
       await audit(user.id, "certificate.issued", code, { trackId });
       await mails.certificate(user.email, trackName(trackId), code);
       return code;
@@ -142,7 +150,7 @@ export async function certificatePdf(cert: NonNullable<Awaited<ReturnType<typeof
   if (cert.issuer) centre(`through ${cert.issuer}`, height - 368, sans, 12, muted);
 
   const issued = cert.issuedAt.toISOString().slice(0, 10);
-  page.drawText(`Issued ${issued}`, { x: 70, y: 90, size: 11, font: sans, color: ink });
+  page.drawText(`Issued ${issued}${cert.renewedAt ? `, renewed ${cert.renewedAt.toISOString().slice(0, 10)}` : ""}${cert.expiresAt ? `, valid until ${cert.expiresAt.toISOString().slice(0, 10)}` : ""}`, { x: 70, y: 90, size: 11, font: sans, color: ink });
   page.drawText(`Certificate ${cert.code}`, { x: 70, y: 72, size: 11, font: bold, color: ink });
   const verify = `Verify at ${SITE_URL.replace(/^https?:\/\//, "")}/verify/${cert.code}`;
   page.drawText(verify, { x: width - 70 - sans.widthOfTextAtSize(verify, 11), y: 72, size: 11, font: sans, color: muted });

@@ -406,6 +406,23 @@ export const practicalBookings = mysqlTable(
   (t) => [index("practical_bookings_day").on(t.dayId), index("practical_bookings_user").on(t.userId)],
 );
 
+export const recertAttempts = mysqlTable(
+  "recert_attempts",
+  {
+    id: id(),
+    userId: ref("user_id").notNull(),
+    level: char("level", { length: 1 }).notNull(),
+    paper: json("paper").notNull(),
+    answers: json("answers"),
+    startedAt: datetime("started_at").notNull(),
+    deadlineAt: datetime("deadline_at").notNull(),
+    submittedAt: at("submitted_at"),
+    pct: int("pct"),
+    passed: boolean("passed"),
+  },
+  (t) => [index("recert_attempts_user").on(t.userId, t.level)],
+);
+
 export const certificates = mysqlTable(
   "certificates",
   {
@@ -417,6 +434,11 @@ export const certificates = mysqlTable(
     organisationId: ref("organisation_id"),
     issuedAt: datetime("issued_at").notNull().default(sql`CURRENT_TIMESTAMP`),
     revokedAt: at("revoked_at"),
+    /** Level certificates last 3 years; a recertification exam moves this on. Empty never expires. */
+    expiresAt: at("expires_at"),
+    renewedAt: at("renewed_at"),
+    /** The last expiry reminder sent: days before expiry (90, 30) or 0 once expired. */
+    remindedDays: int("reminded_days"),
   },
   (t) => [uniqueIndex("certificates_code").on(t.code), uniqueIndex("certificates_user_track").on(t.userId, t.trackId)],
 );

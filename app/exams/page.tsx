@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { Suspense } from "react";
-import { beginEndorsement, beginExam, bookExam, cancelBooking, openAtCentre } from "@/app/actions/exams";
-import { ENDORSE_BRANDS, ENDORSEMENT_CENTS, EXAM_PRICES, LEVEL_NAMES, LEVELS, RESIT_CENTS, rand } from "@/config/plans";
+import { beginRecert, beginEndorsement, beginExam, bookExam, cancelBooking, openAtCentre } from "@/app/actions/exams";
+import { RECERT_CENTS, ENDORSE_BRANDS, ENDORSEMENT_CENTS, EXAM_PRICES, LEVEL_NAMES, LEVELS, RESIT_CENTS, rand } from "@/config/plans";
 import { ENDORSE_SPEC } from "@/data/exam-bank/endorsements";
 import { endorsementStatus } from "@/lib/server/endorsements";
+import { RECERT_SPEC, recertStatuses } from "@/lib/server/recert";
 import { requireUser } from "@/lib/server/auth";
 import { CENTRE_LEVELS, EXAM_SPEC, NO_SHOW_MS, PASS_PCT, examStatus } from "@/lib/server/exams";
 import { activeCentres, bookingsFor, sessionsAt } from "@/lib/server/centres";
@@ -16,19 +17,20 @@ const PRACTICAL = { F: "Fundamentals and Installation", P: "Machines, Process, P
 
 async function load(userId: string) {
   const now = new Date();
-  const [all, centres, bookings, endorse] = await Promise.all([
+  const [all, centres, bookings, endorse, recert] = await Promise.all([
     Promise.all(LEVELS.map((l) => examStatus(userId, l, now))),
     activeCentres(),
     bookingsFor(userId),
     Promise.all(ENDORSE_BRANDS.map((b) => endorsementStatus(userId, b.id, now))),
+    recertStatuses(userId, now),
   ]);
   const sessions = await Promise.all(centres.map(async (c) => ({ centre: c, slots: await sessionsAt(c.id, now) })));
-  return { all, centres, bookings, sessions, endorse, now: now.getTime() };
+  return { all, centres, bookings, sessions, endorse, recert, now: now.getTime() };
 }
 
 async function Exams({ error, booked: justBooked }: { error?: string; booked?: boolean }) {
   const user = await requireUser("/exams");
-  const { all, centres, bookings, sessions, endorse, now } = await load(user.id);
+  const { all, centres, bookings, sessions, endorse, recert, now } = await load(user.id);
   const when = (d: Date) => d.toLocaleString("en-ZA", { timeZone: "Africa/Johannesburg", weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
   return (
     <div className="flex flex-col gap-4">
@@ -140,6 +142,34 @@ async function Exams({ error, booked: justBooked }: { error?: string; booked?: b
           ))}
         </div>
       </section>
+      {recert.length > 0 && (
+        <section className="rounded-2xl border border-[#e4e6e9] bg-white p-6">
+          <h2 className="text-[17px] font-semibold text-ink">Recertification</h2>
+          <p className="mt-1 text-[13.5px] leading-[1.6] text-[#4b5058]">
+            Level certificates last 3 years. From 90 days before expiry you can renew with a short exam online: {RECERT_SPEC.questions} questions in {RECERT_SPEC.minutes} minutes, {PASS_PCT}% to pass, {rand(RECERT_CENTS)}. Passing keeps your certificate code and adds 3 years.
+          </p>
+          <div className="mt-4 grid gap-3 sm:grid-cols-3">
+            {recert.map((r) => (
+              <div key={r.level} className="flex flex-col gap-2 rounded-xl border border-[#eef0f2] p-4">
+                <p className="font-semibold text-ink">{r.name}</p>
+                <p className={`text-[12.5px] ${r.expired ? "text-[#9b2c2c]" : "text-muted-ink"}`}>
+                  {r.expired ? "Expired" : "Valid until"} {r.expiresAt.toISOString().slice(0, 10)} · {r.code}
+                  {r.lastPct != null ? ` · last ${r.lastPct}%` : ""}
+                </p>
+                {r.openAttempt && <Link href={`/exams/r/${r.openAttempt}`} className={accentButtonClass}>Continue</Link>}
+                {r.canStart && (
+                  <form action={beginRecert}>
+                    <input type="hidden" name="level" value={r.level} />
+                    <button type="submit" className={accentButtonClass}>Start now</button>
+                  </form>
+                )}
+                {r.open && !r.credits && !r.openAttempt && <BuyButton planId={`recert-${r.level}`} perSeat={false} minSeats={1} priceCents={RECERT_CENTS} organisation={false} label={`Buy, ${rand(RECERT_CENTS)}`} />}
+                {!r.open && <p className="text-[12.5px] text-muted-ink">{r.blocked}</p>}
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   );
 }

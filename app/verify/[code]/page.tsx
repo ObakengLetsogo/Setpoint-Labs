@@ -22,7 +22,10 @@ async function Result({ params }: { params: Promise<{ code: string }> }) {
       <div className="flex items-start gap-3">
         <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#e8f5ef] text-run"><IconCheck size={16} /></span>
         <div>
-          <p className="text-[14.5px] leading-[1.6] text-[#3d434a]">This certificate is genuine.</p>
+          <p className="text-[14.5px] leading-[1.6] text-[#3d434a]">
+            This certificate is genuine.
+            {cert.expiresAt && cert.expiresAt < new Date() && <span className="font-semibold text-[#9b2c2c]"> It expired on {cert.expiresAt.toISOString().slice(0, 10)} and has not been renewed.</span>}
+          </p>
           <dl className="mt-4 grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-[14px]">
             <dt className="text-muted-ink">Name</dt>
             <dd className="font-semibold text-ink">{cert.nameOnCertificate}</dd>
@@ -36,6 +39,18 @@ async function Result({ params }: { params: Promise<{ code: string }> }) {
             )}
             <dt className="text-muted-ink">Issued</dt>
             <dd className="text-ink">{cert.issuedAt.toISOString().slice(0, 10)}</dd>
+            {cert.renewedAt && (
+              <>
+                <dt className="text-muted-ink">Renewed</dt>
+                <dd className="text-ink">{cert.renewedAt.toISOString().slice(0, 10)}</dd>
+              </>
+            )}
+            {cert.expiresAt && (
+              <>
+                <dt className="text-muted-ink">Valid until</dt>
+                <dd className="text-ink">{cert.expiresAt.toISOString().slice(0, 10)}</dd>
+              </>
+            )}
             <dt className="text-muted-ink">Code</dt>
             <dd className="font-mono text-ink">{cert.code}</dd>
           </dl>

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { finishEndorsement, finishExam, reportIncident, type ExamResult } from "@/app/actions/exams";
+import { finishEndorsement, finishExam, finishRecert, reportIncident, type ExamResult } from "@/app/actions/exams";
 import { accentButtonClass, ghostButtonClass } from "./SiteShell";
 
 type Done = { theoryPct: number; practical: boolean; passed: boolean; late: boolean };
@@ -13,7 +13,7 @@ const mmss = (ms: number) => {
 };
 
 /** A timed exam paper. Answers are kept in this browser until submitted, so a refresh loses nothing. */
-export function ExamRunner({ attemptId, title, deadline, questions, done, expert, atCentre = false, endorsement = false }: { attemptId: string; title: string; deadline: string; questions: { q: string; options: string[] }[]; done: Done | null; expert: boolean; atCentre?: boolean; endorsement?: boolean }) {
+export function ExamRunner({ attemptId, title, deadline, questions, done, expert, atCentre = false, endorsement = false, recert = false }: { attemptId: string; title: string; deadline: string; questions: { q: string; options: string[] }[]; done: Done | null; expert: boolean; atCentre?: boolean; endorsement?: boolean; recert?: boolean }) {
   const key = `exam:${attemptId}`;
   const [answers, setAnswers] = useState<(number | null)[]>(() => {
     try {
@@ -64,7 +64,7 @@ export function ExamRunner({ attemptId, title, deadline, questions, done, expert
     if (sent.current) return;
     sent.current = true;
     setSending(true);
-    const r = await (endorsement ? finishEndorsement : finishExam)(attemptId, answers);
+    const r = await (recert ? finishRecert : endorsement ? finishEndorsement : finishExam)(attemptId, answers);
     setResult(r);
     setSending(false);
     if (!("error" in r)) {
@@ -72,7 +72,7 @@ export function ExamRunner({ attemptId, title, deadline, questions, done, expert
         localStorage.removeItem(key);
       } catch {}
     }
-  }, [attemptId, answers, key, endorsement]);
+  }, [attemptId, answers, key, endorsement, recert]);
 
   useEffect(() => {
     if (result) return;

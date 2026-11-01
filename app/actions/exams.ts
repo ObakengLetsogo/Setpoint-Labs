@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { LEVELS, type Level } from "@/config/plans";
+import { startRecert, submitRecert } from "@/lib/server/recert";
 import { requireUser } from "@/lib/server/auth";
 import { bookSitting, cancelSitting, openSitting } from "@/lib/server/centres";
 import { ExamError, logIncident, startExam, submitExam } from "@/lib/server/exams";
@@ -104,6 +105,33 @@ export async function finishEndorsement(attemptId: string, answers: (number | nu
   const user = await requireUser(`/exams/e/${attemptId}`);
   try {
     const r = await submitEndorsement(user, attemptId, answers.slice(0, 100).map((a) => (Number.isInteger(a) ? a : null)));
+    revalidatePath("/exams");
+    return { theoryPct: r.pct, practical: true, passed: r.passed, late: r.late };
+  } catch (e) {
+    if (e instanceof ExamError) return { error: e.message };
+    throw e;
+  }
+}
+
+export async function beginRecert(form: FormData) {
+  const level = String(form.get("level"));
+  const user = await requireUser("/exams");
+  if (!["F", "P", "E"].includes(level)) redirect("/exams");
+  if (limited(`recert:${user.id}`, 5, 60 * 60 * 1000)) redirect("/exams?error=busy");
+  let id: string;
+  try {
+    id = await startRecert(user.id, level as "F" | "P" | "E");
+  } catch (e) {
+    if (e instanceof ExamError) redirect(`/exams?error=${encodeURIComponent(e.message)}`);
+    throw e;
+  }
+  redirect(`/exams/r/${id}`);
+}
+
+export async function finishRecert(attemptId: string, answers: (number | null)[]): Promise<ExamResult> {
+  const user = await requireUser(`/exams/r/${attemptId}`);
+  try {
+    const r = await submitRecert(user, attemptId, answers.slice(0, 100).map((a) => (Number.isInteger(a) ? a : null)));
     revalidatePath("/exams");
     return { theoryPct: r.pct, practical: true, passed: r.passed, late: r.late };
   } catch (e) {

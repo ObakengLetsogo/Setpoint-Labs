@@ -51,6 +51,11 @@ export const ENDORSEMENTS_NEEDED: Record<Level, number> = { F: 0, P: 1, E: 2 };
 /** Level exams, resits and endorsements, the same price for individuals and employers. */
 export const EXAM_PRICES: Record<Level, number> = { F: 120000, P: 180000, E: 350000 };
 export const RESIT_CENTS = 50000;
+/** A recertification exam, every 3 years per level certificate. */
+export const RECERT_CENTS = 50000;
+/** Level certificates stay valid this long; the recertification exam opens this many days before. */
+export const CERT_YEARS = 3;
+export const RECERT_OPENS_DAYS = 90;
 
 export const PLANS: PlanConfig[] = [
   {
@@ -207,6 +212,7 @@ export const PLANS: PlanConfig[] = [
   ...(["F", "P", "E"] as Level[]).flatMap((l): PlanConfig[] => [
     { id: `exam-${l}`, name: `${LEVEL_NAMES[l]} exam`, audience: "learner", priceCents: EXAM_PRICES[l], periodMonths: 12, perSeat: false, minSeats: 1, levels: [], exams: [l], blurb: "", features: [], online: true, listed: false },
     { id: `resit-${l}`, name: `${LEVEL_NAMES[l]} exam resit`, audience: "learner", priceCents: RESIT_CENTS, periodMonths: 12, perSeat: false, minSeats: 1, levels: [], exams: [l], blurb: "", features: [], online: true, listed: false },
+    { id: `recert-${l}`, name: `${LEVEL_NAMES[l]} recertification`, audience: "learner", priceCents: RECERT_CENTS, periodMonths: 12, perSeat: false, minSeats: 1, levels: [], exams: [], blurb: "", features: [], online: true, listed: false },
     { id: `corp-exam-${l}`, name: `${LEVEL_NAMES[l]} exam vouchers`, audience: "employer", priceCents: EXAM_PRICES[l], periodMonths: VOUCHER_MONTHS_CONST, perSeat: true, minSeats: 1, levels: [], exams: [l], blurb: "Per learner, the same price as for individuals.", features: [], online: true, listed: false },
   ]),
   // Platform endorsements: each payment is one attempt at that brand's endorsement exam.
