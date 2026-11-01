@@ -25,6 +25,7 @@ describe.skipIf(!url)("billing and access", () => {
     recert: typeof import("./recert");
     rpl: typeof import("./rpl");
     consent: typeof import("./consent");
+    founding: typeof import("./founding");
     certs: typeof import("./certificates");
   };
 
@@ -59,6 +60,7 @@ describe.skipIf(!url)("billing and access", () => {
       recert: await import("./recert"),
       rpl: await import("./rpl"),
       consent: await import("./consent"),
+      founding: await import("./founding"),
       certs: await import("./certificates"),
     };
   });
@@ -529,6 +531,33 @@ describe.skipIf(!url)("billing and access", () => {
       expect((await C.purgeUnconsented(new Date(Date.now() + 31 * 86_400_000))).deleted).toBeGreaterThanOrEqual(1);
       expect(await m.db.db.select().from(m.schema.users).where(m.orm.eq(m.schema.users.id, kid3.id))).toHaveLength(0);
       expect(await m.db.db.select().from(m.schema.users).where(m.orm.eq(m.schema.users.id, kid.id))).toHaveLength(1);
+    });
+
+    it("founding member numbers go to the first 100 paying learners, once each, and stop at 100", async () => {
+      const num = async (id: string) => (await m.db.db.select({ n: m.schema.users.foundingNumber }).from(m.schema.users).where(m.orm.eq(m.schema.users.id, id)))[0].n;
+      const u = await makeUser();
+      const free = await makeUser();
+      await m.billing.grant({ userId: free.id, organisationId: null, planId: "level-f", seats: 1, source: "admin" });
+      expect(await num(free.id)).toBeNull();
+      const { paymentId } = await m.billing.startCheckout(u, "level-f");
+      await deliver(paymentId, "paid");
+      const n = await num(u.id);
+      expect(n).toBeGreaterThan(0);
+      // Buying again keeps the same number; exam credits alone do not earn one.
+      const again = await m.billing.startCheckout(u, "level-p");
+      await deliver(again.paymentId, "paid");
+      expect(await num(u.id)).toBe(n);
+      const examOnly = await makeUser();
+      const e = await m.billing.startCheckout(examOnly, "exam-F");
+      await deliver(e.paymentId, "paid");
+      expect(await num(examOnly.id)).toBeNull();
+      // Places run out at 100.
+      const last = await makeUser();
+      await m.db.db.update(m.schema.users).set({ foundingNumber: 100 }).where(m.orm.eq(m.schema.users.id, last.id));
+      const late = await makeUser();
+      expect(await m.founding.claimFounding(late.id)).toBeNull();
+      const [cert] = [await m.certs.issueCertificate({ ...u, name: "Founder" }, "level-F")];
+      expect((await m.certs.certificateByCode(cert))?.founding).toBe(n);
     });
 
     it("employers give practical day seats, and a cancelled day returns the credit", async () => {

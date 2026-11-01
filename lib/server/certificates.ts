@@ -108,14 +108,15 @@ export async function submitAssessment(user: { id: string; email: string; name: 
 
 export async function certificateByCode(code: string) {
   const rows = await db
-    .select({ c: certificates, org: organisations.certificateName, orgName: organisations.name })
+    .select({ c: certificates, org: organisations.certificateName, orgName: organisations.name, founding: users.foundingNumber })
     .from(certificates)
     .leftJoin(organisations, eq(organisations.id, certificates.organisationId))
+    .leftJoin(users, eq(users.id, certificates.userId))
     .where(eq(certificates.code, code.toUpperCase()))
     .limit(1);
   const r = rows[0];
   if (!r) return null;
-  return { ...r.c, issuer: r.org ?? r.orgName ?? null, track: trackName(r.c.trackId) };
+  return { ...r.c, issuer: r.org ?? r.orgName ?? null, track: trackName(r.c.trackId), founding: r.founding ?? null };
 }
 
 /** An A4 landscape certificate with the name, track, date, code and where to verify it. */
@@ -148,6 +149,14 @@ export async function certificatePdf(cert: NonNullable<Awaited<ReturnType<typeof
   centre(level ? "has passed the theory and practical exam for" : cert.trackId.startsWith("endorse-") ? "has passed the platform endorsement exam for the" : endorsement ? "holds the Professional certificate and has passed the practical assessment for the" : "has completed the practical assessment for", height - 300, sans, 13, muted);
   centre(cert.track, height - 340, bold, 24);
   if (cert.issuer) centre(`through ${cert.issuer}`, height - 368, sans, 12, muted);
+  if (cert.founding) {
+    // The founding member seal, bottom centre.
+    const cx = width / 2;
+    page.drawCircle({ x: cx, y: 118, size: 22, color: orange });
+    page.drawCircle({ x: cx, y: 118, size: 18, borderColor: rgb(1, 1, 1), borderWidth: 0.8, opacity: 0 });
+    page.drawSvgPath("M -11 -3.5 h 6 l 2.6 -8 l 5.2 13 l 3 -7.5 h 6.2", { x: cx, y: 118, borderColor: rgb(1, 1, 1), borderWidth: 2.2 });
+    centre(`FOUNDING MEMBER #${cert.founding}`, 84, bold, 8.5, orange);
+  }
 
   const issued = cert.issuedAt.toISOString().slice(0, 10);
   page.drawText(`Issued ${issued}${cert.renewedAt ? `, renewed ${cert.renewedAt.toISOString().slice(0, 10)}` : ""}${cert.expiresAt ? `, valid until ${cert.expiresAt.toISOString().slice(0, 10)}` : ""}`, { x: 70, y: 90, size: 11, font: sans, color: ink });

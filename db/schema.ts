@@ -31,9 +31,11 @@ export const users = mysqlTable(
     guardianTokenHash: char("guardian_token_hash", { length: 64 }),
     consentRequestedAt: at("consent_requested_at"),
     guardianConsentAt: at("guardian_consent_at"),
+    /** 1 to 100 for the first learners to get paid training: the founding member badge. */
+    foundingNumber: int("founding_number"),
     createdAt: created(),
   },
-  (t) => [uniqueIndex("users_email").on(t.email), uniqueIndex("users_google").on(t.googleId)],
+  (t) => [uniqueIndex("users_email").on(t.email), uniqueIndex("users_google").on(t.googleId), uniqueIndex("users_founding").on(t.foundingNumber)],
 );
 
 export const sessions = mysqlTable(

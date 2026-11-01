@@ -1,4 +1,5 @@
 import "server-only";
+import { claimFounding } from "./founding";
 import { and, desc, eq, gt, inArray, isNull, or } from "drizzle-orm";
 import { auditLog, entitlements, invoices, memberships, organisations, paymentEvents, payments, seats, subscriptions, users } from "@/db/schema";
 import { PRACTICAL_PLANS, examPlanIds, levelsOf, planById, priceFor, rand, trainingPlanIds, vatOf, VAT_NUMBER, type Level } from "@/config/plans";
@@ -86,6 +87,9 @@ export async function grant(opts: { userId: string | null; organisationId: strin
     if (opts.userId && levelsOf(opts.planId).length > 0) await assignSeat(opts.organisationId, opts.userId);
   }
 
+  // Paid training makes a learner one of the first 100 founding members, while places last.
+  if (training && opts.userId && !opts.organisationId && opts.source !== "admin") await claimFounding(opts.userId);
+
   if (!training) {
     await audit(opts.actorId ?? null, "entitlement.granted", id, { ...opts, startsAt, endsAt });
     return { id, startsAt, endsAt };
@@ -129,6 +133,7 @@ export async function assignSeat(organisationId: string, userId: string, exam?: 
     .limit(1);
   if (!free[0]) return false;
   await db.update(seats).set({ userId, assignedAt: new Date() }).where(eq(seats.id, free[0].id));
+  if (!exam) await claimFounding(userId);
   return true;
 }
 

@@ -1,8 +1,9 @@
 import { desc, eq } from "drizzle-orm";
 import Link from "next/link";
+import { FoundingBadge } from "@/components/site/FoundingBadge";
 import { Suspense } from "react";
 import { signOut } from "@/app/actions/auth";
-import { certificates, payments, progress } from "@/db/schema";
+import { certificates, payments, progress, users } from "@/db/schema";
 import { planById, rand, LEVEL_NAMES } from "@/config/plans";
 import { CURRICULUM } from "@/data/curriculum";
 import { accessFor } from "@/lib/server/access";
@@ -18,12 +19,14 @@ const STATUS_TONE: Record<string, string> = { paid: "text-[#1b6b4a]", pending: "
 
 async function Account() {
   const user = await requireUser("/account");
-  const [access, pays, certs, done] = await Promise.all([
+  const [access, pays, certs, done, me] = await Promise.all([
     accessFor(user.id),
     db.select().from(payments).where(eq(payments.userId, user.id)).orderBy(desc(payments.createdAt)).limit(20),
     db.select().from(certificates).where(eq(certificates.userId, user.id)),
     db.select({ lessonId: progress.lessonId }).from(progress).where(eq(progress.userId, user.id)),
+    db.select({ n: users.foundingNumber }).from(users).where(eq(users.id, user.id)).limit(1),
   ]);
+  const founding = me[0]?.n ?? null;
   const completed = done.length;
   const isStaff = ["teacher", "employer_admin", "institution_admin", "platform_admin"].includes(user.role);
 
@@ -33,6 +36,12 @@ async function Account() {
         <p className="font-mono text-[10.5px] uppercase tracking-[0.2em] text-[#d9591a]">Your account</p>
         <h1 className="mt-1 font-display text-[28px] font-bold text-ink">{user.name}</h1>
         <p className="mt-1 text-[13.5px] text-[#4b5058]">{user.email}</p>
+        {founding && (
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <FoundingBadge n={founding} />
+            <span className="max-w-[44ch] text-[12.5px] text-muted-ink">You are one of our first 100 learners. The badge shows on your certificates and their verify pages.</span>
+          </div>
+        )}
         {!user.verified && (
           <div className="mt-4 flex flex-col gap-2 rounded-xl border border-[#f2dfb5] bg-[#fdf8ec] p-4">
             <p className="text-[13.5px] text-[#6b4f12]">Confirm your email to buy a plan and earn certificates. Check your inbox for our link.</p>

@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { FoundingBadge } from "@/components/site/FoundingBadge";
 import { certificateByCode } from "@/lib/server/certificates";
 import { Card, SiteShell, Skeleton, ghostButtonClass } from "@/components/site/SiteShell";
 import { IconCheck, IconX } from "@/components/ui/icons";
@@ -49,6 +50,12 @@ async function Result({ params }: { params: Promise<{ code: string }> }) {
               <>
                 <dt className="text-muted-ink">Valid until</dt>
                 <dd className="text-ink">{cert.expiresAt.toISOString().slice(0, 10)}</dd>
+              </>
+            )}
+            {cert.founding && (
+              <>
+                <dt className="text-muted-ink">Member</dt>
+                <dd><FoundingBadge n={cert.founding} size="sm" /></dd>
               </>
             )}
             <dt className="text-muted-ink">Code</dt>
