@@ -84,4 +84,8 @@ export const mails = {
     sendMail(to, "Your Expert interview is booked", "Your interview is booked", [`Your 30 minute Expert interview is on ${when}, South African time.`, `Join here: ${link}. Have your project open and your ID ready.`], { label: "See your project", url: `${SITE_URL}/exams/project` }),
   projectDecided: (to: string, passed: boolean, feedback: string) =>
     sendMail(to, passed ? "Your Expert project is signed off" : "Your Expert project needs more work", passed ? "Signed off" : "Not yet", [passed ? "Your assessor has signed off your final project and interview." : "Your assessor did not sign off your project yet. You can resubmit within 30 days.", `Feedback: ${feedback}`], { label: "See your project", url: `${SITE_URL}/exams/project` }),
+  practicalBooked: (to: string, title: string, when: string, venue: string) =>
+    sendMail(to, `Booked: ${title}`, "Your practical day is booked", [`${title}, ${when}, at ${venue}. Lunch is included.`, "Bring closed shoes and your ID. You can cancel free until 7 days before the day."], { label: "See your bookings", url: `${SITE_URL}/practical` }),
+  practicalCancelled: (to: string, title: string, when: string) =>
+    sendMail(to, `Cancelled: ${title}`, "A practical day was cancelled", [`We had to cancel ${title} on ${when}. Your seat credit is back on your account so you can book another day.`, "We are sorry for the change of plan."], { label: "Book another day", url: `${SITE_URL}/practical` }),
 };

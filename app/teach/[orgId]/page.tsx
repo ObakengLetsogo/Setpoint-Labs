@@ -111,6 +111,13 @@ async function Dashboard({ params, searchParams }: { params: Promise<{ orgId: st
                         ))}
                       </form>
                     )}
+                    {admin && (
+                      <form action={manageSeat} className="mt-1">
+                        <input type="hidden" name="orgId" value={orgId} />
+                        <input type="hidden" name="userId" value={r.id} />
+                        <button type="submit" name="action" value="practical" title="Give a practical day seat, if one is free" className="rounded border border-[#dfe2e6] px-1.5 font-mono text-[10.5px] text-ink hover:border-ink/40">+day</button>
+                      </form>
+                    )}
                   </td>
                 </tr>
               ))}

@@ -376,6 +376,36 @@ export const expertProjects = mysqlTable(
   (t) => [index("expert_projects_user").on(t.userId)],
 );
 
+export const practicalDays = mysqlTable("practical_days", {
+  id: id(),
+  title: varchar("title", { length: 160 }).notNull(),
+  /** The online stage a learner must finish to attend; empty for an open day. */
+  stage: int("stage"),
+  startsAt: datetime("starts_at").notNull(),
+  venue: varchar("venue", { length: 200 }).notNull(),
+  capacity: int("capacity").notNull(),
+  notes: text("notes"),
+  cancelledAt: at("cancelled_at"),
+  createdAt: created(),
+});
+
+export const practicalBookings = mysqlTable(
+  "practical_bookings",
+  {
+    id: id(),
+    dayId: ref("day_id").notNull(),
+    userId: ref("user_id").notNull(),
+    status: mysqlEnum("status", ["booked", "cancelled", "attended", "absent"]).notNull().default("booked"),
+    /** The facilitator's practical sign-off on the day. */
+    signedOff: boolean("signed_off").notNull().default(false),
+    facilitatorId: ref("facilitator_id"),
+    note: text("note"),
+    bookedAt: datetime("booked_at").notNull(),
+    cancelledAt: at("cancelled_at"),
+  },
+  (t) => [index("practical_bookings_day").on(t.dayId), index("practical_bookings_user").on(t.userId)],
+);
+
 export const certificates = mysqlTable(
   "certificates",
   {

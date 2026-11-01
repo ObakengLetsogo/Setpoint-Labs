@@ -34,6 +34,8 @@ export interface PlanConfig {
 const ALL: Level[] = ["F", "P", "E"];
 const VOUCHER_MONTHS_CONST = 12;
 const ENDORSEMENT_CENTS_CONST = 75000;
+const PRACTICAL_CENTS_CONST = 150000;
+const PRACTICAL_CORP_CENTS_CONST = 250000;
 /** Brands with a platform endorsement exam. */
 export const ENDORSE_BRANDS = [
   { id: "siemens", name: "Siemens" },
@@ -209,6 +211,9 @@ export const PLANS: PlanConfig[] = [
   ]),
   // Platform endorsements: each payment is one attempt at that brand's endorsement exam.
   ...ENDORSE_BRANDS.map((b): PlanConfig => ({ id: `endorse-${b.id}`, name: `${b.name} platform endorsement`, audience: "learner", priceCents: ENDORSEMENT_CENTS_CONST, periodMonths: 12, perSeat: false, minSeats: 1, levels: [], exams: [], blurb: "", features: [], online: true, listed: false })),
+  // Practical days at the training venue: each payment is one seat on one day, lunch included.
+  { id: "practical-day", name: "Practical day", audience: "learner", priceCents: PRACTICAL_CENTS_CONST, periodMonths: 12, perSeat: false, minSeats: 1, levels: [], exams: [], blurb: "", features: [], online: true, listed: false },
+  { id: "corp-practical-day", name: "Practical day seats", audience: "employer", priceCents: PRACTICAL_CORP_CENTS_CONST, periodMonths: VOUCHER_MONTHS_CONST, perSeat: true, minSeats: 1, levels: [], exams: [], blurb: "Per learner per day, lunch included.", features: [], online: true, listed: false },
   // Retired plans, kept so earlier payments and entitlements still resolve.
   { id: "learner-year", name: "Learner, yearly (retired)", audience: "learner", priceCents: 149000, periodMonths: 12, perSeat: false, minSeats: 1, levels: ALL, exams: [], blurb: "", features: [], online: false, listed: false },
   { id: "employer-seat-year", name: "Employer seats (retired)", audience: "employer", priceCents: 90000, periodMonths: 12, perSeat: true, minSeats: 10, levels: ALL, exams: [], blurb: "", features: [], online: false, listed: false },
@@ -217,6 +222,10 @@ export const PLANS: PlanConfig[] = [
 ];
 
 export const ENDORSEMENT_CENTS = ENDORSEMENT_CENTS_CONST;
+export const PRACTICAL_CENTS = PRACTICAL_CENTS_CONST;
+export const PRACTICAL_CORP_CENTS = PRACTICAL_CORP_CENTS_CONST;
+/** Plans whose payments or seats are practical day credits. */
+export const PRACTICAL_PLANS = ["practical-day", "corp-practical-day"];
 /** A failed exam can be resat once for free, 14 days after the attempt. */
 export const FREE_RESIT_AFTER_DAYS = 14;
 /** Corporate and college vouchers stay valid this long. */

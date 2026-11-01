@@ -21,6 +21,7 @@ describe.skipIf(!url)("billing and access", () => {
     endorse: typeof import("./endorsements");
     eBank: typeof import("@/data/exam-bank/endorsements");
     projects: typeof import("./projects");
+    practical: typeof import("./practical");
   };
 
   beforeAll(async () => {
@@ -50,6 +51,7 @@ describe.skipIf(!url)("billing and access", () => {
       endorse: await import("./endorsements"),
       eBank: await import("@/data/exam-bank/endorsements"),
       projects: await import("./projects"),
+      practical: await import("./practical"),
     };
   });
 
@@ -387,6 +389,50 @@ describe.skipIf(!url)("billing and access", () => {
       await expect(m.centres.cancelSitting(u.id, b, new Date(late.at.getTime() - 86_400_000))).rejects.toThrow(/48 hours/);
       const after = new Date(late.at.getTime() + 3 * 3_600_000);
       expect((await m.exams.examStatus(u.id, "F", after)).credits).toBe(0);
+    });
+
+    it("practical days need the stage finished and a seat; cancelling returns it until 7 days before", async () => {
+      const P = m.practical;
+      const u = await makeUser();
+      const admin = await makeUser();
+      const DAY = 86_400_000;
+      const day = await P.createDay(admin.id, { title: "Day 1: Motor starters", stage: 1, startsAt: new Date(Date.now() + 30 * DAY), venue: "27 Boxes, Melville", capacity: 1 });
+      const open = await P.createDay(admin.id, { title: "Open day", stage: null, startsAt: new Date(Date.now() + 3 * DAY), venue: "27 Boxes, Melville", capacity: 10 });
+      await expect(P.bookDay(u, day)).rejects.toThrow(/Finish the Stage 1/);
+      await expect(P.bookDay(u, open)).rejects.toThrow(/Buy a practical day seat/);
+      for (const lessonId of P.stageLessons(1)) await m.db.db.insert(m.schema.progress).values({ userId: u.id, lessonId, status: "completed" });
+      const { paymentId } = await m.billing.startCheckout(u, "practical-day");
+      await deliver(paymentId, "paid");
+      expect(await P.practicalCredits(u.id)).toBe(1);
+      const b = await P.bookDay(u, day);
+      expect(await P.practicalCredits(u.id)).toBe(0);
+      // The day is now full for anyone else.
+      const other = await makeUser();
+      expect((await P.practicalFor(other.id)).days.find((d) => d.id === day)?.blocked).toBe("Full.");
+      await expect(P.cancelBooking(u.id, b, new Date(Date.now() + 25 * DAY))).rejects.toThrow(/7 days/);
+      await P.cancelBooking(u.id, b);
+      expect(await P.practicalCredits(u.id)).toBe(1);
+      // Rebook, then the facilitator marks it on the day.
+      const b2 = await P.bookDay(u, day);
+      await expect(P.markAttendance(admin.id, b2, true, true, "")).rejects.toThrow(/on the day/);
+      await P.markAttendance(admin.id, b2, true, true, "Wired DOL starter unaided", new Date(Date.now() + 30 * DAY));
+      expect((await P.practicalSignOffs(u.id)).map((r) => r.stage)).toEqual([1]);
+    });
+
+    it("employers give practical day seats, and a cancelled day returns the credit", async () => {
+      const P = m.practical;
+      const boss = await makeUser();
+      const { paymentId } = await m.billing.startCheckout(boss, "corp-practical-day", 2, "Practical Co");
+      await deliver(paymentId, "paid");
+      const [mem] = await m.db.db.select().from(m.schema.memberships).where(m.orm.eq(m.schema.memberships.userId, boss.id));
+      const staff = await makeUser();
+      expect(await m.billing.assignSeat(mem.organisationId, staff.id, "practical")).toBe(true);
+      expect(await P.practicalCredits(staff.id)).toBe(1);
+      const day = await P.createDay(boss.id, { title: "Open day", stage: null, startsAt: new Date(Date.now() + 10 * 86_400_000), venue: "27 Boxes", capacity: 12 });
+      await P.bookDay(staff, day);
+      expect(await P.practicalCredits(staff.id)).toBe(0);
+      await P.cancelDay(boss.id, day);
+      expect(await P.practicalCredits(staff.id)).toBe(1);
     });
   });
 

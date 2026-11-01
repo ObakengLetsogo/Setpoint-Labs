@@ -1,7 +1,7 @@
 import "server-only";
 import { and, desc, eq, gt, inArray, isNull, or } from "drizzle-orm";
 import { auditLog, entitlements, invoices, memberships, organisations, paymentEvents, payments, seats, subscriptions, users } from "@/db/schema";
-import { examPlanIds, levelsOf, planById, priceFor, rand, trainingPlanIds, vatOf, VAT_NUMBER, type Level } from "@/config/plans";
+import { PRACTICAL_PLANS, examPlanIds, levelsOf, planById, priceFor, rand, trainingPlanIds, vatOf, VAT_NUMBER, type Level } from "@/config/plans";
 import { SITE_URL } from "@/lib/config";
 import { db } from "./db";
 import { mails } from "./email";
@@ -104,14 +104,14 @@ export async function grant(opts: { userId: string | null; organisationId: strin
 }
 
 /** The seat plans of a kind: training seats, or exam vouchers for one level. */
-const seatPlans = (exam?: Level) => (exam ? examPlanIds(exam) : trainingPlanIds());
+const seatPlans = (exam?: Level | "practical") => (exam === "practical" ? PRACTICAL_PLANS : exam ? examPlanIds(exam) : trainingPlanIds());
 
 /**
  * Puts a user on a free seat of the organisation's newest active entitlement: a training seat, or
  * with exam set, an exam voucher for that level. A learner holds one training seat, and one exam
  * voucher per level at a time.
  */
-export async function assignSeat(organisationId: string, userId: string, exam?: Level) {
+export async function assignSeat(organisationId: string, userId: string, exam?: Level | "practical") {
   const plans = seatPlans(exam);
   const taken = await db
     .select({ id: seats.id })

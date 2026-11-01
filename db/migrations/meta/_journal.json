@@ -43,6 +43,13 @@
       "when": 1793500533519,
       "tag": "0005_expert_projects",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "5",
+      "when": 1793503450706,
+      "tag": "0006_practical_days",
+      "breakpoints": true
     }
   ]
 }

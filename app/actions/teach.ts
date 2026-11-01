@@ -124,5 +124,6 @@ export async function manageSeat(form: FormData) {
   if (action === "voucher" && level && !(await examStatus(userId, level)).credits && !(await examStatus(userId, level)).passed) {
     if (await assignSeat(orgId, userId, level)) await audit(user.id, "voucher.given", orgId, { userId, level });
   }
+  if (action === "practical" && (await assignSeat(orgId, userId, "practical"))) await audit(user.id, "practical.given", orgId, { userId });
   revalidatePath(`/teach/${orgId}`);
 }
