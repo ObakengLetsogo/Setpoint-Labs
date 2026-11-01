@@ -77,8 +77,10 @@ export async function recordFrames({ base, lessonId, size, fps, totalSeconds, ac
     });
 
     const total = Math.ceil(totalSeconds * fps);
+    const toCapture = only ? only.size : total;
     let next = 0;
     let elapsedMs = 0;
+    let captured = 0;
     const t0 = Date.now();
     for (let f = 0; f < total; f++) {
       const due = [];
@@ -100,7 +102,8 @@ export async function recordFrames({ base, lessonId, size, fps, totalSeconds, ac
       if (only && !only.has(f)) continue;
       const shot = await cdp.send("Page.captureScreenshot", { format: "jpeg", quality: 92 });
       await writeFile(path.join(dir, `${String(f).padStart(6, "0")}.jpg`), Buffer.from(shot.data, "base64"));
-      if (onProgress && (f % fps === 0 || f === total - 1)) onProgress(f + 1, total, (Date.now() - t0) / (f + 1));
+      captured++;
+      if (onProgress && (captured % fps === 0 || captured === toCapture)) onProgress(captured, toCapture, (Date.now() - t0) / captured);
     }
     return { dir, frames: total };
   } finally {
@@ -137,7 +140,7 @@ export async function recordFramesParallel({ workers = 1, totalSeconds, fps, dir
         only,
         onProgress: (n, t, msPer) => {
           progress[w] = n;
-          if (onProgress) onProgress(progress.reduce((a, b) => a + b, 0), total, msPer);
+          if (onProgress) onProgress(progress.reduce((a, b) => a + b, 0), frames.length, msPer);
         },
       }),
     );
