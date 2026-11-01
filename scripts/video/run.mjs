@@ -4,15 +4,17 @@
  *   npm run video -- <lessonId> [--format landscape|portrait|both] [--voice azure:en-ZA-LukeNeural] [--build]
  *   npm run video -- <lessonId> --preview 5,20,40   stills at those lesson seconds in .video-cache/work/<id>/<format>/preview
  *   npm run video -- <lessonId> --resume            continue a capture that was interrupted, reusing already rendered frames
+ *   npm run video -- <lessonId> --workers 4          split the capture across N concurrent browser instances (default: CPU count)
  * Writes videos/<lessonId>.mp4 and .srt (landscape) and videos/<lessonId>.portrait.mp4 and .srt (portrait).
  */
 import { existsSync } from "node:fs";
 import { copyFile, mkdir, readFile, readdir, writeFile } from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import { parseArgs } from "node:util";
 import { assemble, buildMusic, buildVoiceTrack } from "./lib/assemble.mjs";
-import { buildCues, toAss, toSrt } from "./lib/captions.mjs";
-import { captureCards, recordFrames, scheduleActions } from "./lib/record.mjs";
+import { buildCues, toSrt, toVtt } from "./lib/captions.mjs";
+import { captureCards, recordFrames, recordFramesParallel, scheduleActions } from "./lib/record.mjs";
 import { ensureServer } from "./lib/server.mjs";
 import { narrate, voiceChain } from "./lib/tts/index.mjs";
 import { CACHE, ROOT, VIDEO_DIR, duration, log } from "./lib/util.mjs";
@@ -26,8 +28,10 @@ const { values, positionals } = parseArgs({
     "audio-only": { type: "boolean", default: false },
     preview: { type: "string" },
     resume: { type: "boolean", default: false },
+    workers: { type: "string" },
   },
 });
+const workerCount = Math.max(1, Number.parseInt(values.workers ?? "", 10) || os.cpus().length);
 
 const lessonId = positionals[0];
 if (!lessonId) {
@@ -93,10 +97,9 @@ try {
       timeline.map((s) => ({ ...s, start: introSeconds + s.start + s.leadIn })),
       format,
     );
-    const ass = path.join(fdir, "captions.ass");
-    await writeFile(ass, toAss(cues, size, format));
     const base = format === "landscape" ? lessonId : `${lessonId}.${format}`;
     await writeFile(path.join(outDir, `${base}.srt`), toSrt(cues));
+    await writeFile(path.join(outDir, `${base}.vtt`), toVtt(cues));
 
     if (values.preview) {
       const seconds = values.preview.split(",").map(Number);
@@ -118,8 +121,8 @@ try {
       while (resumeFrom < total && have.has(`${String(resumeFrom).padStart(6, "0")}.jpg`)) resumeFrom++;
     }
     const only = values.resume && resumeFrom > 0 ? new Set(Array.from({ length: total - resumeFrom }, (_, i) => resumeFrom + i)) : undefined;
-    log(`${format}: recording ${total} frames at ${size.width}x${size.height}${resumeFrom ? ` (resuming from ${resumeFrom})` : ""}`);
-    const { dir } = await recordFrames({
+    log(`${format}: recording ${total} frames at ${size.width}x${size.height} across ${workerCount} worker(s)${resumeFrom ? ` (resuming from ${resumeFrom})` : ""}`);
+    const { dir } = await recordFramesParallel({
       base: server.url,
       lessonId,
       size,
@@ -129,7 +132,8 @@ try {
       dir: framesDir,
       resume: values.resume,
       only,
-      onProgress: (n, total, msPer) => log(`${format}: frame ${n}/${total}, about ${Math.round(((total - n) * msPer) / 60000)} min left`),
+      workers: workerCount,
+      onProgress: (n, total, msPer) => log(`${format}: frame ${n}/${total}, about ${Math.round(((total - n) * msPer) / workerCount / 60000)} min left`),
     });
     const out = path.join(outDir, `${base}.mp4`);
     log(`${format}: encoding ${path.relative(ROOT, out)}`);
@@ -144,7 +148,6 @@ try {
       mainSeconds: Math.ceil(mainSeconds * fps) / fps,
       voice: voiceWav,
       music: musicWav,
-      ass,
       musicDb: config.musicVolumeDb,
       background: config.background,
       out,

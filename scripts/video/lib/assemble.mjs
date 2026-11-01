@@ -35,16 +35,17 @@ export async function buildMusic(totalSeconds, out) {
 }
 
 /**
- * One pass: intro still, recorded frames, outro still, burned captions, voice over ducked music.
+ * One pass: intro still, recorded frames, outro still, voice over ducked music. Captions are never
+ * burned in - they ship as a separate WebVTT file so the player's caption toggle controls them.
  * H.264 CRF 20 veryfast, AAC 192k.
  */
-export async function assemble({ work, framesDir, fps, intro, outro, introSeconds, outroSeconds, mainSeconds, voice, music, ass, musicDb, background, out }) {
+export async function assemble({ work, framesDir, fps, intro, outro, introSeconds, outroSeconds, mainSeconds, voice, music, musicDb, background, out }) {
   const bg = `0x${background.replace("#", "")}`;
   const filter = [
     `[0]format=yuv420p,fade=t=in:st=0:d=0.6:color=${bg},fade=t=out:st=${introSeconds - 0.45}:d=0.45:color=${bg}[v0]`,
     `[1]format=yuv420p,fade=t=in:st=0:d=0.4:color=${bg},fade=t=out:st=${(mainSeconds - 0.45).toFixed(3)}:d=0.45:color=${bg}[v1]`,
     `[2]format=yuv420p,fade=t=in:st=0:d=0.45:color=${bg},fade=t=out:st=${outroSeconds - 0.8}:d=0.8:color=${bg}[v2]`,
-    `[v0][v1][v2]concat=n=3:v=1:a=0,ass=${path.basename(ass)}[v]`,
+    `[v0][v1][v2]concat=n=3:v=1:a=0[v]`,
     `[3]loudnorm=I=-16:TP=-1.5:LRA=11,aresample=48000,aformat=channel_layouts=stereo,asplit=2[vo][sc]`,
     `[4]volume=${musicDb}dB[m]`,
     `[m][sc]sidechaincompress=threshold=0.015:ratio=12:attack=20:release=450[duck]`,

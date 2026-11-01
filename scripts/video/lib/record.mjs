@@ -107,3 +107,41 @@ export async function recordFrames({ base, lessonId, size, fps, totalSeconds, ac
     await b.close();
   }
 }
+
+/**
+ * Same capture, split across N concurrent browser instances so the sandbox's CPU cores are all used.
+ * Each worker replays the full action timeline (cheap: no render or screenshot outside its own frame
+ * range, the same skip path `only` already takes) and captures only its slice, into the same frames dir.
+ * Correct because every worker drives the same deterministic fake clock and actions; it only owns writing
+ * a disjoint range of frame files.
+ */
+export async function recordFramesParallel({ workers = 1, totalSeconds, fps, dir, onProgress, only: wanted, resume, ...rest }) {
+  if (!resume) await rm(dir, { recursive: true, force: true });
+  await mkdir(dir, { recursive: true });
+  const total = Math.ceil(totalSeconds * fps);
+  const frames = wanted ? [...wanted].sort((a, b) => a - b) : Array.from({ length: total }, (_, i) => i);
+  const chunk = Math.ceil(frames.length / workers);
+  const progress = new Array(workers).fill(0);
+  const jobs = [];
+  for (let w = 0; w < workers; w++) {
+    const slice = frames.slice(w * chunk, (w + 1) * chunk);
+    if (slice.length === 0) continue;
+    const only = new Set(slice);
+    jobs.push(
+      recordFrames({
+        ...rest,
+        totalSeconds,
+        fps,
+        dir,
+        resume: true,
+        only,
+        onProgress: (n, t, msPer) => {
+          progress[w] = n;
+          if (onProgress) onProgress(progress.reduce((a, b) => a + b, 0), total, msPer);
+        },
+      }),
+    );
+  }
+  await Promise.all(jobs);
+  return { dir, frames: total };
+}

@@ -84,32 +84,16 @@ export function toSrt(cues) {
   return cues.map((c, i) => `${i + 1}\n${srtTime(c.start)} --> ${srtTime(c.end)}\n${c.lines.join("\n")}\n`).join("\n");
 }
 
-const assTime = (t) => {
-  const cs = Math.round(t * 100);
-  return `${Math.floor(cs / 360000)}:${String(Math.floor(cs / 6000) % 60).padStart(2, "0")}:${String(Math.floor(cs / 100) % 60).padStart(2, "0")}.${String(cs % 100).padStart(2, "0")}`;
+const vttTime = (t) => {
+  const ms = Math.round(t * 1000);
+  const h = String(Math.floor(ms / 3600000)).padStart(2, "0");
+  const m = String(Math.floor(ms / 60000) % 60).padStart(2, "0");
+  const s = String(Math.floor(ms / 1000) % 60).padStart(2, "0");
+  return `${h}:${m}:${s}.${String(ms % 1000).padStart(3, "0")}`;
 };
 
-/** Styled for burning in: Inter on a navy box, lifted clear of the bottom edge. */
-export function toAss(cues, { width, height }, format) {
-  const portrait = format === "portrait";
-  const size = portrait ? 58 : 46;
-  const marginV = portrait ? 150 : 46;
-  // ASS colours are &HAABBGGRR. Box is ink #1B2430 at about 10% transparency.
-  const style = `Style: Cap,Inter SemiBold,${size},&H00FFFFFF,&H00FFFFFF,&H1A30241B,&H1A30241B,0,0,0,0,100,100,0.2,0,3,${portrait ? 20 : 16},0,2,80,80,${marginV},1`;
-  const events = cues.map((c) => `Dialogue: 0,${assTime(c.start)},${assTime(c.end)},Cap,,0,0,0,,${c.lines.join("\\N")}`);
-  return `[Script Info]
-ScriptType: v4.00+
-PlayResX: ${width}
-PlayResY: ${height}
-WrapStyle: 2
-ScaledBorderAndShadow: yes
-
-[V4+ Styles]
-Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-${style}
-
-[Events]
-Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
-${events.join("\n")}
-`;
+/** WebVTT for the player's native <track> element, so captions are a viewer toggle, never burned into the pixels. */
+export function toVtt(cues) {
+  return `WEBVTT\n\n${cues.map((c) => `${vttTime(c.start)} --> ${vttTime(c.end)}\n${c.lines.join("\n")}\n`).join("\n")}`;
 }
+
