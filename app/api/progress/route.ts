@@ -7,7 +7,9 @@ import { markProgress, progressOf, recordQuiz } from "@/lib/server/progress";
 const NO_STORE = { "Cache-Control": "private, no-store" };
 
 export async function GET() {
-  const user = await currentUser();
+  const signedIn = await currentUser();
+  // An account waiting for guardian consent stores nothing yet.
+  const user = signedIn?.needsConsent ? null : signedIn;
   if (!user) return Response.json({ error: "unauthorised" }, { status: 401 });
   return Response.json(await progressOf(user.id), { headers: NO_STORE });
 }
@@ -19,7 +21,9 @@ const Body = z.object({
 });
 
 export async function POST(req: Request) {
-  const user = await currentUser();
+  const signedIn = await currentUser();
+  // An account waiting for guardian consent stores nothing yet.
+  const user = signedIn?.needsConsent ? null : signedIn;
   if (!user) return Response.json({ error: "unauthorised" }, { status: 401 });
   const parsed = Body.safeParse(await req.json().catch(() => null));
   if (!parsed.success || !metaOf(parsed.data.lessonId)) return Response.json({ error: "bad request" }, { status: 400 });

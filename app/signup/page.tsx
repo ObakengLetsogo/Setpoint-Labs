@@ -17,6 +17,9 @@ async function Form({ searchParams }: { searchParams: Promise<{ next?: string }>
         { name: "name", label: "Your name", autoComplete: "name", hint: "As it should appear on your certificates." },
         { name: "email", label: "Email", type: "email", autoComplete: "email" },
         { name: "password", label: "Password", type: "password", autoComplete: "new-password", hint: "At least 10 characters." },
+        { name: "birthDate", label: "Date of birth", type: "date", autoComplete: "bday" },
+        { name: "guardianName", label: "Parent or guardian's name (under 18 only)", autoComplete: "off", optional: true },
+        { name: "guardianEmail", label: "Parent or guardian's email (under 18 only)", type: "email", autoComplete: "off", optional: true, hint: "If you are under 18 we email them to agree before your account opens, as the law (POPIA) requires." },
       ]}
     />
   );

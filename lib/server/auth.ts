@@ -21,6 +21,8 @@ export interface SessionUser {
   role: Role;
   verified: boolean;
   platform: string;
+  /** Under 18 and still waiting for a parent or guardian's consent: held on /consent. */
+  needsConsent: boolean;
 }
 
 export const hashPassword = (password: string) => hash(password);
@@ -55,18 +57,19 @@ export async function currentUser(): Promise<SessionUser | null> {
   const token = (await cookies()).get(SESSION_COOKIE)?.value;
   if (!token) return null;
   const rows = await db
-    .select({ id: users.id, email: users.email, name: users.name, role: users.role, verifiedAt: users.emailVerifiedAt, platform: users.platform })
+    .select({ id: users.id, email: users.email, name: users.name, role: users.role, verifiedAt: users.emailVerifiedAt, platform: users.platform, requested: users.consentRequestedAt, consent: users.guardianConsentAt })
     .from(sessions)
     .innerJoin(users, eq(users.id, sessions.userId))
     .where(and(eq(sessions.id, sha256(token)), gt(sessions.expiresAt, new Date())))
     .limit(1);
   const u = rows[0];
-  return u ? { id: u.id, email: u.email, name: u.name, role: u.role, verified: Boolean(u.verifiedAt), platform: u.platform } : null;
+  return u ? { id: u.id, email: u.email, name: u.name, role: u.role, verified: Boolean(u.verifiedAt), platform: u.platform, needsConsent: Boolean(u.requested && !u.consent) } : null;
 }
 
 export async function requireUser(next = "/account"): Promise<SessionUser> {
   const u = await currentUser();
   if (!u) redirect(`/login?next=${encodeURIComponent(next)}`);
+  if (u.needsConsent) redirect("/consent");
   return u;
 }
 
@@ -83,9 +86,9 @@ export async function findUserByEmail(email: string) {
   return rows[0] ?? null;
 }
 
-export async function createUser(input: { email: string; name: string; password: string }) {
+export async function createUser(input: { email: string; name: string; password: string; birthDate?: Date }) {
   const id = newId();
-  await db.insert(users).values({ id, email: normaliseEmail(input.email), name: input.name.trim(), passwordHash: await hashPassword(input.password) });
+  await db.insert(users).values({ id, email: normaliseEmail(input.email), name: input.name.trim(), passwordHash: await hashPassword(input.password), birthDate: input.birthDate ?? null });
   return id;
 }
 

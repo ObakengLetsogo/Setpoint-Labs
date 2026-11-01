@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import type { FormState } from "@/app/actions/auth";
 import { buttonClass } from "./SiteShell";
 
@@ -10,11 +10,15 @@ export interface FieldDef {
   type?: string;
   autoComplete?: string;
   hint?: string;
+  optional?: boolean;
 }
 
 /** A server action form with labelled fields, inline errors and a pending state. */
 export function AuthForm({ action, fields, submit, hidden = {} }: { action: (s: FormState, f: FormData) => Promise<FormState>; fields: FieldDef[]; submit: string; hidden?: Record<string, string> }) {
   const [state, run, pending] = useActionState(action, {});
+  // React resets a form after its action runs; typed values come back from here, so an error
+  // never makes someone type everything again.
+  const [values, setValues] = useState<Record<string, string>>({});
   return (
     <form action={run} className="flex flex-col gap-4">
       {Object.entries(hidden).map(([k, v]) => (
@@ -27,7 +31,9 @@ export function AuthForm({ action, fields, submit, hidden = {} }: { action: (s: 
             name={f.name}
             type={f.type ?? "text"}
             autoComplete={f.autoComplete}
-            required
+            required={!f.optional}
+            defaultValue={values[f.name] ?? ""}
+            onChange={(e) => setValues((v) => ({ ...v, [f.name]: e.target.value }))}
             className="rounded-xl border border-[#dfe2e6] bg-white px-3.5 py-2.5 text-[14.5px] text-ink outline-none transition focus:border-ink/40 focus:shadow-[0_0_0_3px_rgba(27,36,48,0.06)]"
           />
           {f.hint && <span className="text-[12px] text-muted-ink">{f.hint}</span>}

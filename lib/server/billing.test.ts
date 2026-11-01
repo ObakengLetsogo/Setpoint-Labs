@@ -24,6 +24,7 @@ describe.skipIf(!url)("billing and access", () => {
     practical: typeof import("./practical");
     recert: typeof import("./recert");
     rpl: typeof import("./rpl");
+    consent: typeof import("./consent");
     certs: typeof import("./certificates");
   };
 
@@ -57,6 +58,7 @@ describe.skipIf(!url)("billing and access", () => {
       practical: await import("./practical"),
       recert: await import("./recert"),
       rpl: await import("./rpl"),
+      consent: await import("./consent"),
       certs: await import("./certificates"),
     };
   });
@@ -489,6 +491,44 @@ describe.skipIf(!url)("billing and access", () => {
       await expect(R.decideRpl(id2, assessor.id, "approve", "Too high for this evidence", "E")).rejects.toThrow(/lower/);
       await R.decideRpl(id2, assessor.id, "decline", "Not enough PLC programming shown yet.");
       await expect(R.applyRpl(v, { ...form, level: "P" })).rejects.toThrow(/90 days/);
+    });
+
+    it("under 18: held until a guardian agrees; a refusal or 30 days of silence deletes the account", async () => {
+      const C = m.consent;
+      expect(C.ageOn(new Date("2010-06-15T00:00:00Z"), new Date("2028-06-14T00:00:00Z"))).toBe(17);
+      expect(C.ageOn(new Date("2010-06-15T00:00:00Z"), new Date("2028-06-15T00:00:00Z"))).toBe(18);
+      const tokenOf = async (id: string) => {
+        // The token is only in the email; capture it by re-issuing through a spy on the mailer.
+        const mail = await import("./email");
+        let token = "";
+        const orig = mail.mails.guardianConsent;
+        mail.mails.guardianConsent = async (_to, _g, _c, t) => void (token = t);
+        await C.requestConsent(id, "Parent", "parent@test.local");
+        mail.mails.guardianConsent = orig;
+        return token;
+      };
+      const kid = await makeUser();
+      const t1 = await tokenOf(kid.id);
+      expect(await C.consentRequestFor(t1)).toMatchObject({ guardianName: "Parent" });
+      expect(await C.giveConsent(t1)).toBe(true);
+      expect(await C.giveConsent(t1)).toBe(false);
+      const [k] = await m.db.db.select().from(m.schema.users).where(m.orm.eq(m.schema.users.id, kid.id));
+      expect(k.guardianConsentAt).not.toBeNull();
+
+      const kid2 = await makeUser();
+      const t2 = await tokenOf(kid2.id);
+      // Resending replaces the link: the old one no longer works.
+      const t3 = await tokenOf(kid2.id);
+      expect(await C.consentRequestFor(t2)).toBeNull();
+      expect(await C.refuseConsent(t3)).toBe(true);
+      expect(await m.db.db.select().from(m.schema.users).where(m.orm.eq(m.schema.users.id, kid2.id))).toHaveLength(0);
+
+      const kid3 = await makeUser();
+      await tokenOf(kid3.id);
+      expect((await C.purgeUnconsented(new Date(Date.now() + 29 * 86_400_000))).deleted).toBe(0);
+      expect((await C.purgeUnconsented(new Date(Date.now() + 31 * 86_400_000))).deleted).toBeGreaterThanOrEqual(1);
+      expect(await m.db.db.select().from(m.schema.users).where(m.orm.eq(m.schema.users.id, kid3.id))).toHaveLength(0);
+      expect(await m.db.db.select().from(m.schema.users).where(m.orm.eq(m.schema.users.id, kid.id))).toHaveLength(1);
     });
 
     it("employers give practical day seats, and a cancelled day returns the credit", async () => {

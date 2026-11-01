@@ -8,7 +8,9 @@ const Body = z.object({ slot: z.string().max(80), language: z.enum(["ladder", "s
 
 /** Saves the learner's program for a lesson or sandbox. Free accounts save free lessons and the motor starter sandbox. */
 export async function PUT(req: Request) {
-  const user = await currentUser();
+  const signedIn = await currentUser();
+  // An account waiting for guardian consent stores nothing yet.
+  const user = signedIn?.needsConsent ? null : signedIn;
   if (!user) return Response.json({ error: "unauthorised" }, { status: 401 });
   const parsed = Body.safeParse(await req.json().catch(() => null));
   if (!parsed.success || !validSlot(parsed.data.slot)) return Response.json({ error: "bad request" }, { status: 400 });

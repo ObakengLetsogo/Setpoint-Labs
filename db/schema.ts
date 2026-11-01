@@ -24,6 +24,13 @@ export const users = mysqlTable(
     emailVerifiedAt: at("email_verified_at"),
     role: mysqlEnum("role", ROLES).notNull().default("learner"),
     platform: varchar("platform", { length: 16 }).notNull().default("iec"),
+    /** Asked at sign up. Learners under 18 need a parent or guardian's consent (POPIA). */
+    birthDate: datetime("birth_date"),
+    guardianName: varchar("guardian_name", { length: 120 }),
+    guardianEmail: varchar("guardian_email", { length: 254 }),
+    guardianTokenHash: char("guardian_token_hash", { length: 64 }),
+    consentRequestedAt: at("consent_requested_at"),
+    guardianConsentAt: at("guardian_consent_at"),
     createdAt: created(),
   },
   (t) => [uniqueIndex("users_email").on(t.email), uniqueIndex("users_google").on(t.googleId)],

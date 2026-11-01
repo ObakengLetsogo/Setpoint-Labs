@@ -103,4 +103,18 @@ export const mails = {
       ],
       { label: status === "approved" ? "Go to exams" : "See your application", url: `${SITE_URL}/${status === "approved" ? "exams" : "rpl"}` },
     ),
+  guardianConsent: (to: string, guardian: string, child: string, token: string) =>
+    sendMail(
+      to,
+      `${child} would like to join Setpoint Labs`,
+      "Your consent is needed",
+      [
+        `Hello ${guardian}. ${child} has signed up for Setpoint Labs, an online course that teaches industrial PLC programming on simulated machines, and named you as their parent or guardian.`,
+        "Because they are under 18, South African law (POPIA) needs your consent before we keep their personal information: their name, email, date of birth, lesson progress, programs and any exam results. We use it only to run their training and never sell it.",
+        `Open the link to agree or to refuse. If you refuse, or nobody answers within 30 days, the account is deleted.`,
+      ],
+      { label: "Review and decide", url: `${SITE_URL}/guardian/${token}` },
+    ),
+  consentGiven: (to: string, name: string) =>
+    sendMail(to, "Your account is open", `Welcome, ${name}`, ["Your parent or guardian has agreed. Your account is open; pick up where you left off."], { label: "Open the labs", url: SITE_URL }),
 };
