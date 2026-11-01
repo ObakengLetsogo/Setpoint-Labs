@@ -3,10 +3,11 @@
  * Lesson video pipeline. Usage:
  *   npm run video -- <lessonId> [--format landscape|portrait|both] [--voice azure:en-ZA-LukeNeural] [--build]
  *   npm run video -- <lessonId> --preview 5,20,40   stills at those lesson seconds in .video-cache/work/<id>/<format>/preview
+ *   npm run video -- <lessonId> --resume            continue a capture that was interrupted, reusing already rendered frames
  * Writes videos/<lessonId>.mp4 and .srt (landscape) and videos/<lessonId>.portrait.mp4 and .srt (portrait).
  */
 import { existsSync } from "node:fs";
-import { copyFile, mkdir, readFile, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { parseArgs } from "node:util";
 import { assemble, buildMusic, buildVoiceTrack } from "./lib/assemble.mjs";
@@ -24,6 +25,7 @@ const { values, positionals } = parseArgs({
     build: { type: "boolean", default: false },
     "audio-only": { type: "boolean", default: false },
     preview: { type: "string" },
+    resume: { type: "boolean", default: false },
   },
 });
 
@@ -108,7 +110,15 @@ try {
 
     log(`${format}: capturing title cards`);
     const cards = await captureCards(server.url, lessonId, size, fdir);
-    log(`${format}: recording ${Math.ceil(mainSeconds * fps)} frames at ${size.width}x${size.height}`);
+    const total = Math.ceil(mainSeconds * fps);
+    const framesDir = path.join(fdir, "frames");
+    let resumeFrom = 0;
+    if (values.resume && existsSync(framesDir)) {
+      const have = new Set((await readdir(framesDir)).filter((f) => f.endsWith(".jpg")));
+      while (resumeFrom < total && have.has(`${String(resumeFrom).padStart(6, "0")}.jpg`)) resumeFrom++;
+    }
+    const only = values.resume && resumeFrom > 0 ? new Set(Array.from({ length: total - resumeFrom }, (_, i) => resumeFrom + i)) : undefined;
+    log(`${format}: recording ${total} frames at ${size.width}x${size.height}${resumeFrom ? ` (resuming from ${resumeFrom})` : ""}`);
     const { dir } = await recordFrames({
       base: server.url,
       lessonId,
@@ -116,7 +126,9 @@ try {
       fps,
       totalSeconds: mainSeconds,
       actions,
-      dir: path.join(fdir, "frames"),
+      dir: framesDir,
+      resume: values.resume,
+      only,
       onProgress: (n, total, msPer) => log(`${format}: frame ${n}/${total}, about ${Math.round(((total - n) * msPer) / 60000)} min left`),
     });
     const out = path.join(outDir, `${base}.mp4`);

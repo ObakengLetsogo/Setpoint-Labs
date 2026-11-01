@@ -53,8 +53,8 @@ export async function captureCards(base, lessonId, size, dir) {
  * Returns the frame directory with 000000.jpg onwards. With `only` (a Set of frame numbers) it renders and
  * captures just those frames for a quick preview; timers still run every frame so the logic stays exact.
  */
-export async function recordFrames({ base, lessonId, size, fps, totalSeconds, actions, dir, onProgress, only }) {
-  await rm(dir, { recursive: true, force: true });
+export async function recordFrames({ base, lessonId, size, fps, totalSeconds, actions, dir, onProgress, only, resume }) {
+  if (!resume) await rm(dir, { recursive: true, force: true });
   await mkdir(dir, { recursive: true });
   const b = await browser();
   try {
