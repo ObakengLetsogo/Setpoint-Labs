@@ -39,3 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# lecture video pipeline scratch (wav/scene renders, kept out of git; final mp4/vtt/srt in videos/ are committed)
+/videos/_build/
