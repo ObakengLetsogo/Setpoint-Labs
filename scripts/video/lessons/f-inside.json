@@ -1,0 +1,107 @@
+{
+  "lessonId": "f-inside",
+  "course": "foundations",
+  "scenes": [
+    {
+      "id": "hook",
+      "narration": "Last time, you saw the P L C as a black box. Field devices in, logic in the middle, a machine out. Today we open that box. By the end, you will be able to identify the parts of a P L C system, and read a module's I O addresses.",
+      "caption": ["Last time, you saw the PLC as a black box: field devices in, logic in the middle, a machine out.", "Today we open that box.", "By the end, you will identify the parts of a PLC system, and read a module's I O addresses."],
+      "actions": [
+        { "at": 0, "call": "resetView" },
+        { "at": 0.4, "call": "showLabel", "args": [{ "kicker": "F1.1.2", "title": "Inside the PLC: CPU, power and I O" }] },
+        { "at": "end", "call": "showLabel", "args": [null] }
+      ]
+    },
+    {
+      "id": "breaker",
+      "narration": "Every panel starts with protection. This is the breaker, a three pole, ten amp unit. It protects the cables and the motor from a short circuit. It does not protect the motor from slowly overheating. That job belongs to the overload, which we will meet properly later in this stage.",
+      "actions": [
+        { "at": 0, "call": "focus", "args": ["mcb"] },
+        { "at": 0.3, "call": "showLabel", "args": [{ "kicker": "PROTECTION · 3 POLE", "title": "The breaker" }] },
+        { "at": "end", "call": "showLabel", "args": [null] }
+      ]
+    },
+    {
+      "id": "cpu",
+      "narration": "Here is the controller itself. Inside it, you will find a power supply stage, taking mains power and producing a clean twenty four volt D C control supply. And the C P U, the part that actually runs the program. In a small machine like this, the power supply, C P U and I O are built into one compact unit. On a bigger plant, you would see a modular rack, where each of those is a separate card you can swap out.",
+      "caption": ["Here is the controller. Inside it: a power supply stage, taking mains power and producing a clean", "24 volt DC control supply, and the CPU, which runs the program.", "On a small machine like this they're built into one compact unit.", "On bigger plant, you'd see a modular rack with each as a separate, swappable card."],
+      "actions": [
+        { "at": 0, "call": "focus", "args": ["plc"] },
+        { "at": 0.3, "call": "showLabel", "args": [{ "kicker": "CPU · 8 DI / 6 DQ", "title": "Power supply and CPU" }] },
+        { "at": "end", "call": "showLabel", "args": [null] }
+      ]
+    },
+    {
+      "id": "io-board",
+      "narration": "And here is the I O. Every input and output has an address. I zero zero is the first input. Q zero zero is the first output. This board is digital, it only sees on or off. Later in this course you will also meet analogue I O, which reads a range, like a current or a level, instead of a simple on or off.",
+      "caption": ["Here is the I O. Every input and output has an address: I0.0 is the first input, Q0.0 the first output.", "This board is digital, on or off only.", "Later you'll meet analogue I O too, reading a range like a current or a level."],
+      "actions": [
+        { "at": 0, "call": "focus", "args": ["io"] },
+        { "at": 0.3, "call": "showLabel", "args": [{ "kicker": "I0.0 TO I0.3 · Q0.0 TO Q0.2", "title": "The signal board" }] },
+        { "at": "end", "call": "showLabel", "args": [null] }
+      ]
+    },
+    {
+      "id": "demo-channels",
+      "narration": "Let's prove three channels at once. The P L C is running a simple test program, one input straight to one output on each rung. Tap Start, and the run lamp lights, I zero zero driving Q zero one. Tap Stop, and the fault lamp lights, I zero one driving Q zero two. Tap AUX, and the beacon lights, I zero four driving Q zero three. Watch the signal board. The input L E D and the output L E D light together, every time.",
+      "caption": ["Let's prove three channels at once: a simple one input to one output test program.", "Tap Start, the run lamp lights, I0.0 driving Q0.1.", "Tap Stop, the fault lamp lights, I0.1 driving Q0.2.", "Tap AUX, the beacon lights, I0.4 driving Q0.3.", "Watch the signal board: input LED and output LED light together, every time."],
+      "actions": [
+        { "at": 0, "call": "resetView" },
+        { "at": 0.3, "call": "play" },
+        { "at": 0.6, "call": "highlightRung", "args": [1] },
+        { "at": 0.8, "call": "focus", "args": ["start"] },
+        { "at": "25%", "call": "tap", "args": ["start"] },
+        { "at": "40%", "call": "highlightRung", "args": [2] },
+        { "at": "40%", "call": "focus", "args": ["stop"] },
+        { "at": "55%", "call": "tap", "args": ["stop"] },
+        { "at": "70%", "call": "highlightRung", "args": [3] },
+        { "at": "70%", "call": "focus", "args": ["aux"] },
+        { "at": "85%", "call": "tap", "args": ["aux"] },
+        { "at": "end", "call": "highlightRung", "args": [null] }
+      ]
+    },
+    {
+      "id": "wiring",
+      "narration": "One more idea before we move on. This control runs on twenty four volts D C. Inputs can be wired sourcing or sinking, which just describes which side of the twenty four volts switches. Your site standard decides which one you use. Either way, the P L C only ever sees a clean on or off at the input terminal.",
+      "caption": ["This control runs on 24 volts DC.", "Inputs can be wired sourcing or sinking, describing which side of the 24 volts switches.", "Your site standard decides which. Either way the PLC only ever sees a clean on or off."],
+      "actions": [
+        { "at": 0, "call": "focus", "args": ["terminals"] },
+        { "at": 0.3, "call": "showLabel", "args": [{ "kicker": "24 V DC CONTROL", "title": "Sinking and sourcing" }] },
+        { "at": "end", "call": "showLabel", "args": [null] }
+      ]
+    },
+    {
+      "id": "controllers",
+      "narration": "You will see this same I O on real hardware. On a Siemens S seven twelve hundred, the addresses look exactly like what you just saw, I zero zero, Q zero zero. On an Allen Bradley CompactLogix, every signal gets a named tag instead, like Start button, but it is wired to the exact same physical terminal.",
+      "caption": ["You'll see this same I O on real hardware.", "Siemens S7 1200: addresses look exactly like what you saw, I0.0, Q0.0.", "Allen Bradley CompactLogix: every signal gets a named tag instead, wired to the same terminal."],
+      "actions": [
+        { "at": 0, "call": "select", "args": [null] },
+        { "at": 0, "call": "focus", "args": ["io"] },
+        { "at": 0.3, "call": "showLabel", "args": [{ "kicker": "ON REAL CONTROLLERS", "title": "Same terminals, two notations" }] },
+        { "at": "end", "call": "showLabel", "args": [null] }
+      ]
+    },
+    {
+      "id": "summary",
+      "narration": "So, every P L C has a power supply, a C P U and I O, with every channel carrying its own address. For your lab, go through the bench and match every field device to its input or output address. Get this mapping solid, because every ladder rung you write from here on refers back to it.",
+      "caption": ["Every PLC has a power supply, a CPU and I O, with every channel carrying its own address.", "For your lab, match every field device on the bench to its input or output address.", "Get this mapping solid, every ladder rung you write refers back to it."],
+      "actions": [
+        { "at": 0, "call": "resetView" },
+        { "at": 0.3, "call": "explode", "args": [true] },
+        { "at": 0.4, "call": "showLabel", "args": [{ "kicker": "SUMMARY", "title": "Power, CPU, I O" }] },
+        { "at": "end", "call": "showLabel", "args": [null] }
+      ]
+    },
+    {
+      "id": "close",
+      "narration": "One last thing. This is simulated training. It builds real skill, but it is not permission to work on live plant. Always follow your site's rules, and work under supervision. Up next, inputs, outputs and the scan, the loop that ties everything you have met so far together. I will see you there.",
+      "caption": ["One last thing: this is simulated training. It builds real skill,", "but it is not permission to work on live plant.", "Always follow your site's rules, and work under supervision.", "Up next: inputs, outputs and the scan, the loop that ties it all together. I will see you there."],
+      "pauseAfter": 1.2,
+      "actions": [
+        { "at": 0, "call": "explode", "args": [false] },
+        { "at": 0, "call": "resetView" },
+        { "at": 0.4, "call": "showLabel", "args": [{ "kicker": "UP NEXT · F1.1.3", "title": "Inputs, outputs and the scan" }] }
+      ]
+    }
+  ]
+}

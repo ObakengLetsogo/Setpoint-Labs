@@ -1,0 +1,96 @@
+{
+  "lessonId": "f-scan",
+  "course": "foundations",
+  "scenes": [
+    {
+      "id": "hook",
+      "narration": "You now know the parts of a P L C, and their addresses. Today we tie them together with the loop that makes the whole thing work, the scan. By the end, you will be able to explain the scan cycle, and why the order of your rungs matters.",
+      "caption": ["You know the parts of a PLC, and their addresses.", "Today we tie them together with the loop that makes it all work: the scan.", "By the end, you'll explain the scan cycle, and why the order of your rungs matters."],
+      "actions": [
+        { "at": 0, "call": "resetView" },
+        { "at": 0.4, "call": "showLabel", "args": [{ "kicker": "F1.1.3", "title": "Inputs, outputs and the scan" }] },
+        { "at": "end", "call": "showLabel", "args": [null] }
+      ]
+    },
+    {
+      "id": "loop",
+      "narration": "A P L C never reacts to a wire directly. Every scan, it does three things, in order. First, it reads every input, all at once, into memory. We call that the input image. Second, it solves your rungs, top to bottom, using that frozen snapshot. Third, it writes every output, all at once, from memory. That is the output image. Then it does it all again, often many times a second.",
+      "caption": ["A PLC never reacts to a wire directly. Every scan does three things, in order.", "First: read every input, all at once, into the input image.", "Second: solve your rungs, top to bottom, using that frozen snapshot.", "Third: write every output, all at once, the output image. Then it does it all again."],
+      "actions": [
+        { "at": 0, "call": "focus", "args": ["plc"] },
+        { "at": 0.3, "call": "showLabel", "args": [{ "kicker": "READ · SOLVE · WRITE", "title": "The scan" }] },
+        { "at": "end", "call": "showLabel", "args": [null] }
+      ]
+    },
+    {
+      "id": "setup",
+      "narration": "Here is why the order inside step two matters. This program has three rungs, on purpose written in an order that catches people out. Rung one reads the run lamp and drives the motor. Rung two reads Start and drives the run lamp. See the problem. Rung one runs first, so it only ever sees what the run lamp was at the start of this scan, not what rung two is about to write.",
+      "caption": ["Here's why the order inside step two matters.", "Three rungs, written on purpose in an order that catches people out.", "Rung 1 reads the run lamp and drives the motor. Rung 2 reads Start and drives the run lamp.", "Rung 1 runs first, so it only sees what the run lamp was at the START of this scan."],
+      "actions": [
+        { "at": 0, "call": "resetView" },
+        { "at": 0, "call": "pause" },
+        { "at": 0, "call": "setSpeed", "args": [1200] },
+        { "at": 0.4, "call": "highlightRung", "args": [1] },
+        { "at": "55%", "call": "highlightRung", "args": [2] },
+        { "at": "end", "call": "highlightRung", "args": [null] }
+      ]
+    },
+    {
+      "id": "demo-scan-order",
+      "narration": "Let's slow it right down and watch. I am holding Start in. Step one scan. Rung two just copied Start into the run lamp, so the lamp is on. But rung one already ran this scan, before the lamp changed, so the motor is still off. Step the scan again. Now rung one sees the run lamp as it was at the end of last scan, true, so the motor finally turns on. One whole scan late, just because of rung order.",
+      "caption": ["Let's slow it right down. I'm holding Start in. Step one scan:", "rung 2 just copied Start into the run lamp, so the lamp is on.", "But rung 1 already ran this scan, before the lamp changed, so the motor is still off.", "Step again: now rung 1 sees the lamp as it was last scan, true. The motor turns on. One scan late."],
+      "actions": [
+        { "at": 0, "call": "focus", "args": ["motor", false] },
+        { "at": 0.6, "call": "press", "args": ["start", true] },
+        { "at": "30%", "call": "step" },
+        { "at": "30%", "call": "showLabel", "args": [{ "kicker": "SCAN N", "title": "Lamp on, motor still off" }] },
+        { "at": "70%", "call": "step" },
+        { "at": "70%", "call": "showLabel", "args": [{ "kicker": "SCAN N + 1", "title": "Motor finally on" }] },
+        { "at": "end", "call": "press", "args": ["start", false] },
+        { "at": "end", "call": "showLabel", "args": [null] }
+      ]
+    },
+    {
+      "id": "aux-rung",
+      "narration": "Rung three has no such trap. It is the simplest program there is, one input straight to one output, in the same scan. AUX drives the beacon, with no delay at all. Most of your programs will look like this. The one scan delay only bites when a later rung's output feeds an earlier rung's input, in the same scan.",
+      "caption": ["Rung 3 has no such trap: the simplest program there is, one input straight to one output.", "AUX drives the beacon, no delay at all.", "The one scan delay only bites when a later rung's output feeds an earlier rung's input."],
+      "actions": [
+        { "at": 0, "call": "highlightRung", "args": [3] },
+        { "at": 0.4, "call": "focus", "args": ["aux"] },
+        { "at": "60%", "call": "tap", "args": ["aux"] },
+        { "at": "end", "call": "highlightRung", "args": [null] }
+      ]
+    },
+    {
+      "id": "controllers",
+      "narration": "Every controller works this way, not just ours. On a Siemens S seven twelve hundred and on an Allen Bradley CompactLogix, the scan is read, solve, write, in that order, every time. Write your rungs with that order in mind, on any brand.",
+      "caption": ["Every controller works this way. Siemens S7 1200, Allen Bradley CompactLogix:", "the scan is read, solve, write, in that order, every time.", "Write your rungs with that order in mind, on any brand."],
+      "actions": [
+        { "at": 0, "call": "resetView" },
+        { "at": 0.3, "call": "focus", "args": ["plc"] },
+        { "at": 0.3, "call": "showLabel", "args": [{ "kicker": "ON REAL CONTROLLERS", "title": "Same scan, two brands" }] },
+        { "at": "end", "call": "showLabel", "args": [null] }
+      ]
+    },
+    {
+      "id": "summary",
+      "narration": "So, every scan reads inputs, solves logic top to bottom, then writes outputs, and a rung that depends on a later rung is always one scan behind. For your lab, you will be given an input sequence, and you need to predict the output after each scan. Walk through it rung by rung, exactly like we just did.",
+      "caption": ["Every scan reads inputs, solves logic top to bottom, then writes outputs.", "A rung that depends on a later rung is always one scan behind.", "For your lab, predict the output after each scan for a given input sequence. Walk it rung by rung."],
+      "actions": [
+        { "at": 0, "call": "resetView" },
+        { "at": 0.3, "call": "showLabel", "args": [{ "kicker": "SUMMARY", "title": "Order decides timing" }] },
+        { "at": "end", "call": "showLabel", "args": [null] }
+      ]
+    },
+    {
+      "id": "close",
+      "narration": "One last thing. This is simulated training. It builds real skill, but it is not permission to work on live plant. Always follow your site's rules, and work under supervision. Up next, module two begins with ladder symbols, the language you have been reading on screen this whole time. I will see you there.",
+      "caption": ["One last thing: this is simulated training. It builds real skill,", "but it is not permission to work on live plant.", "Always follow your site's rules, and work under supervision.", "Up next: module two, ladder symbols, the language you've been reading this whole time."],
+      "pauseAfter": 1.2,
+      "actions": [
+        { "at": 0, "call": "resetView" },
+        { "at": 0.4, "call": "showLabel", "args": [{ "kicker": "UP NEXT · F1.2.1", "title": "Ladder symbols" }] }
+      ]
+    }
+  ]
+}
