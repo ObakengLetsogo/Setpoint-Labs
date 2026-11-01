@@ -3,7 +3,7 @@
   "lessonId": "F1.1.1",
   "title": "Why machines need controllers",
   "machine": "Motor starter bench",
-  "status": "draft — awaiting script approval",
+  "status": "rendered — draft v1, awaiting review",
   "scenes": [
     {
       "id": "intro",

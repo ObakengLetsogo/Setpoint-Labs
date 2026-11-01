@@ -1,0 +1,46 @@
+{
+  "lectures": [
+    {
+      "code": "F1.1.1",
+      "lessonId": "F1.1.1",
+      "title": "Why machines need controllers",
+      "durationSeconds": 217.29,
+      "fileSizeBytes": 7111908,
+      "files": {
+        "mp4": "F1.1.1.mp4",
+        "vtt": "F1.1.1.vtt",
+        "srt": "F1.1.1.srt"
+      },
+      "chapters": [
+        {
+          "id": "intro",
+          "start": 0
+        },
+        {
+          "id": "why",
+          "start": 22.75
+        },
+        {
+          "id": "theory",
+          "start": 66.19
+        },
+        {
+          "id": "rig1",
+          "start": 104.04
+        },
+        {
+          "id": "controllers",
+          "start": 137.94
+        },
+        {
+          "id": "summary",
+          "start": 168.63
+        },
+        {
+          "id": "close",
+          "start": 196.06
+        }
+      ]
+    }
+  ]
+}
