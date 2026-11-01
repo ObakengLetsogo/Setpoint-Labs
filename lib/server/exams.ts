@@ -1,7 +1,7 @@
 import "server-only";
 import { and, desc, eq, gt, inArray, isNull } from "drizzle-orm";
 import { assessmentRuns, certificates, endorsementAttempts, entitlements, examAttempts, examBookings, expertProjects, seats } from "@/db/schema";
-import { ENDORSEMENTS_NEEDED, FREE_RESIT_AFTER_DAYS, LEVELS, PLANS, type Level } from "@/config/plans";
+import { CERT_YEARS, ENDORSEMENTS_NEEDED, FREE_RESIT_AFTER_DAYS, LEVELS, PLANS, type Level } from "@/config/plans";
 import { CURRICULUM, coreTracks } from "@/data/curriculum";
 import { QUIZZES } from "@/data/quizzes";
 import { bankQuestion, bankRef, EXAM_BANKS, topicShares } from "@/data/exam-bank";
@@ -9,7 +9,8 @@ import { audit } from "./billing";
 import { db } from "./db";
 import { mails } from "./email";
 import { certificateCode, newId } from "./ids";
-import { issueCertificate } from "./certificates";
+import { addYears, issueCertificate } from "./certificates";
+import { rplLevels } from "./rpl";
 
 // The theory part of a level exam is drawn from the level's exam bank, spread evenly over its
 // topics, with the options shuffled. A level without a bank yet draws from its lesson quizzes. The practical part is the level's track assessments, marked
@@ -128,7 +129,8 @@ export async function examStatus(userId: string, level: Level, now = new Date())
   const prev = LEVELS[levelIndex(level) - 1];
   if (passed) blocked = "Already passed.";
   else if (open) blocked = "An attempt is in progress.";
-  else if (prev && !(await examStatus(userId, prev, now)).passed) blocked = `Pass the ${prev === "F" ? "Foundation" : "Professional"} exam first.`;
+  // Recognition of prior learning for this level (or a higher one) lets a candidate skip the lower exams.
+  else if (prev && !(await rplLevels(userId)).some((l) => levelIndex(l) >= levelIndex(level)) && !(await examStatus(userId, prev, now)).passed) blocked = `Pass the ${prev === "F" ? "Foundation" : "Professional"} exam first.`;
   else if (!credits && !(freeResitFrom && freeResitFrom <= now)) blocked = freeResitFrom ? `Your free resit opens on ${freeResitFrom.toISOString().slice(0, 10)}, or buy a resit now.` : "Buy this exam to sit it.";
   let waitingFor: string | null = null;
   if (passed) {
@@ -252,7 +254,7 @@ async function issueLevelCertificate(user: { id: string; email: string; name: st
   for (let i = 0; i < 5; i++) {
     const code = certificateCode();
     try {
-      await db.insert(certificates).values({ id: newId(), code, userId: user.id, trackId, nameOnCertificate: user.name });
+      await db.insert(certificates).values({ id: newId(), code, userId: user.id, trackId, nameOnCertificate: user.name, expiresAt: addYears(new Date(), CERT_YEARS) });
       await audit(user.id, "certificate.issued", code, { trackId });
       await mails.certificate(user.email, `Level ${levelIndex(level) + 1} competence`, code);
       return code;

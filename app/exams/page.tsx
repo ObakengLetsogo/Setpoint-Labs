@@ -38,7 +38,7 @@ async function Exams({ error, booked: justBooked }: { error?: string; booked?: b
         <p className="font-mono text-[10.5px] uppercase tracking-[0.2em] text-[#d9591a]">Level exams</p>
         <h1 className="mt-1 font-display text-[28px] font-bold text-ink">Prove your skill</h1>
         <p className="mt-2 text-[14px] leading-[1.6] text-[#4b5058]">
-          Each level exam has a timed theory paper and a practical part: the level&apos;s practical assessments, marked by hidden tests. You need {PASS_PCT}% on the theory and every practical assessment passed. Pass one level before sitting the next. A pass earns a certificate of competence with a public verify page.
+          Each level exam has a timed theory paper and a practical part: the level&apos;s practical assessments, marked by hidden tests. You need {PASS_PCT}% on the theory and every practical assessment passed. Pass one level before sitting the next, unless your <Link href="/rpl" className="underline">prior learning is recognised</Link>. A pass earns a certificate of competence with a public verify page.
         </p>
         {justBooked && <p className="mt-3 rounded-xl bg-[#eef8f3] px-4 py-3 text-[13.5px] text-[#1b6b4a]">Your sitting is booked. We will see you at the centre.</p>}
         {error && <p role="alert" className="mt-3 rounded-xl bg-[#fdf0ef] px-4 py-3 text-[13.5px] text-[#9b2c2c]">{error === "busy" ? "Too many starts. Try again in an hour." : error}</p>}

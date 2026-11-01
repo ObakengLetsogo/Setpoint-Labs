@@ -23,6 +23,7 @@ describe.skipIf(!url)("billing and access", () => {
     projects: typeof import("./projects");
     practical: typeof import("./practical");
     recert: typeof import("./recert");
+    rpl: typeof import("./rpl");
     certs: typeof import("./certificates");
   };
 
@@ -55,6 +56,7 @@ describe.skipIf(!url)("billing and access", () => {
       projects: await import("./projects"),
       practical: await import("./practical"),
       recert: await import("./recert"),
+      rpl: await import("./rpl"),
       certs: await import("./certificates"),
     };
   });
@@ -316,6 +318,8 @@ describe.skipIf(!url)("billing and access", () => {
       const out = await m.endorse.submitEndorsement(user, e, answers);
       expect(out.passed).toBe(true);
       expect(await certs()).toEqual(["endorse-siemens", "level-F", "level-P", "mining"]);
+      const [lp] = await m.db.db.select().from(m.schema.certificates).where(m.orm.and(m.orm.eq(m.schema.certificates.userId, u.id), m.orm.eq(m.schema.certificates.trackId, "level-P")));
+      expect(lp.expiresAt!.getUTCFullYear()).toBe(new Date().getUTCFullYear() + 3);
       expect((await m.endorse.endorsementStatus(u.id, "siemens")).blocked).toBe("Already passed.");
     });
 
@@ -459,6 +463,32 @@ describe.skipIf(!url)("billing and access", () => {
       const [after] = await m.db.db.select().from(m.schema.certificates).where(m.orm.eq(m.schema.certificates.code, code));
       expect(after.remindedDays).toBeNull();
       expect((await R.recertStatuses(u.id, soon))[0].open).toBe(false);
+    });
+
+    it("RPL: an assessor can ask for more, then approve at a lower level, which lets the candidate skip the earlier exam", async () => {
+      const R = m.rpl;
+      const u = await makeUser();
+      const assessor = await makeUser();
+      const form = { level: "E" as const, years: 9, jobTitle: "Senior instrument technician", employer: "Platinum mine", experience: "x".repeat(450), evidence: "Supervisor J. Mokoena, 082 000 0000, plus a shared folder of programs", qualifications: "" };
+      await expect(R.applyRpl(u, { ...form, experience: "short" })).rejects.toThrow(/at least 400/);
+      const id = await R.applyRpl(u, form);
+      await expect(R.applyRpl(u, form)).rejects.toThrow(/with an assessor/);
+      await expect(R.decideRpl(id, u.id, "approve", "Approving my own application")).rejects.toThrow(/your own/);
+      await R.decideRpl(id, assessor.id, "more_info", "Please add a program you wrote and a referee.");
+      expect((await m.exams.examStatus(u.id, "P")).blocked).toMatch(/Pass the Foundation/);
+      expect(await R.applyRpl(u, { ...form, evidence: form.evidence + " and a PID tuning report" })).toBe(id);
+      await expect(R.decideRpl(id, assessor.id, "approve", "Strong process control evidence.", "E")).resolves.toBeUndefined();
+      expect(await R.rplLevels(u.id)).toEqual(["E"]);
+      // Approval at E opens the P and E exams without Foundation, once paid for.
+      expect((await m.exams.examStatus(u.id, "P")).blocked).toMatch(/Buy this exam/);
+      expect((await m.exams.examStatus(u.id, "E")).blocked).toMatch(/Buy this exam/);
+      await expect(R.applyRpl(u, { ...form, level: "P" })).rejects.toThrow(/already approved/);
+
+      const v = await makeUser();
+      const id2 = await R.applyRpl(v, { ...form, level: "P" });
+      await expect(R.decideRpl(id2, assessor.id, "approve", "Too high for this evidence", "E")).rejects.toThrow(/lower/);
+      await R.decideRpl(id2, assessor.id, "decline", "Not enough PLC programming shown yet.");
+      await expect(R.applyRpl(v, { ...form, level: "P" })).rejects.toThrow(/90 days/);
     });
 
     it("employers give practical day seats, and a cancelled day returns the credit", async () => {

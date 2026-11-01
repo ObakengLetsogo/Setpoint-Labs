@@ -44,6 +44,7 @@ async function Account() {
           {isStaff && <Link href="/teach" className={ghostButtonClass}>Dashboard</Link>}
           {user.role === "platform_admin" && <Link href="/admin" className={ghostButtonClass}>Admin</Link>}
           <Link href="/practical" className={ghostButtonClass}>Practical days</Link>
+          <Link href="/rpl" className={ghostButtonClass}>RPL</Link>
           {(user.role === "assessor" || user.role === "platform_admin") && <Link href="/assessor" className={ghostButtonClass}>Assessor</Link>}
           {(user.role === "assessor" || user.role === "platform_admin") && <Link href="/practical/manage" className={ghostButtonClass}>Facilitator</Link>}
           <form action={signOut}>

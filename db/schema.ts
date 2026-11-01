@@ -423,6 +423,32 @@ export const recertAttempts = mysqlTable(
   (t) => [index("recert_attempts_user").on(t.userId, t.level)],
 );
 
+export const rplApplications = mysqlTable(
+  "rpl_applications",
+  {
+    id: id(),
+    userId: ref("user_id").notNull(),
+    /** The level the candidate asks to be assessed at: F, P or E. */
+    level: char("level", { length: 1 }).notNull(),
+    years: int("years").notNull(),
+    jobTitle: varchar("job_title", { length: 120 }).notNull(),
+    employer: varchar("employer", { length: 160 }),
+    /** What they have done: systems, brands, tasks, in their own words. */
+    experience: text("experience").notNull(),
+    /** Links to evidence and the names of people who can confirm it. */
+    evidence: text("evidence").notNull(),
+    qualifications: text("qualifications"),
+    status: mysqlEnum("status", ["submitted", "more_info", "approved", "declined"]).notNull().default("submitted"),
+    /** Approval may be at a lower level than asked. */
+    approvedLevel: char("approved_level", { length: 1 }),
+    assessorId: ref("assessor_id"),
+    feedback: text("feedback"),
+    submittedAt: datetime("submitted_at").notNull(),
+    decidedAt: at("decided_at"),
+  },
+  (t) => [index("rpl_user").on(t.userId)],
+);
+
 export const certificates = mysqlTable(
   "certificates",
   {

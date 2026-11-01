@@ -6,6 +6,8 @@ import { requireRole, requireUser } from "@/lib/server/auth";
 import { ExamError } from "@/lib/server/exams";
 import { decideProject, scheduleInterview, submitProject } from "@/lib/server/projects";
 import { limited } from "@/lib/server/rateLimit";
+import { applyRpl, decideRpl } from "@/lib/server/rpl";
+import type { Level } from "@/config/plans";
 
 const fail = (path: string, e: unknown): never => {
   if (e instanceof ExamError) redirect(`${path}?error=${encodeURIComponent(e.message)}`);
@@ -48,4 +50,31 @@ export async function signOff(form: FormData) {
   }
   revalidatePath("/assessor");
   redirect("/assessor?done=decided");
+}
+
+const lvl = (v: FormDataEntryValue | null) => (["F", "P", "E"].includes(String(v)) ? (String(v) as Level) : undefined);
+
+export async function sendRpl(form: FormData) {
+  const user = await requireUser("/rpl");
+  if (limited(`rpl:${user.id}`, 10, 60 * 60 * 1000)) redirect("/rpl?error=busy");
+  const t = (k: string, n: number) => String(form.get(k) ?? "").slice(0, n);
+  try {
+    await applyRpl(user, { level: lvl(form.get("level")) ?? ("X" as Level), years: Number(form.get("years")), jobTitle: t("jobTitle", 120), employer: t("employer", 160), experience: t("experience", 8000), evidence: t("evidence", 4000), qualifications: t("qualifications", 2000) });
+  } catch (e) {
+    fail("/rpl", e);
+  }
+  revalidatePath("/rpl");
+  redirect("/rpl?sent=1");
+}
+
+export async function decideRplAction(form: FormData) {
+  const user = await requireRole(["assessor"], "/assessor");
+  const d = String(form.get("decision"));
+  try {
+    await decideRpl(String(form.get("application")), user.id, d === "approve" ? "approve" : d === "decline" ? "decline" : "more_info", String(form.get("feedback") ?? "").slice(0, 4000), lvl(form.get("approvedLevel")));
+  } catch (e) {
+    fail("/assessor", e);
+  }
+  revalidatePath("/assessor");
+  redirect("/assessor?done=rpl");
 }

@@ -92,4 +92,15 @@ export const mails = {
     sendMail(to, expired ? `Your ${level} certificate has expired` : `Your ${level} certificate expires on ${date}`, expired ? "Certificate expired" : "Time to recertify", [expired ? `Your ${level} certificate ${code} expired on ${date}. Its verify page now shows it as expired.` : `Your ${level} certificate ${code} is valid until ${date}.`, "Renew it with a short recertification exam online: 20 questions in 30 minutes. Passing keeps your certificate code and adds 3 years."], { label: "Recertify", url: `${SITE_URL}/exams` }),
   recertified: (to: string, level: string, code: string, date: string) =>
     sendMail(to, `Your ${level} certificate is renewed`, "Recertified", [`You passed the recertification exam. Certificate ${code} is now valid until ${date}.`], { label: "See your certificate", url: `${SITE_URL}/verify/${code}` }),
+  rplDecided: (to: string, status: "approved" | "declined" | "more_info", level: string, feedback: string) =>
+    sendMail(
+      to,
+      status === "approved" ? `RPL approved: ${level}` : status === "declined" ? "Your RPL application" : "Your RPL application needs more information",
+      status === "approved" ? "Prior learning recognised" : status === "declined" ? "Not approved this time" : "More information needed",
+      [
+        status === "approved" ? `An assessor has recognised your prior learning at ${level} level. You can now sit the ${level} exam, theory and practical, without the earlier levels or the course.` : status === "declined" ? "An assessor has reviewed your application and could not recognise your prior learning at this level yet. You can apply again after 90 days, or take the course." : "An assessor needs more from you before deciding. Update your application and send it again.",
+        `Assessor's note: ${feedback}`,
+      ],
+      { label: status === "approved" ? "Go to exams" : "See your application", url: `${SITE_URL}/${status === "approved" ? "exams" : "rpl"}` },
+    ),
 };

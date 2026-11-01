@@ -4,6 +4,7 @@ import { endorsementAttempts, entitlements } from "@/db/schema";
 import { BRANDS, ENDORSE_BANKS, ENDORSE_SPEC } from "@/data/exam-bank/endorsements";
 import { audit } from "./billing";
 import { hasLevel } from "./access";
+import { rplLevels } from "./rpl";
 import { db } from "./db";
 import { issueCertificate } from "./certificates";
 import { ExamError, PASS_PCT, issueLevelIfComplete } from "./exams";
@@ -50,7 +51,7 @@ export async function endorsementStatus(userId: string, brand: string, now = new
   let blocked: string | null = null;
   if (passed) blocked = "Already passed.";
   else if (open) blocked = "An attempt is in progress.";
-  else if (!(await hasLevel(userId, "P"))) blocked = "Platform endorsements come with Professional training.";
+  else if (!(await hasLevel(userId, "P")) && !(await rplLevels(userId)).some((l) => l !== "F")) blocked = "Platform endorsements come with Professional training.";
   else if (!credits) blocked = "Buy this endorsement exam to sit it.";
   return { brand, name: b.name, passed, credits, canStart: !blocked, blocked, openAttempt: open?.id ?? null, lastPct: last?.pct ?? null };
 }
