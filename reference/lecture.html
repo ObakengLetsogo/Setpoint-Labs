@@ -1,0 +1,86 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+@font-face{font-family:U;src:url(Urbanist.ttf)}
+*{box-sizing:border-box;margin:0}body{width:1920px;height:1080px;overflow:hidden;background:#FAF8F3;font-family:U,sans-serif;color:#1B2430}
+#bg{position:absolute;inset:0;background-image:linear-gradient(#ECE7DC 1px,transparent 1px),linear-gradient(90deg,#ECE7DC 1px,transparent 1px);background-size:48px 48px;opacity:.55}
+#stage{position:absolute;inset:0}
+.top{position:absolute;left:96px;top:64px;display:flex;align-items:center;gap:18px;font-weight:700;letter-spacing:6px;font-size:22px;color:#6B6F76}
+.cap{position:absolute;left:50%;bottom:40px;transform:translateX(-50%);max-width:1500px;text-align:center;font-size:30px;font-weight:600;line-height:1.35;color:#1B2430;background:rgba(255,253,249,.92);border:1px solid #E6E2D9;border-radius:16px;padding:14px 28px}
+.k{font-size:24px;font-weight:700;letter-spacing:8px;color:#F26B1D}
+h1{font-size:120px;font-weight:900;line-height:1}h2{font-size:68px;font-weight:800;line-height:1.08}
+.card{background:#FFFDF9;border:2px solid #E6E2D9;border-radius:22px;box-shadow:0 10px 30px rgba(27,36,48,.06)}
+.code{position:absolute;right:96px;top:64px;font-weight:700;font-size:22px;letter-spacing:4px;color:#6B6F76}
+</style></head><body><div id="bg"></div><div id="stage"></div><div class="code" id="codelabel"></div><div class="cap" id="cap"></div>
+<script>
+const N='#1B2430',O='#F26B1D',G='#2E9E5B',M='#6B6F76',B='#E6E2D9',HI='#FFF4EC';
+const mark=(s)=>`<svg width="${s}" height="${s}" viewBox="0 0 100 100"><line x1="6" y1="40" x2="94" y2="40" stroke="${O}" stroke-width="5" stroke-linecap="round"/><path d="M6 84 L22 84 C30 84 32 22 44 22 C54 22 56 48 64 46 C70 44 72 40 80 40" fill="none" stroke="${N}" stroke-width="7" stroke-linecap="round"/><circle cx="84" cy="40" r="7" fill="${O}"/></svg>`;
+const cl=(x)=>Math.max(0,Math.min(1,x)),e=(x)=>{x=cl(x);return x<.5?2*x*x:1-Math.pow(-2*x+2,2)/2};
+const ap=(t,s,d=.8)=>e((t-s)/d);
+const fx=(t,s,y=30)=>{const a=ap(t,s);return `opacity:${a};transform:translateY(${(1-a)*y}px)`};
+// **word** becomes an orange accent span
+const acc=(s)=>String(s||'').replace(/\*\*(.+?)\*\*/g,`<span style="color:${O}">$1</span>`);
+
+let LECTURE={code:'',title:''}, SPEC={}, caps={}, CUES={};
+window.setLecture=(l)=>{LECTURE=l};
+window.setSpec=(s)=>{SPEC=s};
+window.setCaps=(c,q)=>{caps=c;CUES=q};
+
+function cueTimes(sceneId){return (CUES[sceneId]||[]).map(x=>x[0])}
+
+const header=(kicker,heading)=>`<div style="position:absolute;left:120px;right:120px;top:120px">
+  <div class="k" style="${fx(0,.0)};opacity:1">${kicker||''}</div>
+  <h2 style="margin-top:14px">${acc(heading||'')}</h2></div>`;
+
+const T={};
+
+T.title=(props,t)=>{const L=ap(t,.3,2.2);return `<div style="position:absolute;left:0;right:0;top:230px;text-align:center">
+<svg width="240" height="240" viewBox="0 0 100 100"><line x1="6" y1="40" x2="94" y2="40" stroke="${O}" stroke-width="5" stroke-linecap="round" stroke-dasharray="90" stroke-dashoffset="${90*(1-ap(t,.2,1))}"/><path d="M6 84 L22 84 C30 84 32 22 44 22 C54 22 56 48 64 46 C70 44 72 40 80 40" fill="none" stroke="${N}" stroke-width="7" stroke-linecap="round" stroke-dasharray="160" stroke-dashoffset="${160*(1-L)}"/><circle cx="84" cy="40" r="${7*ap(t,2.4,.5)}" fill="${O}"/></svg>
+<div class="k" style="${fx(t,2.2)};margin-top:14px">${LECTURE.code}</div>
+<h1 style="${fx(t,2.6)};margin-top:18px">${acc(LECTURE.title.split(' ').map((w,i)=>i===0?`**${w}**`:w).join(' '))}</h1>
+<div style="${fx(t,3.6)};margin-top:30px;font-size:40px;font-weight:600;color:${M}">${props.subtitle||''}</div></div>`};
+
+T.cards=(props,t)=>{const items=props.items||[];
+return `${header(props.kicker,props.heading)}
+<div style="position:absolute;left:120px;right:120px;top:360px;display:flex;gap:26px;flex-wrap:wrap">${items.map((x,i)=>`<div class="card" style="${fx(t,1.6+i*.55)};flex:1;min-width:280px;padding:40px 30px;text-align:center"><div style="font-size:32px;font-weight:800">${x}</div></div>`).join('')}</div>`};
+
+T.steps=(props,t)=>{const steps=props.steps||[];const n=steps.length;
+const ct=cueTimes('theory');const active=Math.min(n-1,Math.max(0,ct.filter(c=>t>=c).length-1));
+return `${header(props.kicker,props.heading)}
+<div style="position:absolute;left:120px;right:120px;top:420px;display:flex;align-items:center;gap:0">${steps.map((s,i)=>`<div style="display:flex;align-items:center;flex:1">
+<div class="card" style="${fx(t,1.2+i*1)};flex:1;padding:34px 20px;text-align:center;border-color:${active===i?O:B};background:${active===i?HI:'#FFFDF9'}"><div style="font-size:30px;font-weight:800">${s}</div></div>
+${i<n-1?`<div style="${fx(t,1.6+i*1)};width:48px;height:6px;background:${i<active?O:B};margin:0 10px;border-radius:3px"></div>`:''}
+</div>`).join('')}</div>`};
+
+const BENCH_PARTS=[['start_button','Start'],['stop_button','Stop'],['plc','PLC'],['contactor','Contactor'],['motor','Motor']];
+T.rig=(props,t)=>{const ct=cueTimes('rig1');const actions=props.actions||[];
+const activeParts=new Set();
+actions.forEach((a,i)=>{const cueIdx=parseInt(String(a.at).split(':')[1]||'0',10);const st=ct[cueIdx]!==undefined?ct[cueIdx]:0;if(t>=st)activeParts.add(a.args[0])});
+const W=1680,RAIL_Y=420,CY=270,R=66,N5=BENCH_PARTS.length,xs=BENCH_PARTS.map((_,i)=>120+i*((W-240)/(N5-1)));
+return `${header(props.kicker,props.heading)}
+<div class="card" style="position:absolute;left:120px;right:120px;top:340px;height:540px;${fx(t,1)}"><svg width="${W}" height="540">
+${xs.slice(0,-1).map((x,i)=>`<line x1="${x}" y1="${RAIL_Y+8}" x2="${xs[i+1]}" y2="${RAIL_Y+8}" stroke="${activeParts.has(BENCH_PARTS[i][0])&&activeParts.has(BENCH_PARTS[i+1][0])?O:B}" stroke-width="5" stroke-dasharray="6 8"/>`).join('')}
+${BENCH_PARTS.map(([id,label],i)=>{const on=activeParts.has(id);const x=xs[i];
+return `<g><line x1="${x}" y1="${CY+R}" x2="${x}" y2="${RAIL_Y}" stroke="${on?O:B}" stroke-width="4"/>
+<circle cx="${x}" cy="${CY}" r="${R}" fill="${on?HI:'#FFFDF9'}" stroke="${on?O:B}" stroke-width="${on?6:3}"/>
+<text x="${x}" y="${CY+8}" text-anchor="middle" font-family="U" font-size="22" font-weight="800" fill="${on?O:N}">${label.length>5?label.slice(0,3).toUpperCase():label}</text>
+<text x="${x}" y="${RAIL_Y+56}" text-anchor="middle" font-family="U" font-size="25" font-weight="700" fill="${on?O:M}">${label}</text></g>`}).join('')}
+</svg></div>`};
+
+T.compare=(props,t)=>{const cols=[props.siemens,props.allenBradley];
+return `${header(props.kicker,props.heading)}
+<div style="position:absolute;left:120px;right:120px;top:360px;display:flex;gap:40px">${cols.map((c,i)=>`<div class="card" style="${fx(t,1.6+i*1.2)};flex:1;padding:40px"><div class="k" style="font-size:20px">${c.label}</div>
+<div style="margin-top:24px;display:flex;flex-direction:column;gap:16px">${c.lines.map(l=>`<div style="font-size:28px;font-weight:700;padding:14px 20px;background:#FAF8F3;border-radius:12px;border:1px solid ${B}">${l}</div>`).join('')}</div></div>`).join('')}</div>`};
+
+T.summary=(props,t)=>{const items=props.items||[];
+return `${header(props.kicker,props.heading)}
+<div style="position:absolute;left:120px;top:360px;width:1200px;display:flex;flex-direction:column;gap:22px">${items.map((x,i)=>`<div style="${fx(t,1.4+i*.9)};display:flex;gap:18px;align-items:center;font-size:38px;font-weight:700"><span style="width:46px;height:46px;border-radius:50%;background:${G};color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0">✓</span>${x}</div>`).join('')}</div>`};
+
+T.outro=(props,t)=>`<div class="card" style="position:absolute;left:300px;right:300px;top:150px;padding:40px 50px;border-color:#F2C9AE;background:#FFF6EF;${fx(t,.3)}"><div class="k">SAFETY</div><div style="font-size:40px;font-weight:700;margin-top:16px;line-height:1.3">Simulated training builds real skill. It is not permission to work on live plant. Follow site rules and work under supervision.</div></div>
+<div style="position:absolute;left:0;right:0;top:560px;text-align:center;${fx(t,11)}"><div class="k">UP NEXT · ${props.nextCode||''}</div><h2 style="margin-top:14px">${acc(props.nextTitle||'')}</h2>
+<div style="margin-top:30px;display:inline-flex;align-items:center;gap:16px;font-size:30px;font-weight:700;color:${M}">${mark(56)} Setpoint Labs</div></div>`;
+
+window.render=(sceneId,t,d)=>{const spec=SPEC[sceneId]||{type:'title',props:{}};
+document.getElementById('stage').innerHTML=T[spec.type](spec.props||{},t,d);
+document.getElementById('codelabel').textContent=spec.type==='title'?'':`${LECTURE.code} · ${LECTURE.title.toUpperCase()}`;
+const c=caps[sceneId]||[];let cur='';for(const x of c)if(t>=x[0])cur=x[1];const el=document.getElementById('cap');el.style.display=cur&&spec.type!=='title'?'block':'none';el.textContent=cur;
+};
+</script></body></html>

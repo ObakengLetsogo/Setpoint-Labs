@@ -8,6 +8,7 @@
     {
       "id": "intro",
       "type": "title",
+      "props": { "subtitle": "Foundation Level · Stage 1 · Module 1" },
       "narration": [
         "Welcome back. This lecture is why machines need controllers.",
         "By the end, you will be able to explain what a P L C does, and where it sits between the field devices and the operator.",
@@ -17,7 +18,11 @@
     {
       "id": "why",
       "type": "cards",
-      "props": { "items": ["Mines", "Factories", "Water works", "Bottling plants"] },
+      "props": {
+        "kicker": "WHY IT MATTERS",
+        "heading": "Industry runs on **controllers**",
+        "items": ["Mines", "Factories", "Water works", "Bottling plants"]
+      },
       "narration": [
         "Walk onto the floor of almost any mine, factory or water works in South Africa, and you will find machines that start, stop and protect themselves automatically.",
         "Decades ago, that automatic behaviour came from relay logic. Rooms full of wired relays, each one doing a single job.",
@@ -29,7 +34,11 @@
     {
       "id": "theory",
       "type": "steps",
-      "props": { "steps": ["Field devices", "Inputs", "C P U", "Outputs", "Operator"] },
+      "props": {
+        "kicker": "HOW IT WORKS",
+        "heading": "A **P L C** sits in the middle",
+        "steps": ["Field devices", "Inputs", "C P U", "Outputs", "Operator"]
+      },
       "narration": [
         "So what does a P L C actually do.",
         "It sits between the field devices and the operator.",
@@ -44,6 +53,8 @@
       "id": "rig1",
       "type": "rig",
       "props": {
+        "kicker": "MEET THE PARTS",
+        "heading": "The **motor starter bench**",
         "lessonId": "F1.1.1",
         "actions": [
           { "at": "cue:1", "do": "highlightPart", "args": ["start_button"] },
@@ -65,7 +76,12 @@
     {
       "id": "controllers",
       "type": "compare",
-      "props": { "topic": "addressing", "siemens": "I0.0 / Q0.0 style", "allenBradley": "named tag style" },
+      "props": {
+        "kicker": "ON REAL CONTROLLERS",
+        "heading": "Same idea, **two brands**",
+        "siemens": { "label": "Siemens S7 1200 · TIA Portal", "lines": ["I0.0 · Start button", "I0.1 · Stop button", "Q0.0 · Motor contactor"] },
+        "allenBradley": { "label": "Allen Bradley CompactLogix · Studio 5000", "lines": ["Start_PB · Start button", "Stop_PB · Stop button", "Motor_Run · Motor contactor"] }
+      },
       "narration": [
         "Later in this stage, you will program this bench yourself, in ladder logic.",
         "You will see the same logic on two real controller families.",
@@ -77,6 +93,11 @@
     {
       "id": "summary",
       "type": "summary",
+      "props": {
+        "kicker": "SUMMARY",
+        "heading": "What you now **know**",
+        "items": ["Inputs come from field devices", "The CPU runs the program", "Outputs drive the machine", "Lab: name every part on the bench"]
+      },
       "narration": [
         "So, a P L C reads inputs from field devices, runs a program, and writes outputs, the same way relay logic always has, just faster, and far easier to change.",
         "For your lab, go to the motor starter bench, and name every part. Say whether each one is an input or an output.",
@@ -86,6 +107,10 @@
     {
       "id": "close",
       "type": "outro",
+      "props": {
+        "nextCode": "F1.1.2",
+        "nextTitle": "Inside the P L C: C P U, power and I O"
+      },
       "narration": [
         "One last thing.",
         "This is simulated training. It builds real skill, but it is not permission to work on live plant. Always follow your site's rules, and work under supervision.",
