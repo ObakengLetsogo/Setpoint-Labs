@@ -1,10 +1,10 @@
 {
   "voice": {
-    "default": "azure:en-ZA-LukeNeural",
-    "fallback": "azure:en-ZA-LeahNeural",
+    "default": "kokoro:af_heart",
+    "fallback": "kokoro:af_heart",
     "offline": "piper:en_GB-alan-medium",
     "courses": {
-      "foundations": "azure:en-ZA-LukeNeural"
+      "foundations": "kokoro:af_heart"
     }
   },
   "fps": 30,

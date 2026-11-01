@@ -4,14 +4,15 @@ import path from "node:path";
 import { CACHE, hash, log, toWav } from "../util.mjs";
 import { azure } from "./azure.mjs";
 import { elevenlabs } from "./elevenlabs.mjs";
+import { kokoro } from "./kokoro.mjs";
 import { piper } from "./piper.mjs";
 
-const PROVIDERS = { azure, elevenlabs, piper };
+const PROVIDERS = { azure, elevenlabs, piper, kokoro };
 
 export function parseVoice(spec) {
   const i = spec.indexOf(":");
   const provider = PROVIDERS[spec.slice(0, i)];
-  if (i < 0 || !provider) throw new Error(`Unknown voice "${spec}". Use azure:<name>, elevenlabs:<voiceId> or piper:<model>.`);
+  if (i < 0 || !provider) throw new Error(`Unknown voice "${spec}". Use azure:<name>, elevenlabs:<voiceId>, piper:<model> or kokoro:<voice>.`);
   return { spec, provider, voice: spec.slice(i + 1) };
 }
 

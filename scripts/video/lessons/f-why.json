@@ -1,0 +1,104 @@
+{
+  "lessonId": "f-why",
+  "course": "foundations",
+  "scenes": [
+    {
+      "id": "hook",
+      "narration": "Welcome back. This lesson is why machines need controllers. By the end, you will be able to explain what a P L C does, and where it sits between the field devices and the operator.",
+      "caption": ["Welcome back. This lesson is why machines need controllers.", "By the end, you will explain what a PLC does, and where it sits between the field devices and the operator."],
+      "actions": [
+        { "at": 0, "call": "resetView" },
+        { "at": 0.4, "call": "showLabel", "args": [{ "kicker": "F1.1.1", "title": "Why machines need controllers" }] },
+        { "at": "end", "call": "showLabel", "args": [null] }
+      ]
+    },
+    {
+      "id": "why",
+      "narration": "Walk onto the floor of almost any mine, factory or water works in South Africa, and you will find machines that start, stop and protect themselves automatically. Decades ago, that came from relay logic: rooms full of wired relays, each one doing a single job. Today, almost all of that has moved into a single small computer, the programmable logic controller, or P L C.",
+      "caption": ["Walk onto the floor of almost any mine, factory or water works in South Africa,", "and you will find machines that start, stop and protect themselves automatically.", "Decades ago, that came from relay logic: rooms full of wired relays, each one doing a single job.", "Today, almost all of that has moved into a single small computer, the PLC."],
+      "actions": [
+        { "at": 0, "call": "resetView" },
+        { "at": 0.3, "call": "showLabel", "args": [{ "kicker": "WHY IT MATTERS", "title": "Industry runs on controllers" }] },
+        { "at": "end", "call": "showLabel", "args": [null] }
+      ]
+    },
+    {
+      "id": "tour-buttons",
+      "narration": "Here is the bench we will use throughout Stage One, the motor starter bench. Start and Stop are momentary pushbuttons, the field devices an operator presses.",
+      "actions": [
+        { "at": 0, "call": "resetView" },
+        { "at": 0.3, "call": "focus", "args": ["start"] },
+        { "at": 0.3, "call": "showLabel", "args": [{ "kicker": "I0.0", "title": "Start, a momentary pushbutton" }] },
+        { "at": "60%", "call": "focus", "args": ["stop"] },
+        { "at": "60%", "call": "showLabel", "args": [{ "kicker": "I0.1", "title": "Stop, a momentary pushbutton" }] },
+        { "at": "end", "call": "showLabel", "args": [null] }
+      ]
+    },
+    {
+      "id": "tour-plc",
+      "narration": "Between the buttons and the motor sits the controller. It reads the buttons as inputs, runs a short program from top to bottom, and writes the contactor as an output. One full pass through that program is called a scan.",
+      "caption": ["Between the buttons and the motor sits the controller.", "It reads the buttons as inputs, runs a program top to bottom, and writes the contactor as an output.", "One full pass through that program is called a scan."],
+      "actions": [
+        { "at": 0, "call": "focus", "args": ["plc"] },
+        { "at": 0.3, "call": "showLabel", "args": [{ "kicker": "CPU · 8 DI / 6 DQ", "title": "The controller" }] },
+        { "at": "end", "call": "showLabel", "args": [null] }
+      ]
+    },
+    {
+      "id": "tour-contactor-motor",
+      "narration": "Here is the contactor, a heavy duty relay. When the controller energises it, the main contacts close and the motor gets power. And here is the motor itself, the machine doing the work.",
+      "actions": [
+        { "at": 0, "call": "focus", "args": ["contactor"] },
+        { "at": 0.3, "call": "showLabel", "args": [{ "kicker": "Q0.0", "title": "Contactor" }] },
+        { "at": "55%", "call": "focus", "args": ["motor"] },
+        { "at": "55%", "call": "showLabel", "args": [{ "kicker": "LOAD · 3 PHASE", "title": "Motor" }] },
+        { "at": "end", "call": "showLabel", "args": [null] }
+      ]
+    },
+    {
+      "id": "demo-run",
+      "narration": "Watch what happens. Tap Start, and the motor runs. Tap Stop, and it stops. You will learn exactly how this circuit remembers the start a little later in this stage. For now, just see the shape of it: inputs in, the controller in the middle, outputs out.",
+      "caption": ["Watch what happens. Tap Start, and the motor runs. Tap Stop, and it stops.", "You will learn exactly how this circuit remembers the start a little later in this stage.", "For now, just see the shape of it: inputs in, the controller in the middle, outputs out."],
+      "actions": [
+        { "at": 0, "call": "resetView" },
+        { "at": 0, "call": "focus", "args": ["motor", false] },
+        { "at": 0.6, "call": "play" },
+        { "at": 0.8, "call": "tap", "args": ["start"] },
+        { "at": "60%", "call": "tap", "args": ["stop"] }
+      ]
+    },
+    {
+      "id": "controllers",
+      "narration": "Later, you will program this bench yourself, in ladder logic. You will see the same logic on two real controller families. On a Siemens S seven twelve hundred, inputs and outputs are addressed like I zero point zero, and Q zero point zero. On an Allen Bradley CompactLogix, the same signals get a named tag, such as Start pushbutton. Different brands, same idea: inputs come in, logic runs, outputs go out.",
+      "caption": ["Later, you will program this bench yourself, in ladder logic, on two real controller families.", "Siemens S7 1200: inputs and outputs addressed like I0.0 and Q0.0.", "Allen Bradley CompactLogix: the same signals get a named tag, such as Start pushbutton.", "Different brands, same idea: inputs come in, logic runs, outputs go out."],
+      "actions": [
+        { "at": 0, "call": "select", "args": [null] },
+        { "at": 0, "call": "focus", "args": ["io"] },
+        { "at": 0.3, "call": "showLabel", "args": [{ "kicker": "ON REAL CONTROLLERS", "title": "Same idea, two brands" }] },
+        { "at": "end", "call": "showLabel", "args": [null] }
+      ]
+    },
+    {
+      "id": "summary",
+      "narration": "So, a P L C reads inputs from field devices, runs a program, and writes outputs, the same way relay logic always has, just faster, and far easier to change. For your lab, go to the bench and name every part. Say whether each one is an input or an output.",
+      "caption": ["So, a PLC reads inputs, runs a program, and writes outputs, the same way relay logic always has,", "just faster, and far easier to change.", "For your lab, go to the bench and name every part: input, or output."],
+      "actions": [
+        { "at": 0, "call": "resetView" },
+        { "at": 0.3, "call": "explode", "args": [true] },
+        { "at": 0.4, "call": "showLabel", "args": [{ "kicker": "SUMMARY", "title": "Every part, in or out" }] },
+        { "at": "end", "call": "showLabel", "args": [null] }
+      ]
+    },
+    {
+      "id": "close",
+      "narration": "One last thing. This is simulated training. It builds real skill, but it is not permission to work on live plant. Always follow your site's rules, and work under supervision. Up next, module one continues with inside the P L C: controller, power, and I O. I will see you there.",
+      "caption": ["One last thing: this is simulated training. It builds real skill,", "but it is not permission to work on live plant.", "Always follow your site's rules, and work under supervision.", "Up next: inside the PLC, controller, power and I/O. I will see you there."],
+      "pauseAfter": 1.2,
+      "actions": [
+        { "at": 0, "call": "explode", "args": [false] },
+        { "at": 0, "call": "resetView" },
+        { "at": 0.4, "call": "showLabel", "args": [{ "kicker": "UP NEXT · F1.1.2", "title": "Inside the PLC: CPU, power and I/O" }] }
+      ]
+    }
+  ]
+}
