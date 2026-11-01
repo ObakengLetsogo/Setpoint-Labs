@@ -54,6 +54,7 @@ async function Exams({ error, booked: justBooked }: { error?: string; booked?: b
               {l === "E" && " The Expert level also needs the final plant project and a 30 minute interview, signed off by an assessor."}
             </p>
             {s.waitingFor && <p className="mt-2 rounded-xl bg-[#fff6e8] px-4 py-2.5 text-[13px] text-[#8a5a12]">Passed. {s.waitingFor}</p>}
+            {l === "E" && s.passed && <Link href="/exams/project" className={`${accentButtonClass} mt-2`}>Your final plant project</Link>}
             <p className="mt-1 text-[13px] text-muted-ink">Exam credits: {s.credits}{s.freeResitFrom ? ` · free resit from ${s.freeResitFrom.toISOString().slice(0, 10)}` : ""}</p>
             <div className="mt-4 flex flex-wrap items-start gap-3">
               {s.openAttempt && <Link href={`/exams/${s.openAttempt}`} className={accentButtonClass}>Continue the exam</Link>}

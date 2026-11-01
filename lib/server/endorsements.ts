@@ -101,8 +101,9 @@ export async function submitEndorsement(user: { id: string; email: string; name:
   let certificate: string | null = null;
   if (passed) {
     certificate = await issueCertificate(user, `endorse-${a.brand}`);
-    // A Professional certificate may have been waiting for its first endorsement.
+    // A level certificate may have been waiting for this endorsement.
     await issueLevelIfComplete(user, "P");
+    await issueLevelIfComplete(user, "E");
   }
   return { pct, passed, late, certificate };
 }

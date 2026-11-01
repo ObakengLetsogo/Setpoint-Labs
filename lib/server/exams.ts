@@ -1,6 +1,6 @@
 import "server-only";
 import { and, desc, eq, gt, inArray, isNull } from "drizzle-orm";
-import { assessmentRuns, certificates, endorsementAttempts, entitlements, examAttempts, examBookings, seats } from "@/db/schema";
+import { assessmentRuns, certificates, endorsementAttempts, entitlements, examAttempts, examBookings, expertProjects, seats } from "@/db/schema";
 import { ENDORSEMENTS_NEEDED, FREE_RESIT_AFTER_DAYS, LEVELS, PLANS, type Level } from "@/config/plans";
 import { CURRICULUM, coreTracks } from "@/data/curriculum";
 import { QUIZZES } from "@/data/quizzes";
@@ -131,10 +131,16 @@ export async function examStatus(userId: string, level: Level, now = new Date())
   else if (prev && !(await examStatus(userId, prev, now)).passed) blocked = `Pass the ${prev === "F" ? "Foundation" : "Professional"} exam first.`;
   else if (!credits && !(freeResitFrom && freeResitFrom <= now)) blocked = freeResitFrom ? `Your free resit opens on ${freeResitFrom.toISOString().slice(0, 10)}, or buy a resit now.` : "Buy this exam to sit it.";
   let waitingFor: string | null = null;
-  if (passed && level !== "E") {
+  if (passed) {
     const need = ENDORSEMENTS_NEEDED[level];
     const have = (await endorsementsPassed(userId)).length;
-    if (have < need) waitingFor = `Pass ${need === 1 ? "a platform endorsement" : `${need} platform endorsements`} to receive the certificate.`;
+    const missing: string[] = [];
+    if (level === "E") {
+      const p = (await db.select().from(expertProjects).where(eq(expertProjects.userId, userId)).orderBy(desc(expertProjects.opensAt)).limit(1))[0];
+      if (p?.outcome !== "pass") missing.push(!p?.submittedAt ? "submit your final plant project" : !p.interviewAt ? "wait for your interview to be booked" : "complete your interview");
+    }
+    if (have < need) missing.push(need - have === 1 ? (need === 1 ? "pass a platform endorsement" : "pass one more platform endorsement") : `pass ${need - have} platform endorsements`);
+    if (missing.length) waitingFor = `To receive the certificate, ${missing.join(" and ")}.`;
   }
   return { level, passed, credits, freeResitFrom, canStart: !blocked, blocked, openAttempt: open?.id ?? null, lastPct: last?.theoryPct ?? null, waitingFor };
 }
@@ -199,10 +205,12 @@ export async function submitExam(user: { id: string; email: string; name: string
   const theoryPct = Math.round((right / paper.length) * 100);
   const level = a.level as Level;
   const practical = await practicalPassed(user.id, level);
-  // The Expert level also needs the final project and the interview, signed off by an assessor.
-  const passed = theoryPct >= PASS_PCT && practical && level !== "E";
+  // The exam is passed on theory and practical. The Expert certificate also needs the final project
+  // and interview, signed off by an assessor; passing the exam opens the project.
+  const passed = theoryPct >= PASS_PCT && practical;
   await db.update(examAttempts).set({ answers: given, submittedAt: now, theoryPct, practicalPassed: practical, passed }).where(eq(examAttempts.id, a.id));
   await audit(user.id, "exam.submitted", a.id, { level, theoryPct, practical, passed, late });
+  if (passed && level === "E") await (await import("./projects")).openProject(user, now);
   if (passed) await issueLevelIfComplete(user, level);
   return { theoryPct, practical, passed, late };
 }
@@ -222,6 +230,10 @@ export async function issueLevelIfComplete(user: { id: string; email: string; na
   const passed = (await db.select({ id: examAttempts.id }).from(examAttempts).where(and(eq(examAttempts.userId, user.id), eq(examAttempts.level, level), eq(examAttempts.passed, true))).limit(1))[0];
   if (!passed) return null;
   if ((await endorsementsPassed(user.id)).length < ENDORSEMENTS_NEEDED[level]) return null;
+  if (level === "E") {
+    const signed = (await db.select({ id: expertProjects.id }).from(expertProjects).where(and(eq(expertProjects.userId, user.id), eq(expertProjects.outcome, "pass"))).limit(1))[0];
+    if (!signed) return null;
+  }
   const code = await issueLevelCertificate(user, level);
   if (level === "P") {
     const industry = CURRICULUM.filter((t) => t.industry).map((t) => t.id);

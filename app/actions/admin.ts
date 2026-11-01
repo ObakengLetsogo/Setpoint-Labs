@@ -117,3 +117,14 @@ export async function addCentre(form: FormData) {
   await createCentre(p.data, me.id);
   revalidatePath("/admin");
 }
+
+/** Gives a learner the assessor role, so they can review Expert projects. Staff roles are left alone. */
+export async function makeAssessor(form: FormData) {
+  const me = await admin();
+  const email = String(form.get("email") ?? "").trim().toLowerCase();
+  const u = (await db.select().from(users).where(eq(users.email, email)).limit(1))[0];
+  if (!u || u.role !== "learner") return;
+  await db.update(users).set({ role: "assessor" }).where(eq(users.id, u.id));
+  await audit(me.id, "user.assessor", u.id);
+  revalidatePath("/admin");
+}

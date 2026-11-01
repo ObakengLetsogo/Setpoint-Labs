@@ -20,6 +20,7 @@ describe.skipIf(!url)("billing and access", () => {
     bank: typeof import("@/data/exam-bank");
     endorse: typeof import("./endorsements");
     eBank: typeof import("@/data/exam-bank/endorsements");
+    projects: typeof import("./projects");
   };
 
   beforeAll(async () => {
@@ -48,6 +49,7 @@ describe.skipIf(!url)("billing and access", () => {
       bank: await import("@/data/exam-bank"),
       endorse: await import("./endorsements"),
       eBank: await import("@/data/exam-bank/endorsements"),
+      projects: await import("./projects"),
     };
   });
 
@@ -309,6 +311,59 @@ describe.skipIf(!url)("billing and access", () => {
       expect(out.passed).toBe(true);
       expect(await certs()).toEqual(["endorse-siemens", "level-F", "level-P", "mining"]);
       expect((await m.endorse.endorsementStatus(u.id, "siemens")).blocked).toBe("Already passed.");
+    });
+
+    it("the Expert certificate needs the exam, two endorsements and the signed-off project", async () => {
+      const u = await makeUser();
+      const user = { ...u, name: "Thandi" };
+      const certs = async () => (await m.db.db.select().from(m.schema.certificates).where(m.orm.eq(m.schema.certificates.userId, u.id))).map((c) => c.trackId).sort();
+      const admin = await makeUser();
+      const centre = await m.centres.createCentre({ name: "Joburg Centre", area: "Braamfontein", address: "9 Jorissen St", code: "JHB-2027" }, admin.id);
+      const sitAt = async (level: "P" | "E") => {
+        const slots = await m.centres.sessionsAt(centre);
+        const slot = slots[level === "P" ? 0 : 1];
+        const booking = await m.centres.bookSitting(u.id, level, centre, slot.at);
+        const at = new Date(slot.at.getTime() + 5 * 60_000);
+        const attempt = await m.centres.openSitting(u.id, booking, "JHB-2027", at);
+        return m.exams.submitExam(user, attempt, await correctAnswers(attempt), at);
+      };
+      const endorse = async (brand: string) => {
+        await m.billing.grant({ userId: u.id, organisationId: null, planId: `endorse-${brand}`, seats: 1, source: "payment" });
+        const e = await m.endorse.startEndorsement(u.id, brand);
+        const [row] = await m.db.db.select().from(m.schema.endorsementAttempts).where(m.orm.eq(m.schema.endorsementAttempts.id, e));
+        const bank = m.eBank.ENDORSE_BANKS[brand];
+        return m.endorse.submitEndorsement(user, e, (row.paper as { i: number; order: number[] }[]).map((p) => p.order.indexOf(bank[p.i].answer)));
+      };
+      await m.billing.grant({ userId: u.id, organisationId: null, planId: "bundle", seats: 1, source: "payment" });
+      await passPractical(u.id, ["foundations", "wiring", "machines", "process", "platforms", "safety-systems", "advanced", "plant"]);
+      const f = await m.exams.startExam(u.id, "F");
+      await m.exams.submitExam(user, f, await correctAnswers(f));
+      await sitAt("P");
+      await endorse("siemens");
+      expect(await certs()).toEqual(["endorse-siemens", "level-F", "level-P"]);
+      expect((await sitAt("E")).passed).toBe(true);
+      expect(await certs()).not.toContain("level-E");
+      const project = await m.projects.projectFor(u.id);
+      expect(project).not.toBeNull();
+
+      await expect(m.projects.submitProject(u.id, "st", "x := 1;", "too short")).rejects.toThrow(/200 characters/);
+      const note = "The station runs two pumps on duty and standby, alternating on every new demand. Each pump is proved by its delivery flow switch: no flow for eight seconds trips it and the other pump takes over. High-high sounds the horn until acknowledged. I tested every case on the simulator.";
+      const bad = await m.projects.submitProject(u.id, "st", "P1_Run := Start_PB;", note);
+      expect(bad.passed).toBe(false);
+      expect(await m.projects.projectsToReview()).toHaveLength(0);
+      const { readFileSync } = await import("node:fs");
+      const ref = /const REF = `([\s\S]*?)`;/.exec(readFileSync("lib/server/project.test.ts", "utf8"))![1];
+      expect((await m.projects.submitProject(u.id, "st", ref, note)).passed).toBe(true);
+      const assessor = await makeUser();
+      const [row] = (await m.projects.projectsToReview()).filter((r) => r.p.userId === u.id);
+      await expect(m.projects.decideProject(row.p.id, assessor.id, true, "Clear, well tested design.")).rejects.toThrow(/Book and hold/);
+      await m.projects.scheduleInterview(row.p.id, assessor.id, new Date(Date.now() + 86_400_000), "https://meet.example/abc");
+      await expect(m.projects.submitProject(u.id, "st", ref, note)).rejects.toThrow(/locked/);
+      // Signed off, but only one endorsement yet: the certificate still waits.
+      await m.projects.decideProject(row.p.id, assessor.id, true, "Clear, well tested design and a confident interview.");
+      expect(await certs()).not.toContain("level-E");
+      await endorse("rockwell");
+      expect(await certs()).toContain("level-E");
     });
 
     it("a wrong endorsement paper fails and uses the attempt", async () => {

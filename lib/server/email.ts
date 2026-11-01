@@ -78,4 +78,10 @@ export const mails = {
     sendMail(to, "Your access has ended", "Your access has ended", [`Your ${plan} access has ended. Paid lessons stay open until ${graceEnds}, then they lock. Your progress and programs are kept.`], { label: "Renew now", url: `${SITE_URL}/pricing` }),
   certificate: (to: string, track: string, code: string) =>
     sendMail(to, `Certificate: ${track}`, "Your certificate is ready", [`Well done. You have completed ${track}. Your certificate code is ${code}; anyone can check it on the verify page.`], { label: "View certificate", url: `${SITE_URL}/verify/${code}` }),
+  projectOpen: (to: string, due: string) =>
+    sendMail(to, "Your Expert final project is open", "Your final plant project is open", [`You passed the Expert exam. Submit your final plant project by ${due}. An assessor will then review it and interview you for 30 minutes.`], { label: "Open the project", url: `${SITE_URL}/exams/project` }),
+  interviewBooked: (to: string, when: string, link: string) =>
+    sendMail(to, "Your Expert interview is booked", "Your interview is booked", [`Your 30 minute Expert interview is on ${when}, South African time.`, `Join here: ${link}. Have your project open and your ID ready.`], { label: "See your project", url: `${SITE_URL}/exams/project` }),
+  projectDecided: (to: string, passed: boolean, feedback: string) =>
+    sendMail(to, passed ? "Your Expert project is signed off" : "Your Expert project needs more work", passed ? "Signed off" : "Not yet", [passed ? "Your assessor has signed off your final project and interview." : "Your assessor did not sign off your project yet. You can resubmit within 30 days.", `Feedback: ${feedback}`], { label: "See your project", url: `${SITE_URL}/exams/project` }),
 };

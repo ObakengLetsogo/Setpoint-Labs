@@ -188,6 +188,33 @@ const same = (v: unknown, want: Value) => (typeof want === "boolean" ? Boolean(v
 export function runAssessment(trackId: string, language: "ladder" | "st", source: string): AssessmentResult {
   const suite = SUITES[trackId];
   if (!suite) return { passed: false, results: [], error: "No assessment for this track." };
+  return runSuite(suite, language, source);
+}
+
+/**
+ * The Expert final plant project: a full control program for the underground pump station,
+ * marked by the same kind of hidden tests. An assessor then reviews it and interviews the learner.
+ */
+const PROJECT: Suite = {
+  rest: { Start_PB: false, Stop_PB: true, LS_Low: true, LS_Lead: false, LS_Lag: false, LS_HighHigh: false, P1_OK: true, P2_OK: true, Ack_PB: false, Flow1_OK: true, Flow2_OK: true },
+  tests: [
+    { name: "In auto, the lead float starts pump 1 on the first demand, and only pump 1", steps: [tap("Start_PB"), { set: { LS_Lead: true } }, { run: 500 }, { expect: { P1_Run: true, P2_Run: false } }] },
+    {
+      name: "The pump runs on until the low float uncovers, and pump 2 takes the next demand",
+      steps: [tap("Start_PB"), { set: { LS_Lead: true } }, { run: 500 }, { set: { LS_Lead: false } }, { run: 800 }, { expect: { P1_Run: true } }, { set: { LS_Low: false } }, { run: 500 }, { expect: { P1_Run: false, P2_Run: false } }, { set: { LS_Low: true, LS_Lead: true } }, { run: 500 }, { expect: { P2_Run: true, P1_Run: false } }],
+    },
+    { name: "The lag float runs both pumps", steps: [tap("Start_PB"), { set: { LS_Lead: true, LS_Lag: true } }, { run: 600 }, { expect: { P1_Run: true, P2_Run: true } }] },
+    { name: "A running pump with no flow for 10 s is tripped and the other pump takes over", steps: [tap("Start_PB"), { set: { LS_Lead: true } }, { run: 500 }, { expect: { P1_Run: true } }, { set: { Flow1_OK: false } }, { run: 10500 }, { expect: { P1_Run: false, P2_Run: true, Alarm_Lamp: true } }] },
+    { name: "An overload trip stops that pump and the other takes over", steps: [tap("Start_PB"), { set: { LS_Lead: true } }, { run: 500 }, { set: { P1_OK: false } }, { run: 600 }, { expect: { P1_Run: false, P2_Run: true } }] },
+    { name: "High-high sounds the horn until acknowledged", steps: [{ set: { LS_HighHigh: true } }, { run: 500 }, { expect: { Horn: true, Alarm_Lamp: true } }, tap("Ack_PB"), { expect: { Horn: false } }] },
+    { name: "Stop stops both pumps and leaves auto", steps: [tap("Start_PB"), { set: { LS_Lead: true, LS_Lag: true } }, { run: 600 }, { expect: { P1_Run: true, P2_Run: true } }, tap("Stop_PB"), { run: 1500 }, { expect: { P1_Run: false, P2_Run: false } }] },
+  ],
+};
+
+export const runProject = (language: "ladder" | "st", source: string) => runSuite(PROJECT, language, source);
+export const PROJECT_TESTS = PROJECT.tests.map((t) => t.name);
+
+function runSuite(suite: Suite, language: "ladder" | "st", source: string): AssessmentResult {
 
   let step: (mem: Memory, dt: number) => Memory;
   try {

@@ -36,6 +36,13 @@
       "when": 1793479613090,
       "tag": "0004_endorsements",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "5",
+      "when": 1793500533519,
+      "tag": "0005_expert_projects",
+      "breakpoints": true
     }
   ]
 }

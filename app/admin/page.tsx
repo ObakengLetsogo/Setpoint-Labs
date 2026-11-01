@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { and, desc, eq, gt, sql } from "drizzle-orm";
 import { Suspense } from "react";
-import { payInvoice, revokeAccess, revokeCert, addCentre } from "@/app/actions/admin";
+import { payInvoice, revokeAccess, revokeCert, addCentre, makeAssessor } from "@/app/actions/admin";
 import { certificates, enquiries, entitlements, invoices, organisations, payments, subscriptions, users, examBookings, examCentres } from "@/db/schema";
 import { PLANS, planById, rand } from "@/config/plans";
 import { requireRole } from "@/lib/server/auth";
@@ -198,6 +198,14 @@ async function Admin() {
           <input name="code" required minLength={6} placeholder="Invigilator code" className="rounded-lg border border-[#dfe2e6] px-3 py-2 font-mono text-[13px]" />
           <button type="submit" className="rounded-lg bg-ink px-3 py-2 text-[13px] font-semibold text-white">Add centre</button>
         </form>
+      </Panel>
+
+      <Panel title="Assessors">
+        <form action={makeAssessor} className="flex flex-wrap gap-2 p-4">
+          <input name="email" type="email" required placeholder="Learner's email" className="min-w-[260px] flex-1 rounded-lg border border-[#dfe2e6] px-3 py-2 text-[13px]" />
+          <button type="submit" className="rounded-lg bg-ink px-3 py-2 text-[13px] font-semibold text-white">Make assessor</button>
+        </form>
+        <p className="px-4 pb-4 text-[12.5px] text-muted-ink">Assessors review Expert final projects at /assessor. Only registered assessors from our quality system should be added.</p>
       </Panel>
 
       <Panel title="Exam sittings" count={sittings.length}>

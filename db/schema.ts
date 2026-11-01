@@ -9,7 +9,7 @@ const ref = (name: string) => char(name, { length: 26 });
 const created = () => datetime("created_at").notNull().default(sql`CURRENT_TIMESTAMP`);
 const at = (name: string) => datetime(name);
 
-export const ROLES = ["learner", "teacher", "employer_admin", "institution_admin", "platform_admin"] as const;
+export const ROLES = ["learner", "teacher", "employer_admin", "institution_admin", "assessor", "platform_admin"] as const;
 
 // ── People and access ───────────────────────────────────────────────────────
 
@@ -349,6 +349,31 @@ export const endorsementAttempts = mysqlTable(
     passed: boolean("passed"),
   },
   (t) => [index("endorsement_attempts_user").on(t.userId, t.brand)],
+);
+
+/** The Expert final plant project: submitted within 30 days of the exam, reviewed and interviewed by an assessor. */
+export const expertProjects = mysqlTable(
+  "expert_projects",
+  {
+    id: id(),
+    userId: ref("user_id").notNull(),
+    opensAt: datetime("opens_at").notNull(),
+    dueAt: datetime("due_at").notNull(),
+    language: mysqlEnum("language", ["ladder", "st"]),
+    source: text("source"),
+    /** The learner's design note: what was built and why. */
+    notes: text("notes"),
+    submittedAt: at("submitted_at"),
+    testsPassed: boolean("tests_passed"),
+    results: json("results"),
+    assessorId: ref("assessor_id"),
+    interviewAt: at("interview_at"),
+    interviewLink: varchar("interview_link", { length: 300 }),
+    outcome: mysqlEnum("outcome", ["pending", "pass", "fail"]).notNull().default("pending"),
+    feedback: text("feedback"),
+    decidedAt: at("decided_at"),
+  },
+  (t) => [index("expert_projects_user").on(t.userId)],
 );
 
 export const certificates = mysqlTable(
